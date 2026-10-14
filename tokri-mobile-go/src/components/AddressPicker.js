@@ -21,6 +21,15 @@ import { useScrollFocusedInput } from '../lib/keyboard'
 import Icon from './Icon'
 
 const LABELS = ['Home', 'Work', 'Other']
+const ADDRESS_FIELDS = new Set(['line1', 'line2', 'city', 'state', 'pincode', 'landmark'])
+
+function mapPin(found) {
+  const latitude = Number(found?.latitude)
+  const longitude = Number(found?.longitude)
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return { latitude: null, longitude: null }
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return { latitude: null, longitude: null }
+  return { latitude, longitude }
+}
 
 const emptyForm = (phone = '') => ({
   label: 'Home',
@@ -60,6 +69,7 @@ export default function AddressPicker() {
       state: current.state || found.state || '',
       pincode: current.pincode || found.pincode || '',
       landmark: current.landmark || found.landmark || '',
+      ...mapPin(found),
     }))
   }, [])
 
@@ -104,7 +114,11 @@ export default function AddressPicker() {
     fillFromLocation({ silent: true })
   }, [pickerOpen, showForm, fillFromLocation])
 
-  const update = (field, value) => setForm((current) => ({ ...current, [field]: value }))
+  const update = (field, value) => setForm((current) => ({
+    ...current,
+    [field]: value,
+    ...(ADDRESS_FIELDS.has(field) ? { latitude: null, longitude: null } : {}),
+  }))
 
   const removeAddress = (address) => {
     Alert.alert('Delete address', 'Remove this saved address?', [

@@ -8,7 +8,7 @@ import { prisma } from '../lib/prisma.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const uploadsRoot = path.join(__dirname, '../../uploads')
-const ALLOWED_FOLDERS = new Set(['products', 'categories', 'reviews', 'pages', 'general'])
+const ALLOWED_FOLDERS = new Set(['products', 'categories', 'reviews', 'pages', 'blog', 'general'])
 
 function normalizeFolder(value) {
   const folder = String(value || '').trim().toLowerCase()

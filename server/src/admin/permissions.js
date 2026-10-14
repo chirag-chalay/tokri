@@ -4,7 +4,7 @@ export const PERMISSION_KEYS = {
   manageMedia: 'Manage media library',
   manageOrders: 'Manage orders',
   manageCoupons: 'Manage coupons',
-  manageContent: 'Manage pages & reviews',
+  manageContent: 'Manage pages, blog & reviews',
   manageSettings: 'Manage settings',
   manageUsers: 'Manage team & permissions',
 }

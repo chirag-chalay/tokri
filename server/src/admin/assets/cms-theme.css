@@ -1205,6 +1205,8 @@ section[data-css="logged-in"] {
 .tokri-coupon-input,
 .tokri-datepicker-control,
 .tokri-multiselect-control {
+  box-sizing: border-box;
+  display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -1233,8 +1235,32 @@ section[data-css="logged-in"] {
 
 .tokri-coupon-label .tokri-coupon-input,
 .tokri-coupon-label .tokri-datepicker,
-.tokri-coupon-label .tokri-multiselect {
+.tokri-coupon-label .tokri-multiselect,
+.tokri-coupon-label .tokri-prefix-field {
   margin-top: 6px;
+}
+
+.tokri-prefix-field {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.tokri-prefix-field > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tokri-prefix-field .tokri-coupon-input {
+  margin-top: 0;
+  border-radius: 0 10px 10px 0;
 }
 
 .tokri-field-hint {
@@ -1353,6 +1379,79 @@ section[data-css="logged-in"] {
   color: #64748b;
 }
 
+.tokri-notify-fields {
+  display: grid;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.tokri-notify-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.tokri-label-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tokri-hint {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
+.tokri-hint-trigger {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #94a3b8;
+  background: #fff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tokri-hint-pop {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  width: max-content;
+  max-width: min(320px, 70vw);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #334155;
+  text-align: left;
+  white-space: normal;
+}
+
+.tokri-hint.is-open .tokri-hint-pop {
+  display: block;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tokri-hint:hover .tokri-hint-pop {
+    display: block;
+  }
+}
+
 .tokri-status-pill {
   display: inline-flex;
   align-items: center;
@@ -1428,6 +1527,10 @@ section[data-css="logged-in"] {
   position: relative;
   width: 100%;
   min-width: 0;
+}
+
+.tokri-datepicker:has(.tokri-datepicker-pop) {
+  z-index: 40;
 }
 
 .tokri-multiselect-control,
@@ -1649,13 +1752,11 @@ section[data-css="logged-in"] {
   padding: 8px;
 }
 
-.tokri-datepicker-clear {
-  height: 38px;
-  border: 0;
-  background: #f1f5f9;
-  border-radius: 8px;
-  padding: 0 12px;
-  cursor: pointer;
+.tokri-datepicker-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .tokri-upload-drop {

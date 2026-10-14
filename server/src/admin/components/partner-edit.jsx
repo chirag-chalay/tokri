@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react'
 import { Box, Button, H3, Icon, Text } from '@adminjs/design-system'
 import { useNotice, useRecord } from 'adminjs'
-import { LocalSelect, StatusSwitch, isFlagOn } from './form-controls.jsx'
+import { LocalSelect, SearchableSelect, StatusSwitch, isFlagOn } from './form-controls.jsx'
 import { INDIA_STATES } from './india-states.js'
 
 const VEHICLE_TYPES = [
@@ -267,14 +267,14 @@ const PartnerEdit = (props) => {
         </div>
         <label className="tokri-coupon-label">
           State
-          <div style={{ marginTop: 6 }}>
-            <LocalSelect
-              value={params.state || ''}
-              options={[{ value: '', label: 'Select state' }, ...STATE_OPTIONS]}
-              onChange={(next) => setField('state', next)}
-              disabled={readOnly}
-            />
-          </div>
+          <SearchableSelect
+            value={params.state || ''}
+            options={[{ value: '', label: 'Select state' }, ...STATE_OPTIONS]}
+            onChange={(next) => setField('state', next)}
+            disabled={readOnly}
+            placeholder="Select state"
+            searchPlaceholder="Search states"
+          />
           <FieldError error={errors.state} />
         </label>
         <label className="tokri-coupon-label">

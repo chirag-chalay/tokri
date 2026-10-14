@@ -32,6 +32,20 @@ function formatAddressLine(address) {
   return parts.join(', ')
 }
 
+function readCoordinate(value, min, max) {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  if (!Number.isFinite(number) || number < min || number > max) return null
+  return Math.round(number * 1e6) / 1e6
+}
+
+function readMapPin(input = {}) {
+  const latitude = readCoordinate(input.latitude, -90, 90)
+  const longitude = readCoordinate(input.longitude, -180, 180)
+  if (latitude === null || longitude === null) return { latitude: null, longitude: null }
+  return { latitude, longitude }
+}
+
 function sanitizeAddressInput(input = {}, fallbackPhone = '') {
   const label = LABELS.has(input.label) ? input.label : 'Home'
   const name = String(input.name || '').trim()
@@ -61,6 +75,7 @@ function sanitizeAddressInput(input = {}, fallbackPhone = '') {
     state,
     pincode,
     landmark,
+    ...readMapPin(input),
   }
 }
 
@@ -92,6 +107,7 @@ export async function snapshotCurrentAddress(user, input = {}) {
     state: String(input.state || '').trim(),
     pincode,
     landmark: String(input.landmark || '').trim(),
+    ...readMapPin(input),
   })
 }
 

@@ -37,6 +37,7 @@ import {
 import { prepareCustomerPayload, attachCustomerAddresses, toggleCustomerActiveAction } from './customer-handlers.js'
 import { prepareTeamPayload, afterTeamSave, toggleTeamActiveAction } from './team-handlers.js'
 import { prepareReviewPayload, toggleReviewApprovedAction } from './review-handlers.js'
+import { prepareBlogPayload, toggleBlogPublishedAction } from './blog-handlers.js'
 import { buildCatalogRoutes } from './catalogRoutes.js'
 import { buildOrderRoutes } from './orderRoutes.js'
 import { adminLocale } from './locale.js'
@@ -358,6 +359,7 @@ export async function buildAdminRouter() {
                 { value: 'categories', label: 'categories' },
                 { value: 'reviews', label: 'reviews' },
                 { value: 'pages', label: 'pages' },
+                { value: 'blog', label: 'blog' },
                 { value: 'general', label: 'general' },
               ],
             },
@@ -381,6 +383,61 @@ export async function buildAdminRouter() {
             slug: { label: 'URL slug' },
             body: { type: 'richtext', label: 'Page content' },
             isPublished: { label: 'Published' },
+          },
+        },
+      },
+      {
+        resource: { model: AdminJSPrisma.getModelByName('BlogPost'), client: prisma },
+        options: {
+          name: 'Blog',
+          navigation: { name: 'Content', icon: 'BookOpen' },
+          listProperties: ['title', 'category', 'author', 'isPublished', 'publishedAt'],
+          actions: {
+            ...resourceActions('manageContent'),
+            list: cmsListView('manageContent', ['title', 'slug', 'excerpt', 'author', 'category']),
+            new: {
+              isAccessible: canManage('manageContent'),
+              isVisible: true,
+              component: Components.BlogEdit,
+              before: prepareBlogPayload,
+            },
+            edit: {
+              isAccessible: canManage('manageContent'),
+              isVisible: true,
+              component: Components.BlogEdit,
+              before: prepareBlogPayload,
+            },
+            show: { isVisible: false, isAccessible: () => false },
+            togglePublished: {
+              actionType: 'record',
+              isVisible: false,
+              isAccessible: canManage('manageContent'),
+              component: false,
+              handler: toggleBlogPublishedAction,
+            },
+          },
+          custom: {
+            apiBaseUrl: `${env.apiUrl}/api/v1`,
+            appUrl: env.apiUrl,
+          },
+          properties: {
+            title: { isTitle: true, label: 'Title' },
+            slug: { label: 'URL slug' },
+            excerpt: { label: 'Summary' },
+            body: { type: 'richtext', label: 'Story' },
+            coverImage: { isVisible: false },
+            author: { label: 'Author' },
+            category: { label: 'Category' },
+            publishedAt: { label: 'Publish date' },
+            isPublished: {
+              label: 'Status',
+              components: { list: Components.StatusToggle },
+              custom: {
+                actionName: 'togglePublished',
+                onLabel: 'Published',
+                offLabel: 'Draft',
+              },
+            },
           },
         },
       },

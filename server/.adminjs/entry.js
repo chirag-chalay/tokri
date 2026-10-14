@@ -9,6 +9,8 @@ import CmsList from '../src/admin/components/cms-list'
 AdminJS.UserComponents.CmsList = CmsList
 import ReviewEdit from '../src/admin/components/review-edit'
 AdminJS.UserComponents.ReviewEdit = ReviewEdit
+import BlogEdit from '../src/admin/components/blog-edit'
+AdminJS.UserComponents.BlogEdit = BlogEdit
 import SettingsEdit from '../src/admin/components/settings-edit'
 AdminJS.UserComponents.SettingsEdit = SettingsEdit
 import CouponEdit from '../src/admin/components/coupon-edit'

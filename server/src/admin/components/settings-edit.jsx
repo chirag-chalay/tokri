@@ -9,7 +9,7 @@ import {
   Text,
 } from '@adminjs/design-system'
 import { BasePropertyComponent, useRecord, useNotice } from 'adminjs'
-import { SearchableMultiSelect } from './form-controls.jsx'
+import { isFlagOn, SearchableMultiSelect, StatusSwitch } from './form-controls.jsx'
 
 const TABS = [
   {
@@ -130,6 +130,244 @@ function ImageUploader({
       </span>
       <span className="tokri-field-hint">{hint}</span>
     </label>
+  )
+}
+
+const NOTIFICATION_SECTIONS = [
+  {
+    id: 'sms',
+    title: 'SMS',
+    intro: 'Login OTP and order confirmation through MSG91 SMS.',
+    fields: [
+      { key: 'msg91Enabled', type: 'switch', label: 'Enable MSG91 SMS' },
+      {
+        key: 'msg91AuthKey',
+        type: 'password',
+        label: 'MSG91 Auth Key',
+        hint: 'Leave blank to keep the current key',
+      },
+      {
+        key: 'msg91SenderId',
+        type: 'text',
+        label: 'Sender ID',
+        hint: '6-character DLT approved header, e.g. TOKRII',
+      },
+      {
+        key: 'msg91OtpTemplateId',
+        type: 'text',
+        label: 'Login OTP template ID',
+        hint: 'MSG91 Template ID from the copy icon, e.g. 6aae9748a337d718910d31f3. Do not paste the 19-digit Airtel DLT ID.',
+      },
+      {
+        key: 'msg91OrderTemplateId',
+        type: 'text',
+        label: 'Order confirmation template ID',
+        hint: 'MSG91 Template ID from the copy icon, e.g. 6aae978b1d0d6a12170b93f4. Do not paste the 19-digit Airtel DLT ID.',
+      },
+    ],
+  },
+  {
+    id: 'whatsapp',
+    title: 'WhatsApp',
+    intro: 'Shared number and namespace for every WhatsApp template.',
+    fields: [
+      {
+        key: 'msg91WhatsappEnabled',
+        type: 'switch',
+        label: 'Enable MSG91 WhatsApp',
+        hint: 'Used when SMS is off or the SMS gateway rejects a message',
+      },
+      {
+        key: 'msg91WhatsappNumber',
+        type: 'text',
+        label: 'WhatsApp business number',
+        hint: 'The number on your MSG91 WhatsApp account. A 10-digit Indian mobile gets 91 added automatically.',
+      },
+      {
+        key: 'msg91WhatsappNamespace',
+        type: 'text',
+        label: 'WhatsApp template namespace',
+        hint: 'Required by MSG91. Delivery and OTP templates are told apart by this namespace.',
+      },
+    ],
+  },
+  {
+    id: 'otp',
+    title: 'OTP message',
+    intro: 'Login code sent to the customer on WhatsApp.',
+    fields: [
+      {
+        key: 'msg91WhatsappOtpEnabled',
+        type: 'switch',
+        label: 'Send OTP WhatsApp',
+        hint: 'Login OTP to the customer',
+      },
+      {
+        key: 'msg91WhatsappOtpTemplate',
+        type: 'text',
+        label: 'OTP template name',
+        hint: 'Approved MSG91 template with 1 body variable: the OTP code',
+      },
+      {
+        key: 'msg91WhatsappOtpButton',
+        type: 'switch',
+        label: 'OTP template has a copy-code button',
+        hint: 'Turn on only if your WhatsApp OTP template includes the copy-code button',
+      },
+    ],
+  },
+  {
+    id: 'order',
+    title: 'Order message',
+    intro: 'Customer confirmation after COD is placed or online payment is confirmed.',
+    fields: [
+      {
+        key: 'msg91WhatsappOrderEnabled',
+        type: 'switch',
+        label: 'Send order WhatsApp',
+        hint: 'Customer confirmation after COD is placed or online payment is confirmed',
+      },
+      {
+        key: 'msg91WhatsappOrderTemplate',
+        type: 'text',
+        label: 'Order template name',
+        hint: 'Approved template with 3 body variables: name, order number, amount',
+      },
+    ],
+  },
+  {
+    id: 'partner',
+    title: 'Delivery partner message',
+    intro: 'Sent after COD is placed or online payment is confirmed, if a partner is assigned.',
+    fields: [
+      {
+        key: 'msg91WhatsappPartnerEnabled',
+        type: 'switch',
+        label: 'Send delivery-partner WhatsApp',
+        hint: 'Sent after COD is placed or online payment is confirmed, if a partner is assigned',
+      },
+      {
+        key: 'msg91WhatsappPartnerTemplate',
+        type: 'text',
+        label: 'Delivery-partner template name',
+        hint: 'Approved template tokriii_delivery_assigned with 8 body variables and a Search in map button. Button URL: https://www.google.com/maps/search/?api=1&query={{1}}',
+      },
+    ],
+  },
+]
+
+function FieldTip({ text }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+    const onPointerDown = (event) => {
+      if (!ref.current?.contains(event.target)) setOpen(false)
+    }
+    const timer = window.setTimeout(() => {
+      document.addEventListener('pointerdown', onPointerDown)
+    }, 0)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [open])
+
+  return (
+    <span
+      className={`tokri-hint${open ? ' is-open' : ''}`}
+      ref={ref}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <button
+        type="button"
+        className="tokri-hint-trigger"
+        aria-label="Field help"
+        aria-expanded={open}
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          setOpen((current) => !current)
+        }}
+      >
+        ?
+      </button>
+      <span className="tokri-hint-pop" role="tooltip">
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function NotifyInput({ field, value, onChange }) {
+  const isWhatsappNumber = field.key === 'msg91WhatsappNumber'
+  const [locked, setLocked] = useState(field.type === 'password')
+
+  return (
+    <input
+      className="tokri-coupon-input"
+      type={field.type === 'password' ? 'password' : 'text'}
+      name={`tokri-${field.key}`}
+      value={isWhatsappNumber ? String(value ?? '').replace(/\D/g, '') : value}
+      readOnly={locked}
+      inputMode={isWhatsappNumber ? 'numeric' : undefined}
+      maxLength={isWhatsappNumber ? 15 : undefined}
+      autoComplete="off"
+      autoCorrect="off"
+      spellCheck={false}
+      placeholder={
+        field.type === 'password'
+          ? 'Leave blank to keep the current key'
+          : isWhatsappNumber
+            ? 'MSG91 WhatsApp number'
+            : undefined
+      }
+      onFocus={() => setLocked(false)}
+      onChange={(event) =>
+        onChange(
+          field.key,
+          isWhatsappNumber ? event.target.value.replace(/\D/g, '').slice(0, 15) : event.target.value,
+        )
+      }
+    />
+  )
+}
+
+function NotificationsFields({ params, onChange }) {
+  return (
+    <div className="tokri-notify-fields">
+      {NOTIFICATION_SECTIONS.map((section) => (
+        <section key={section.id} className="tokri-coupon-card">
+          <h4>{section.title}</h4>
+          <p>{section.intro}</p>
+          {section.fields.map((field) =>
+            field.type === 'switch' ? (
+              <div key={field.key} className="tokri-notify-switch">
+                <StatusSwitch
+                  checked={isFlagOn(params[field.key])}
+                  title={field.label}
+                  onChange={(next) => onChange(field.key, next)}
+                />
+                {field.hint ? <FieldTip text={field.hint} /> : null}
+              </div>
+            ) : (
+              <label key={field.key} className="tokri-coupon-label">
+                <span className="tokri-label-line">
+                  {field.label}
+                  {field.hint ? <FieldTip text={field.hint} /> : null}
+                </span>
+                <NotifyInput
+                  field={field}
+                  value={params[field.key] ?? ''}
+                  onChange={onChange}
+                />
+              </label>
+            ),
+          )}
+        </section>
+      ))}
+    </div>
   )
 }
 
@@ -257,15 +495,15 @@ const SettingsEdit = (props) => {
     handleSubmit()
       .then((response) => {
         const notice = response?.data?.notice
-        if (notice?.type === 'success' || response?.data?.record) {
-          addNotice({
-            message: 'Settings saved successfully',
-            type: 'success',
-          })
-        } else if (notice?.type === 'error') {
+        if (notice?.type === 'error') {
           addNotice({
             message: notice.message || 'Could not save settings',
             type: 'error',
+          })
+        } else if (notice?.type === 'success' || response?.data?.record) {
+          addNotice({
+            message: 'Settings saved successfully',
+            type: 'success',
           })
         }
       })
@@ -507,6 +745,8 @@ const SettingsEdit = (props) => {
                     </span>
                   </label>
                 </div>
+              ) : tab.id === 'notifications' ? (
+                <NotificationsFields params={params} onChange={handleChange} />
               ) : (
                 properties.map((property) => (
                   <BasePropertyComponent

@@ -8,6 +8,7 @@ export const Components = {
   CategoryEdit: componentLoader.add('CategoryEdit', './components/category-edit.jsx'),
   CmsList: componentLoader.add('CmsList', './components/cms-list.jsx'),
   ReviewEdit: componentLoader.add('ReviewEdit', './components/review-edit.jsx'),
+  BlogEdit: componentLoader.add('BlogEdit', './components/blog-edit.jsx'),
   SettingsEdit: componentLoader.add('SettingsEdit', './components/settings-edit.jsx'),
   CouponEdit: componentLoader.add('CouponEdit', './components/coupon-edit.jsx'),
   OrderDetail: componentLoader.add('OrderDetail', './components/order-detail.jsx'),

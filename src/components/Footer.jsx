@@ -189,6 +189,7 @@ const Footer = () => {
             <h4 className="mb-4 text-base font-semibold text-white">Quick Links</h4>
             <ul className="space-y-2.5 text-sm text-muted">
               <li><Link to="/about" className="transition hover:text-white">About us</Link></li>
+              <li><Link to="/blog" className="transition hover:text-white">Blog</Link></li>
               <li><Link to="/help-faqs" className="transition hover:text-white">Help & FAQs</Link></li>
               <li><Link to="/returns-policy" className="transition hover:text-white">Returns Policy</Link></li>
               <li><Link to="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link></li>

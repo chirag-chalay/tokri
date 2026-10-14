@@ -12,6 +12,8 @@ import MyAccount from './pages/MyAccount'
 import MobileLoginPage from './pages/MobileLoginPage'
 import MobileProfilePage from './pages/MobileProfilePage'
 import ShopAllPage from './pages/ShopAllPage'
+import BlogListPage from './pages/BlogListPage'
+import BlogDetailPage from './pages/BlogDetailPage'
 import CartDrawer from './components/CartDrawer'
 import StickyCartBar from './components/StickyCartBar'
 import AddressPickerModal from './components/AddressPickerModal'
@@ -89,6 +91,8 @@ function AppShell() {
         <Route path="/product/:productId" element={<ProductDetail />} />
         <Route path="/category/:categoryId" element={<CategoryToShopRedirect />} />
         <Route path="/shop" element={<ShopAllPage />} />
+        <Route path="/blog" element={<BlogListPage />} />
+        <Route path="/blog/:slug" element={<BlogDetailPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/order/:orderNo" element={<OrderSuccessPage />} />

@@ -298,6 +298,13 @@ export const orderEditHandler = {
       pincode,
       landmark: String(addressLandmark || '').trim(),
     }
+    const addressTextChanged = ['line1', 'line2', 'city', 'state', 'pincode', 'landmark'].some(
+      (key) => String(nextAddress[key] || '') !== String(currentAddress[key] || ''),
+    )
+    if (addressTextChanged) {
+      delete nextAddress.latitude
+      delete nextAddress.longitude
+    }
     let partnerPatch = {}
     if (deliveryPartnerId) {
       const partner = await prisma.deliveryPartner.findUnique({ where: { id: deliveryPartnerId } })
@@ -366,7 +373,7 @@ export async function resendPartnerWhatsappAction(request, _response, context) {
     record: context.resource.build(flattenOrder(order)).toJSON(context.currentAdmin),
     notice: {
       message: result.sent
-        ? 'WhatsApp sent to the delivery partner.'
+        ? `MSG91 accepted the delivery-partner WhatsApp${result.requestId ? ` (${result.requestId})` : ''}. Refresh the log for 15553141704. It can take a minute to appear.`
         : result.reason || 'Could not send WhatsApp to the delivery partner.',
       type: result.sent ? 'success' : 'error',
     },

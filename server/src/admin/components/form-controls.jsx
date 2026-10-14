@@ -167,6 +167,7 @@ export function SearchableSelect({ value, options, onChange, placeholder, search
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const { wrapRef, openUp } = useAnchoredMenu(open)
+  const justPicked = useRef(false)
   const selected = options.find((item) => item.value === value)
 
   useEffect(() => {
@@ -188,6 +189,11 @@ export function SearchableSelect({ value, options, onChange, placeholder, search
         className="tokri-multiselect-control"
         disabled={disabled}
         onClick={() => {
+          if (justPicked.current) {
+            justPicked.current = false
+            setOpen(false)
+            return
+          }
           if (!disabled) setOpen((current) => !current)
         }}
       >
@@ -214,10 +220,20 @@ export function SearchableSelect({ value, options, onChange, placeholder, search
                     type="button"
                     key={item.value || 'empty'}
                     className={`tokri-multiselect-option${active ? ' is-selected' : ''}`}
-                    onClick={() => {
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      justPicked.current = true
                       onChange(item.value)
                       setOpen(false)
                       setQuery('')
+                      window.setTimeout(() => {
+                        justPicked.current = false
+                      }, 0)
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
                     }}
                   >
                     {item.label}
