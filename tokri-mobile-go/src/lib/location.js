@@ -131,7 +131,11 @@ export async function fetchAddressFromDevice() {
     throw new Error('Could not read an address from this location. Please enter it manually.')
   }
 
-  return address
+  return {
+    ...address,
+    latitude,
+    longitude,
+  }
 }
 
 export function explainLocationError(error, { onSettings } = {}) {

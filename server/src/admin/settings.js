@@ -180,7 +180,7 @@ export function getSettingResource(SettingsEditComponent) {
         },
         msg91WhatsappNumber: {
           label: 'WhatsApp business number',
-          description: 'The integrated number on your MSG91 WhatsApp account, e.g. 919580280280',
+          description: 'The number on your MSG91 WhatsApp account. A 10-digit Indian mobile gets 91 added automatically.',
         },
         msg91WhatsappLanguage: { isVisible: false },
         msg91WhatsappOtpEnabled: {
@@ -209,11 +209,11 @@ export function getSettingResource(SettingsEditComponent) {
         },
         msg91WhatsappPartnerTemplate: {
           label: 'Delivery-partner template name',
-          description: 'Approved template tokriii_delivery_assigned with 8 body variables',
+          description: 'Approved template tokriii_delivery_assigned with 8 body variables and a Search in map button. Button URL: https://www.google.com/maps/search/?api=1&query={{1}}',
         },
         msg91WhatsappNamespace: {
           label: 'WhatsApp template namespace',
-          description: 'Optional. Only needed if your MSG91 account requires it',
+          description: 'Required by MSG91. Delivery and OTP templates are told apart by this namespace.',
         },
       },
       custom: {

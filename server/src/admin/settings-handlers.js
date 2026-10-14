@@ -71,6 +71,16 @@ function toBoolean(value) {
   return value === true || value === 'true' || value === 'on' || value === 1 || value === '1'
 }
 
+function normalizeIntegratedNumber(value) {
+  let digits = String(value ?? '').replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('0')) digits = digits.replace(/^0+/, '')
+  if (/^[6-9]\d{9}$/.test(digits)) return `91${digits}`
+  if (/^91[6-9]\d{9}$/.test(digits)) return digits
+  if (/^\d{11,15}$/.test(digits)) return digits
+  return null
+}
+
 export function cleanSettingsPayload(payload = {}) {
   const cleaned = {}
 
@@ -141,6 +151,8 @@ export function settingToRecordParams(setting) {
     const value = setting[key]
     if (value === null || value === undefined) continue
 
+    if (key === 'msg91AuthKey') continue
+
     if (typeof value === 'boolean') {
       params[key] = value
     } else if (value instanceof Date) {
@@ -157,7 +169,7 @@ export function cleanRecordParams(params = {}) {
   const cleaned = {}
 
   for (const [key, value] of Object.entries(params)) {
-    if (!ALLOWED_SETTING_FIELDS.has(key)) continue
+    if (!ALLOWED_SETTING_FIELDS.has(key) || key === 'msg91AuthKey') continue
     cleaned[key] = value
   }
 
@@ -179,12 +191,28 @@ export async function settingsEditHandler(request, _response, context) {
     return { record: json }
   }
 
-  const payload = request.payload ?? request.fields ?? {}
+  const payload = { ...(request.payload ?? request.fields ?? {}) }
+  const integratedNumber = normalizeIntegratedNumber(payload.msg91WhatsappNumber)
+  if (payload.msg91WhatsappNumber && integratedNumber == null) {
+    const json = record.toJSON(currentAdmin)
+    json.params = cleanRecordParams(json.params)
+    return {
+      record: json,
+      notice: {
+        message: 'Enter the MSG91 WhatsApp number. A 10-digit Indian mobile gets 91 added automatically.',
+        type: 'error',
+      },
+    }
+  }
+  if (integratedNumber) payload.msg91WhatsappNumber = integratedNumber
+
   const updated = await saveSettingsFromPayload(payload)
   const rebuilt = resource.build(settingToRecordParams(updated))
+  const json = rebuilt.toJSON(currentAdmin)
+  json.params = cleanRecordParams(json.params)
 
   return {
-    record: rebuilt.toJSON(currentAdmin),
+    record: json,
     notice: {
       message: 'Settings saved successfully',
       type: 'success',

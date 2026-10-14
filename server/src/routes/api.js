@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { formatPublicSettings } from '../utils/settings.js'
-import { formatCategory, formatProduct, formatPage } from '../utils/formatters.js'
+import { formatCategory, formatProduct, formatPage, formatBlog, formatBlogSummary } from '../utils/formatters.js'
 import { PRODUCT_CATEGORY_INCLUDE, categoryProductWhere } from '../utils/catalog.js'
 import { reverseGeocode } from '../services/geocode.js'
 import authRouter from './auth.js'
@@ -244,6 +244,43 @@ router.get('/reviews', async (_req, res, next) => {
     })
 
     res.json(reviews)
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/blogs', async (req, res, next) => {
+  try {
+    const limitRaw = Number(req.query.limit)
+    const offsetRaw = Number(req.query.offset)
+    const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, Math.floor(limitRaw))) : 18
+    const offset = Number.isFinite(offsetRaw) ? Math.max(0, Math.floor(offsetRaw)) : 0
+    const where = { isPublished: true }
+    const [posts, total] = await Promise.all([
+      prisma.blogPost.findMany({
+        where,
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        skip: offset,
+        take: limit,
+      }),
+      prisma.blogPost.count({ where }),
+    ])
+    res.json({ posts: posts.map(formatBlogSummary), total })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/blogs/:slug', async (req, res, next) => {
+  try {
+    const post = await prisma.blogPost.findFirst({
+      where: {
+        slug: String(req.params.slug || '').trim(),
+        isPublished: true,
+      },
+    })
+    if (!post) return res.status(404).json({ message: 'Blog post not found' })
+    res.json(formatBlog(post))
   } catch (error) {
     next(error)
   }

@@ -97,6 +97,25 @@ export function formatPage(page) {
   }
 }
 
+export function formatBlogSummary(post) {
+  return {
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt || '',
+    coverImage: post.coverImage || '',
+    author: post.author || 'Tokriii',
+    category: post.category || '',
+    publishedAt: post.publishedAt || post.createdAt,
+  }
+}
+
+export function formatBlog(post) {
+  return {
+    ...formatBlogSummary(post),
+    body: post.body || '',
+  }
+}
+
 function formatCurrency(value) {
   return `₹${value.toLocaleString('en-IN', {
     maximumFractionDigits: 0,

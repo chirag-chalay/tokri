@@ -117,40 +117,51 @@ async function sendSms({ config, mobiles, templateId, variables, label }) {
 }
 
 // WhatsApp templates take positional body variables, so values map to body_1..body_n.
-// Authentication templates additionally echo the code into a copy-code button.
-function buildWhatsappComponents(values, otpButtonValue) {
+// A URL button receives only the dynamic suffix. The template holds the fixed URL.
+function buildWhatsappComponents(values, urlButtonValue) {
   const components = {}
 
-  values
-    .filter((value) => value !== undefined && value !== null && value !== '')
-    .forEach((value, index) => {
-      components[`body_${index + 1}`] = { type: 'text', value: String(value) }
-    })
+  values.forEach((value, index) => {
+    const text = String(value ?? '').trim()
+    components[`body_${index + 1}`] = { type: 'text', value: text || '-' }
+  })
 
-  if (otpButtonValue) {
-    components.button_1 = { subtype: 'url', type: 'text', value: String(otpButtonValue) }
+  const buttonValue = String(urlButtonValue ?? '').trim()
+  if (buttonValue) {
+    components.button_1 = { subtype: 'url', type: 'text', value: buttonValue }
   }
 
   return components
 }
 
-async function sendWhatsapp({ config, mobiles, templateName, values, otpValue, label }) {
+function whatsappBlockReason(config, whatsapp) {
+  const templateName = String(config?.[whatsapp?.templateKey] || '').trim()
+  if (whatsapp?.enabledKey && !config[whatsapp.enabledKey]) {
+    return 'This WhatsApp message is turned off in Settings → Notifications.'
+  }
+  if (!config.whatsappEnabled) return 'Turn on MSG91 WhatsApp in Settings → Notifications.'
+  if (!config.authKey) return 'MSG91 auth key is missing in Settings → Notifications.'
+  if (!config.whatsappNumber) return 'WhatsApp business number is missing in Settings → Notifications.'
+  if (!config.whatsappNamespace) return 'WhatsApp template namespace is missing in Settings → Notifications.'
+  if (!templateName) return 'WhatsApp template name is missing in Settings → Notifications.'
+  return ''
+}
+
+async function sendWhatsapp({ config, mobiles, templateName, values, urlButtonValue, label }) {
+  if (!config.whatsappNamespace) {
+    throw new Error('WhatsApp template namespace is missing in Settings → Notifications.')
+  }
+
   const template = {
     name: templateName,
     language: { code: config.whatsappLanguage || 'en', policy: 'deterministic' },
+    namespace: config.whatsappNamespace,
     to_and_components: [
       {
         to: [mobiles],
-        components: buildWhatsappComponents(
-          values,
-          config.whatsappOtpButton ? otpValue : null,
-        ),
+        components: buildWhatsappComponents(values, urlButtonValue),
       },
     ],
-  }
-
-  if (config.whatsappNamespace) {
-    template.namespace = config.whatsappNamespace
   }
 
   const payload = {
@@ -164,7 +175,18 @@ async function sendWhatsapp({ config, mobiles, templateName, values, otpValue, l
   }
 
   const result = await postToMsg91(MSG91_WHATSAPP_URL, config.authKey, payload, label)
-  return { channel: 'whatsapp', sent: true, requestId: result?.request_id || null }
+  const requestId = result?.request_id || result?.requestId || ''
+  if (!requestId) {
+    throw new Error(
+      result?.data || result?.message || 'MSG91 did not accept the WhatsApp message, so it was not sent.',
+    )
+  }
+  return {
+    channel: 'whatsapp',
+    sent: true,
+    requestId,
+    detail: typeof result?.data === 'string' ? result.data : '',
+  }
 }
 
 // SMS is tried first because it needs no opt-in from the customer, and WhatsApp
@@ -175,21 +197,15 @@ async function deliver({ phone, label, sms, whatsapp }) {
   const templateEnabled = whatsapp?.enabledKey ? Boolean(config[whatsapp.enabledKey]) : true
 
   const smsReady = Boolean(config.smsEnabled && config.authKey && sms?.templateKey && config[sms.templateKey])
-  const whatsappReady = Boolean(
-    config.whatsappEnabled &&
-      templateEnabled &&
-      config.authKey &&
-      config.whatsappNumber &&
-      whatsapp?.templateKey &&
-      config[whatsapp.templateKey],
-  )
+  const whatsappReason = whatsapp ? whatsappBlockReason(config, whatsapp) : ''
+  const whatsappReady = Boolean(whatsapp && templateEnabled && !whatsappReason)
 
   if (!mobiles || (!smsReady && !whatsappReady)) {
-    console.log(
-      `[MSG91 not configured] ${label} -> ${mobiles || 'no number'}`,
-      sms?.variables || whatsapp?.values,
-    )
-    return { channel: 'dev', sent: false, reason: 'MSG91 WhatsApp is not configured for this template.' }
+    const reason = !mobiles
+      ? 'Phone number is missing.'
+      : whatsappReason || 'MSG91 WhatsApp is not configured for this template.'
+    console.log(`[MSG91 not configured] ${label} -> ${mobiles || 'no number'}`, reason)
+    return { channel: 'dev', sent: false, reason }
   }
 
   const failures = []
@@ -205,9 +221,15 @@ async function deliver({ phone, label, sms, whatsapp }) {
       })
     } catch (error) {
       failures.push(`SMS: ${error.message}`)
-      if (!whatsappReady) throw error
+      if (!whatsappReady) {
+        throw new Error(whatsappReason || error.message)
+      }
       console.error(`MSG91 SMS failed for ${label}, trying WhatsApp:`, error.message)
     }
+  }
+
+  if (!whatsappReady) {
+    return { channel: 'dev', sent: false, reason: whatsappReason || 'MSG91 WhatsApp is not configured for this template.' }
   }
 
   try {
@@ -216,7 +238,7 @@ async function deliver({ phone, label, sms, whatsapp }) {
       mobiles,
       templateName: config[whatsapp.templateKey],
       values: whatsapp.values,
-      otpValue: whatsapp.otpValue,
+      urlButtonValue: whatsapp.urlButtonValue || (config.whatsappOtpButton ? whatsapp.otpValue : null),
       label,
     })
   } catch (error) {
@@ -278,6 +300,28 @@ function formatOrderAddress(address) {
       .filter(Boolean)
       .join(', '),
   )
+}
+
+// Template button URL is https://www.google.com/maps/search/?api=1&query={{1}}
+// Current location sends the saved pin. A typed address sends the full address text.
+function mapsButtonValue(address) {
+  const latitude = Number(address?.latitude)
+  const longitude = Number(address?.longitude)
+  const hasPin = Number.isFinite(latitude)
+    && latitude >= -90
+    && latitude <= 90
+    && Number.isFinite(longitude)
+    && longitude >= -180
+    && longitude <= 180
+    && !(latitude === 0 && longitude === 0)
+  if (hasPin) {
+    const lat = Math.round(latitude * 1e6) / 1e6
+    const lng = Math.round(longitude * 1e6) / 1e6
+    return `${lat},${lng}`
+  }
+  const text = formatOrderAddress(address)
+  if (!text || text === '-') return ''
+  return encodeURIComponent(text)
 }
 
 function formatOrderItems(items) {
@@ -389,6 +433,7 @@ export async function sendDeliveryPartnerAssignment(orderLike) {
           partnerPaymentLabel(order),
           formatExpectedDeliveryDate(order.expectedDeliveryDate) || '-',
         ],
+        urlButtonValue: mapsButtonValue(address),
       },
     })
     if (!result.sent) {

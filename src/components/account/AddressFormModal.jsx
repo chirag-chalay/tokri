@@ -4,6 +4,15 @@ import { fetchAddressFromBrowser } from '../../lib/geolocation'
 import { scrollFieldAboveKeyboard, useMobileKeyboardPad } from '../../lib/useMobileKeyboardPad'
 
 const LABELS = ['Home', 'Work', 'Other']
+const ADDRESS_FIELDS = new Set(['line1', 'line2', 'city', 'state', 'pincode', 'landmark'])
+
+function mapPin(found) {
+  const latitude = Number(found?.latitude)
+  const longitude = Number(found?.longitude)
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return { latitude: null, longitude: null }
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return { latitude: null, longitude: null }
+  return { latitude, longitude }
+}
 
 const emptyForm = (defaultPhone = '', defaultName = '') => ({
   label: 'Home',
@@ -36,7 +45,11 @@ export default function AddressFormModal({
   const keyboardPad = useMobileKeyboardPad()
 
   const update = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(ADDRESS_FIELDS.has(field) ? { latitude: null, longitude: null } : {}),
+    }))
   }
 
   const fillFromLocation = async ({ silent = false } = {}) => {
@@ -52,6 +65,7 @@ export default function AddressFormModal({
         state: current.state || found.state || '',
         pincode: current.pincode || found.pincode || '',
         landmark: current.landmark || found.landmark || '',
+        ...mapPin(found),
       }))
     } catch (err) {
       if (!silent) setError(err.message || 'Could not detect your location.')
