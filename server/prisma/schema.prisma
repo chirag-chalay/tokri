@@ -315,7 +315,7 @@ model Setting {
   morningDeliverySubtitle   String?  @default("Freshness Guaranteed")
   morningShippingFee        Decimal  @default(25) @db.Decimal(10, 2)
   morningFreeAbove          Decimal  @default(0) @db.Decimal(10, 2)
-  expressDeliveryTitle      String?  @default("90-Minute Emergency Drops")
+  expressDeliveryTitle      String?  @default("Same day")
   expressDeliverySubtitle   String?  @default("On-Demand Luxury")
   expressShippingFee        Decimal  @default(99) @db.Decimal(10, 2)
   expressFreeAbove          Decimal  @default(0) @db.Decimal(10, 2)
@@ -349,6 +349,21 @@ model Setting {
   payment                   Json?
   messaging                 Json?
   updatedAt                 DateTime @updatedAt
+}
+
+model AppReleasePolicy {
+  platform           String   @id
+  enabled            Boolean  @default(false)
+  latestBuild        Int      @default(0)
+  minimumBuild       Int      @default(0)
+  blockedBuilds      String?  @db.Text
+  title              String?  @default("Update Tokriii")
+  message            String?  @db.Text
+  remindAfterHours   Int      @default(24)
+  maintenance        Boolean  @default(false)
+  maintenanceTitle   String?  @default("Tokriii is paused")
+  maintenanceMessage String?  @db.Text
+  updatedAt          DateTime @updatedAt
 }
 
 model PasswordResetToken {

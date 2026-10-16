@@ -1,0 +1,15 @@
+---
+description: Keep the installed Tokriii app working when the API or database changes
+alwaysApply: true
+---
+
+# App compatibility
+
+The phone app uses `/api/v1`. Store review takes days. Do not break the installed app in the same server deploy as a new app build.
+
+- Adding a column or response field is safe. Old apps ignore unknown fields.
+- Do not remove, rename, or change the type of a column or field the current app reads or writes.
+- Keep at most two full API versions (`v1` and, when a real break is required, `v2`). Remove the older one only after the new app is in both stores at 100% and old builds have stopped placing orders.
+- If the user asks to delete something the current app still needs, do not delete it. Explain in plain language, and add a line to `docs/app-later.md`: what to remove, why it is still required, and when it becomes safe.
+- Before an API or database change, say whether the app already in the store keeps working, or whether the server change must wait until the new build is approved and available.
+- Compare installs by Android `versionCode` and the iOS build number, not by version-name text such as `1.0.3`.

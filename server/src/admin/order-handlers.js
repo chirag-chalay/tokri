@@ -49,6 +49,7 @@ export function flattenOrder(order) {
     grandTotal: String(order.grandTotal),
     couponCode: order.couponCode || '',
     deliveryOption: order.deliveryOption || '',
+    expectedDeliveryDate: order.expectedDeliveryDate || null,
     freeDeliveryApplied: Boolean(order.freeDeliveryApplied),
     razorpayOrderId: order.razorpayOrderId || '',
     razorpayPaymentId: order.razorpayPaymentId || '',

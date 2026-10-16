@@ -130,8 +130,8 @@ const PincodeEdit = (props) => {
             disabled={readOnly}
             onLabel="On"
             offLabel="Off"
-            title="90-Minute delivery"
-            hint={expressEnabled ? 'Shoppers can choose 90-minute delivery' : 'Shown as coming soon'}
+            title="Express delivery"
+            hint={expressEnabled ? 'Shoppers can choose Express delivery' : 'Shown as coming soon'}
             onChange={(next) => setField('expressEnabled', next)}
           />
         </section>

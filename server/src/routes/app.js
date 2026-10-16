@@ -7,6 +7,7 @@ import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
 import { getChargeRates } from '../config/charges.js'
 import { getCart } from '../services/cart.js'
 import { getCustomerFreeDeliveryStatus } from '../services/freeDelivery.js'
+import { readAppRelease } from '../services/appRelease.js'
 
 const router = Router()
 
@@ -86,6 +87,15 @@ router.get('/bootstrap', optionalCustomer, async (req, res, next) => {
       freeDelivery,
       cart,
     })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/release', async (req, res, next) => {
+  try {
+    const decision = await readAppRelease(req.query.platform, req.query.build)
+    res.json(decision)
   } catch (error) {
     next(error)
   }

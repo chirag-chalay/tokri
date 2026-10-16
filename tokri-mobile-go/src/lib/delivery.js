@@ -74,10 +74,6 @@ export function defaultOptionForAddress(address) {
   return 'morning'
 }
 
-export function deliveryOptionLabel(option) {
-  return option === 'express' ? '90-minute' : 'Morning'
-}
-
 export function formatExpectedDeliveryDate(value) {
   if (!value) return ''
   const date = new Date(value)

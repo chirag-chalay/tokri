@@ -80,7 +80,7 @@ async function runTests() {
   await assert(status.remaining === 2, 'Remaining is 2 after Order 1')
   await assert(status.isEligible === true, 'isEligible is still true')
 
-  console.log('\n[3] Testing Order 2 (Express 90-minute delivery):')
+  console.log('\n[3] Testing Order 2 (Express delivery):')
   const order2Result = await createCheckoutOrder(
     customer,
     { items, addressId: 'addr_1', paymentMode: 'cod', deliveryOption: 'express' },

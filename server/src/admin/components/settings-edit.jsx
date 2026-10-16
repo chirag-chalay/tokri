@@ -548,7 +548,7 @@ const SettingsEdit = (props) => {
               <H4 mb="sm">{tab.label}</H4>
               <Text mb="xl" opacity={0.75}>
                 {tab.id === 'charges'
-                  ? 'Set copy and prices for Morning and 90-Minute delivery. Handling fee is added to every order.'
+                  ? 'Set copy and prices for Morning and Express delivery. Handling fee is added to every order.'
                   : tab.id === 'homepage'
                     ? 'These images and categories appear on the website homepage. Click Save changes after uploading.'
                     : tab.id === 'notifications'
@@ -607,7 +607,7 @@ const SettingsEdit = (props) => {
                     </div>
                   </section>
                   <section className="tokri-coupon-card">
-                    <h4>90-Minute delivery</h4>
+                    <h4>Express delivery</h4>
                     <p>Shown at checkout. Disabled pincodes still see this as coming soon.</p>
                     <label className="tokri-coupon-label">
                       Title

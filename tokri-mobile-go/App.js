@@ -6,6 +6,7 @@ import { CartProvider } from './src/context/CartContext'
 import { AddressProvider } from './src/context/AddressContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import RootNavigator from './src/navigation/RootNavigator'
+import AppUpdateGate from './src/components/AppUpdateGate'
 
 function AppShell() {
   const { colors, isDark } = useTheme()
@@ -13,7 +14,9 @@ function AppShell() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.panel }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <RootNavigator />
+      <AppUpdateGate>
+        <RootNavigator />
+      </AppUpdateGate>
     </View>
   )
 }

@@ -15,6 +15,7 @@ import {
 import { previewCoupon } from '../services/coupons.js'
 import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
 import { env } from '../config/env.js'
+import { assertAppReleaseAllowed } from '../services/appRelease.js'
 
 const router = Router()
 
@@ -82,6 +83,15 @@ router.post('/preview-coupon', optionalCustomer, async (req, res, next) => {
 })
 
 router.use(requireCustomer)
+
+router.use(async (req, res, next) => {
+  try {
+    await assertAppReleaseAllowed(req)
+    next()
+  } catch (error) {
+    next(error)
+  }
+})
 
 router.post('/create-order', async (req, res, next) => {
   try {

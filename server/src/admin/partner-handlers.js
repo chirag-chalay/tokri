@@ -285,8 +285,8 @@ export async function togglePincodeActiveAction(request, _response, context) {
         : `${updated.pincode}: morning delivery off.`
       : field === 'expressEnabled'
         ? updated.expressEnabled
-          ? `${updated.pincode}: 90-minute delivery on.`
-          : `${updated.pincode}: 90-minute delivery off.`
+          ? `${updated.pincode}: Express delivery on.`
+          : `${updated.pincode}: Express delivery off.`
         : updated.isActive
           ? `${updated.pincode} is now serviceable.`
           : `${updated.pincode} is not delivering.`

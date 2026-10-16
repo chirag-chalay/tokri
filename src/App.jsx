@@ -21,6 +21,7 @@ import { CartProvider, useCart } from './context/CartContext'
 import { AuthProvider } from './context/AuthContext'
 import { AddressProvider } from './context/AddressContext'
 import Footer from './components/Footer'
+import { trackPageView } from './lib/analytics'
 
 const CMS_PAGE_PATHS = [
   '/about',
@@ -45,6 +46,10 @@ function ScrollToTop() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [location])
+
+  useEffect(() => {
+    trackPageView(`${location.pathname}${location.search}`)
+  }, [location.pathname, location.search])
 
   return null
 }

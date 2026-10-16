@@ -38,6 +38,7 @@ import { prepareCustomerPayload, attachCustomerAddresses, toggleCustomerActiveAc
 import { prepareTeamPayload, afterTeamSave, toggleTeamActiveAction } from './team-handlers.js'
 import { prepareReviewPayload, toggleReviewApprovedAction } from './review-handlers.js'
 import { prepareBlogPayload, toggleBlogPublishedAction } from './blog-handlers.js'
+import { prepareAppReleasePayload } from './app-release-handlers.js'
 import { buildCatalogRoutes } from './catalogRoutes.js'
 import { buildOrderRoutes } from './orderRoutes.js'
 import { adminLocale } from './locale.js'
@@ -721,6 +722,40 @@ export async function buildAdminRouter() {
       },
       getSettingResource(Components.SettingsEdit),
       {
+        resource: { model: AdminJSPrisma.getModelByName('AppReleasePolicy'), client: prisma },
+        options: {
+          name: 'App update',
+          navigation: { name: 'Settings', icon: 'Smartphone' },
+          listProperties: ['platform', 'enabled', 'latestBuild', 'minimumBuild', 'maintenance'],
+          actions: {
+            ...resourceActions('manageSettings'),
+            new: { isVisible: false, isAccessible: () => false },
+            delete: { isVisible: false, isAccessible: () => false },
+            bulkDelete: { isVisible: false, isAccessible: () => false },
+            show: { isVisible: false, isAccessible: () => false },
+            edit: {
+              isAccessible: canManage('manageSettings'),
+              isVisible: true,
+              component: Components.AppReleaseEdit,
+              before: prepareAppReleasePayload,
+            },
+          },
+          properties: {
+            platform: { isTitle: true, label: 'Platform' },
+            enabled: { label: 'Enabled' },
+            latestBuild: { label: 'Latest build' },
+            minimumBuild: { label: 'Minimum build' },
+            blockedBuilds: { label: 'Blocked builds' },
+            title: { label: 'Update title' },
+            message: { label: 'Update message' },
+            remindAfterHours: { label: 'Remind after hours' },
+            maintenance: { label: 'Paused' },
+            maintenanceTitle: { label: 'Pause title' },
+            maintenanceMessage: { label: 'Pause message' },
+          },
+        },
+      },
+      {
         resource: { model: AdminJSPrisma.getModelByName('DeliveryPartner'), client: prisma },
         options: {
           name: 'Delivery partners',
@@ -877,7 +912,7 @@ export async function buildAdminRouter() {
               },
             },
             expressEnabled: {
-              label: '90-minute',
+              label: 'Express',
               custom: { onLabel: 'On', offLabel: 'Off' },
               components: {
                 list: Components.StatusToggle,

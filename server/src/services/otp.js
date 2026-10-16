@@ -9,6 +9,11 @@ const OTP_TTL_MS = 15 * 60 * 1000
 const MAX_ATTEMPTS = 5
 const RESEND_COOLDOWN_MS = 60 * 1000
 
+// App Store review sign-in. Apple checks login again on later updates, so keep this.
+// The number and code stay in this server file only. They are not sent to the website or the app.
+const REVIEW_PHONE = '4482193650'
+const REVIEW_OTP = '5803'
+
 function normalizePhone(value) {
   const digits = String(value || '').replace(/\D/g, '')
   if (digits.length === 10) return digits
@@ -28,6 +33,14 @@ export async function requestOtp(rawPhone) {
   const phone = normalizePhone(rawPhone)
   if (!phone) {
     throw Object.assign(new Error('Please enter a valid 10-digit mobile number.'), { status: 400 })
+  }
+
+  if (phone === REVIEW_PHONE) {
+    return {
+      phone,
+      expiresInSeconds: OTP_TTL_MS / 1000,
+      channel: 'sms',
+    }
   }
 
   const recent = await prisma.otpRequest.findFirst({
@@ -78,6 +91,13 @@ export async function verifyOtp(rawPhone, rawCode) {
     throw Object.assign(new Error('Please enter the 4-digit OTP.'), { status: 400 })
   }
 
+  if (phone === REVIEW_PHONE) {
+    if (code !== REVIEW_OTP) {
+      throw Object.assign(new Error('Incorrect OTP. Please try again.'), { status: 400 })
+    }
+    return openCustomerSession(phone)
+  }
+
   const record = await prisma.otpRequest.findFirst({
     where: { phone },
     orderBy: { createdAt: 'desc' },
@@ -105,6 +125,12 @@ export async function verifyOtp(rawPhone, rawCode) {
     throw Object.assign(new Error('Incorrect OTP. Please try again.'), { status: 400 })
   }
 
+  await prisma.otpRequest.delete({ where: { id: record.id } })
+
+  return openCustomerSession(phone)
+}
+
+async function openCustomerSession(phone) {
   let customer = await prisma.customer.findFirst({ where: { phone } })
 
   if (!customer) {
@@ -117,8 +143,6 @@ export async function verifyOtp(rawPhone, rawCode) {
   } else if (!customer.isActive) {
     throw Object.assign(new Error('This account is inactive. Please contact support.'), { status: 403 })
   }
-
-  await prisma.otpRequest.delete({ where: { id: record.id } })
 
   return {
     token: signCustomerToken(customer),
