@@ -116,17 +116,17 @@ export function getSettingResource(SettingsEditComponent) {
           label: 'Morning free above (₹)',
           description: 'Free morning delivery when item total is at or above this amount. 0 means no free delivery.',
         },
-        expressDeliveryTitle: { label: '90-minute delivery title' },
-        expressDeliverySubtitle: { label: '90-minute delivery subtitle' },
+        expressDeliveryTitle: { label: 'Express delivery title' },
+        expressDeliverySubtitle: { label: 'Express delivery subtitle' },
         expressShippingFee: {
           type: 'number',
-          label: '90-minute shipping fee (₹)',
-          description: 'Charge when the shopper picks 90-minute delivery',
+          label: 'Express shipping fee (₹)',
+          description: 'Charge when the shopper picks Express delivery',
         },
         expressFreeAbove: {
           type: 'number',
-          label: '90-minute free above (₹)',
-          description: 'Free 90-minute delivery when item total is at or above this amount. 0 means no free delivery.',
+          label: 'Express free above (₹)',
+          description: 'Free Express delivery when item total is at or above this amount. 0 means no free delivery.',
         },
         shippingFee: {
           type: 'number',

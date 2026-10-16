@@ -2,7 +2,7 @@
 
 Read this file first. It is the source of truth for another developer (or their AI agent) to run, change, and ship Tokriii without a verbal walkthrough.
 
-Tokriii is a fruit store: website + REST API + AdminJS CMS + Expo Android app. Customers order with OTP login, saved addresses, pincode-based delivery (Morning / 90-minute), coupons, Razorpay or COD.
+Tokriii is a fruit store: website + REST API + AdminJS CMS + Expo Android app. Customers order with OTP login, saved addresses, pincode-based delivery (Morning / Express), coupons, Razorpay or COD.
 
 Do not invent architecture. Match existing patterns. Do not commit secrets. Do not rewrite the Vite root `README.md` (it is leftover boilerplate).
 
@@ -176,7 +176,7 @@ Delivery math is **server-side** in `server/src/config/charges.js` (`getChargeRa
 - Website: `src/lib/delivery.js`, `src/context/CartContext.jsx`
 - App: `tokri-mobile-go/src/lib/delivery.js`, `tokri-mobile-go/src/context/CartContext.js`
 
-Admin **Settings → Charges** edits titles, shipping fee, free-above (0 = no free delivery), handling. Per-pincode Morning / 90-minute toggles are on **Serviceable PIN** edit. Checkout radios: Morning selected when enabled for the PIN; disabled option shows “coming soon”.
+Admin **Settings → Charges** edits titles, shipping fee, free-above (0 = no free delivery), handling. Per-pincode Morning / Express toggles are on **Serviceable PIN** edit. Checkout radios: Morning selected when enabled for the PIN; disabled option shows “coming soon”.
 
 Fallback hardcoded morning fee is still **₹25** in client defaults. If bootstrap fails or the app binary is old, the app shows 25 even when admin says 49. OTA updates are **off** (`updates.enabled: false` in `app.config.js`), so Play Store users only get JS changes after a **new APK**.
 
@@ -230,11 +230,12 @@ Expo config is **`app.config.js`**, not `app.json`.
 
 | Field | Current (this Play upload) | Where |
 |-------|----------------------------|--------|
-| `version` | `1.0.3` | `app.config.js` → `expo.version` (user-facing) |
-| `android.versionCode` | `6` | `app.config.js` → `android.versionCode` (Play **must** increase every upload) |
+| `version` | `1.0.4` | `app.config.js` → `expo.version` (user-facing) |
+| `android.versionCode` | `7` | `app.config.js` → `android.versionCode` (Play **must** increase every upload) |
+| `ios.buildNumber` | `7` | `app.config.js` → `ios.buildNumber` |
 | `appVersionSource` | `local` | `eas.json` → `cli.appVersionSource` |
 
-Play Store **already shipped** `1.0.2` / versionCode `5`. This repo is bumped to `1.0.3` / `6` for the next upload. The friend who publishes on Google Play builds with EAS using **local** versions from git (not EAS remote auto-increment). Do **not** set `appVersionSource` back to `remote`. Do **not** turn `production.autoIncrement` back on unless they ask.
+Play review currently has `1.0.3` / versionCode `6`. This repo is bumped to `1.0.4` / `7` for the next build. Do not upload a new Android file over the one already in review. The friend who publishes on Google Play builds with EAS using **local** versions from git (not EAS remote auto-increment). Do **not** set `appVersionSource` back to `remote`. Do **not** turn `production.autoIncrement` back on unless they ask.
 
 Package: `com.tokriii.app`. Staging variant: `com.tokriii.app.staging` when `APP_VARIANT=staging`.
 
@@ -249,8 +250,8 @@ npx eas-cli build -p android --profile production   # Play / live API https://to
 
 After each Play upload, bump **before the next push**:
 
-1. `version` 1.0.3 → 1.0.4 (or whatever the publisher wants)
-2. `versionCode` 6 → 7
+1. `version` 1.0.4 → 1.0.5 (or whatever the publisher wants)
+2. `versionCode` 7 → 8 and `ios.buildNumber` to the same number
 3. Keep `appVersionSource: "local"`
 
 Expo Go is fine for UI. Payments / UPI / some native plugins need a dev or production client.
@@ -303,7 +304,7 @@ node scripts/apply-delivery-options.js
 Smoke:
 
 - https://server.tokriii.com/api/v1/health
-- Admin Charges tab shows Morning / 90-minute
+- Admin Charges tab shows Morning / Express
 - Staging website cart/checkout show admin fees, not ₹25
 - Place a test order if credentials exist
 
@@ -339,7 +340,7 @@ Website/API live ≠ app update. Because Expo Updates are disabled, Google Play 
 
 ```bash
 cd tokri-mobile-go
-# confirm version 1.0.3 and versionCode 6 (or the next bump)
+# confirm version 1.0.4 and versionCode 7 (or the next bump)
 npx eas-cli build -p android --profile production
 ```
 

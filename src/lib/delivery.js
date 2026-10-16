@@ -80,10 +80,6 @@ export function formatDeliveryCharge(amount) {
   return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
-export function deliveryOptionLabel(option) {
-  return option === 'express' ? '90-minute' : 'Morning'
-}
-
 export function formatExpectedDeliveryDate(value) {
   if (!value) return ''
   const date = new Date(value)

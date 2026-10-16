@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../config'
+import { appBuild, appPlatform } from './appBuild'
 
 const ASSET_BASE = API_BASE_URL.replace(/\/api\/v1$/, '')
 /** Live host that actually serves /uploads (staging Node does not). */
@@ -28,13 +29,17 @@ async function parseResponse(response) {
 }
 
 function authHeaders(token) {
-  const headers = { 'Content-Type': 'application/json' }
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-App-Platform': appPlatform(),
+    'X-App-Build': String(appBuild()),
+  }
   if (token) headers.Authorization = `Bearer ${token}`
   return headers
 }
 
 export async function fetchJson(path) {
-  const response = await fetch(`${API_BASE_URL}${path}`)
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() })
   return parseResponse(response)
 }
 
@@ -81,7 +86,7 @@ export async function authDelete(path, token) {
 export async function postJson(path, body) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(body),
   })
   return parseResponse(response)

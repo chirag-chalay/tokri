@@ -25,7 +25,7 @@ async function main() {
   await addColumn('Setting', 'morningDeliverySubtitle', "VARCHAR(191) NULL DEFAULT 'Freshness Guaranteed'")
   await addColumn('Setting', 'morningShippingFee', 'DECIMAL(10, 2) NOT NULL DEFAULT 25')
   await addColumn('Setting', 'morningFreeAbove', 'DECIMAL(10, 2) NOT NULL DEFAULT 0')
-  await addColumn('Setting', 'expressDeliveryTitle', "VARCHAR(191) NULL DEFAULT '90-Minute Emergency Drops'")
+  await addColumn('Setting', 'expressDeliveryTitle', "VARCHAR(191) NULL DEFAULT 'Same day'")
   await addColumn('Setting', 'expressDeliverySubtitle', "VARCHAR(191) NULL DEFAULT 'On-Demand Luxury'")
   await addColumn('Setting', 'expressShippingFee', 'DECIMAL(10, 2) NOT NULL DEFAULT 99')
   await addColumn('Setting', 'expressFreeAbove', 'DECIMAL(10, 2) NOT NULL DEFAULT 0')

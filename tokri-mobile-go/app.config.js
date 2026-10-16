@@ -17,7 +17,7 @@ module.exports = {
   expo: {
     name: isStaging ? 'Tokriii Staging' : 'Tokriii',
     slug: 'tokriii',
-    version: '1.0.3',
+    version: '1.0.4',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -29,6 +29,7 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
+      buildNumber: '7',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -49,7 +50,7 @@ module.exports = {
     },
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
-      versionCode: 6,
+      versionCode: 7,
       usesCleartextTraffic: true,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',

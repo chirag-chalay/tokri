@@ -48,6 +48,24 @@ function CopyId({ label, value, href }) {
   )
 }
 
+function deliveryChoiceLabel(option) {
+  if (option === 'express') return 'Express'
+  if (option === 'morning') return 'Morning'
+  return ''
+}
+
+function formatExpectedDate(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata',
+  })
+}
+
 const formatMoney = (value) => {
   const amount = Number(value)
   if (Number.isNaN(amount)) return '₹0'
@@ -307,6 +325,8 @@ const OrderDetail = (props) => {
     ? `${params.deliveryPartnerName}${params.deliveryPartnerPhone ? ` · ${params.deliveryPartnerPhone}` : ''}`
     : 'No delivery partner yet'
   const itemCount = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+  const deliveryName = deliveryChoiceLabel(params.deliveryOption)
+  const expectedDelivery = formatExpectedDate(params.expectedDeliveryDate)
 
   return (
     <form className="tokri-order" onSubmit={handleSave}>
@@ -404,8 +424,8 @@ const OrderDetail = (props) => {
             <dl className="tokri-order-totals">
               <div><dt>Subtotal</dt><dd>{itemCount} {itemCount === 1 ? 'item' : 'items'}</dd><dd>{formatMoney(params.itemsTotal)}</dd></div>
               <div>
-                <dt>Delivery{params.deliveryOption ? ` · ${params.deliveryOption === 'express' ? '90-minute' : 'Morning'}` : ''}</dt>
-                <dd />
+                <dt>Delivery{deliveryName ? ` - ${deliveryName}` : ''}</dt>
+                <dd>{expectedDelivery ? `Expected ${expectedDelivery}` : ''}</dd>
                 <dd>{params.freeDeliveryApplied || Number(params.deliveryCharge) === 0 ? 'Free (Welcome offer)' : formatMoney(params.deliveryCharge)}</dd>
               </div>
               <div><dt>Handling</dt><dd /><dd>{formatMoney(params.handlingCharge)}</dd></div>

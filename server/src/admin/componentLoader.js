@@ -10,6 +10,7 @@ export const Components = {
   ReviewEdit: componentLoader.add('ReviewEdit', './components/review-edit.jsx'),
   BlogEdit: componentLoader.add('BlogEdit', './components/blog-edit.jsx'),
   SettingsEdit: componentLoader.add('SettingsEdit', './components/settings-edit.jsx'),
+  AppReleaseEdit: componentLoader.add('AppReleaseEdit', './components/app-release-edit.jsx'),
   CouponEdit: componentLoader.add('CouponEdit', './components/coupon-edit.jsx'),
   OrderDetail: componentLoader.add('OrderDetail', './components/order-detail.jsx'),
   ChangePassword: componentLoader.add('ChangePassword', './components/change-password.jsx'),

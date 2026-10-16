@@ -13,6 +13,8 @@ import BlogEdit from '../src/admin/components/blog-edit'
 AdminJS.UserComponents.BlogEdit = BlogEdit
 import SettingsEdit from '../src/admin/components/settings-edit'
 AdminJS.UserComponents.SettingsEdit = SettingsEdit
+import AppReleaseEdit from '../src/admin/components/app-release-edit'
+AdminJS.UserComponents.AppReleaseEdit = AppReleaseEdit
 import CouponEdit from '../src/admin/components/coupon-edit'
 AdminJS.UserComponents.CouponEdit = CouponEdit
 import OrderDetail from '../src/admin/components/order-detail'
