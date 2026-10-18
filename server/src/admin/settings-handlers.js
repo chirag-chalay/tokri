@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js'
 import { parseFeaturedCategorySlugs } from '../utils/settings.js'
+import { parseSocialLinksInput, publicSocialLinks, SOCIAL_LINK_FIELDS } from '../utils/socialLinks.js'
 
 const SETTING_ID = 1
 
@@ -45,6 +46,7 @@ export const ALLOWED_SETTING_FIELDS = new Set([
   'msg91WhatsappOrderTemplate',
   'msg91WhatsappPartnerEnabled',
   'msg91WhatsappPartnerTemplate',
+  'socialLinks',
 ])
 
 const NUMBER_FIELDS = new Set([
@@ -106,6 +108,11 @@ export function payloadToSettingData(payload) {
       continue
     }
 
+    if (key === 'socialLinks') {
+      data[key] = value && typeof value === 'object' ? value : {}
+      continue
+    }
+
     if (BOOLEAN_FIELDS.has(key)) {
       data[key] = toBoolean(value)
       continue
@@ -153,6 +160,11 @@ export function settingToRecordParams(setting) {
 
     if (key === 'msg91AuthKey') continue
 
+    if (key === 'socialLinks') {
+      params[key] = JSON.stringify(publicSocialLinks(value))
+      continue
+    }
+
     if (typeof value === 'boolean') {
       params[key] = value
     } else if (value instanceof Date) {
@@ -170,6 +182,10 @@ export function cleanRecordParams(params = {}) {
 
   for (const [key, value] of Object.entries(params)) {
     if (!ALLOWED_SETTING_FIELDS.has(key) || key === 'msg91AuthKey') continue
+    if (key === 'socialLinks') {
+      cleaned[key] = typeof value === 'string' ? value : JSON.stringify(publicSocialLinks(value))
+      continue
+    }
     cleaned[key] = value
   }
 
@@ -205,6 +221,32 @@ export async function settingsEditHandler(request, _response, context) {
     }
   }
   if (integratedNumber) payload.msg91WhatsappNumber = integratedNumber
+
+  if (payload.socialLinks == null) {
+    const nested = {}
+    let found = false
+    for (const field of SOCIAL_LINK_FIELDS) {
+      const flat = payload[`socialLinks.${field.key}`]
+      if (flat !== undefined) {
+        nested[field.key] = flat
+        found = true
+      }
+    }
+    if (found) payload.socialLinks = nested
+  }
+
+  if (payload.socialLinks !== undefined) {
+    const parsed = parseSocialLinksInput(payload.socialLinks)
+    if (parsed.error) {
+      const json = record.toJSON(currentAdmin)
+      json.params = cleanRecordParams(json.params)
+      return {
+        record: json,
+        notice: { message: parsed.error, type: 'error' },
+      }
+    }
+    payload.socialLinks = parsed.links
+  }
 
   const updated = await saveSettingsFromPayload(payload)
   const rebuilt = resource.build(settingToRecordParams(updated))

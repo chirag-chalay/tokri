@@ -26,9 +26,167 @@ function toIsoDate(value) {
   return `${match[3]}-${match[2]}-${match[1]}`
 }
 
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function startOfToday() {
+  const today = new Date()
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate())
+}
+
+function DobPicker({ value, onChange }) {
+  const selected = toIsoDate(value)
+  const selectedDate = selected ? new Date(`${selected}T00:00:00`) : null
+  const [open, setOpen] = useState(false)
+  const [openUp, setOpenUp] = useState(false)
+  const [visibleMonth, setVisibleMonth] = useState(selectedDate || startOfToday())
+  const wrapRef = useRef(null)
+  const today = startOfToday()
+  const minDate = new Date(1920, 0, 1)
+  const years = []
+  for (let year = today.getFullYear(); year >= 1920; year -= 1) years.push(year)
+
+  useEffect(() => {
+    if (!open) return undefined
+    const place = () => {
+      const rect = wrapRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const spaceBelow = window.innerHeight - rect.bottom
+      setOpenUp(spaceBelow < 340 && rect.top > spaceBelow)
+    }
+    place()
+    const onPointerDown = (event) => {
+      if (!wrapRef.current?.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open])
+
+  const year = visibleMonth.getFullYear()
+  const month = visibleMonth.getMonth()
+  const firstWeekday = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells = [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, index) => index + 1)]
+
+  const choose = (day) => {
+    const next = new Date(year, month, day)
+    if (next < minDate || next > today) return
+    const iso = `${next.getFullYear()}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    onChange(toDisplayDate(iso))
+    setOpen(false)
+  }
+
+  return (
+    <div className="pointer-events-none absolute inset-0" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => {
+          setVisibleMonth(selectedDate || startOfToday())
+          setOpen((current) => !current)
+        }}
+        className="pointer-events-auto absolute top-1/2 right-3 z-10 -translate-y-1/2 text-brand"
+        aria-label="Open date picker"
+        aria-expanded={open}
+      >
+        <Calendar size={20} />
+      </button>
+      {open ? (
+        <div
+          className={`pointer-events-auto absolute z-30 w-[280px] rounded-2xl border border-line bg-panel p-3 shadow-2xl ${
+            openUp ? 'bottom-full mb-2' : 'top-full mt-2'
+          } right-0`}
+        >
+          <div className="mb-3 flex gap-2">
+            <select
+              aria-label="Month"
+              value={month}
+              onChange={(event) => setVisibleMonth(new Date(year, Number(event.target.value), 1))}
+              className="min-w-0 flex-1 rounded-lg border border-line bg-panel-2 px-2 py-2 text-sm text-white outline-none"
+            >
+              {MONTHS.map((label, index) => (
+                <option key={label} value={index}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Year"
+              value={year}
+              onChange={(event) => setVisibleMonth(new Date(Number(event.target.value), month, 1))}
+              className="w-24 rounded-lg border border-line bg-panel-2 px-2 py-2 text-sm text-white outline-none"
+            >
+              {years.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-7 text-center text-xs text-muted">
+            {WEEKDAYS.map((label, index) => (
+              <span key={`${label}-${index}`} className="py-1">
+                {label}
+              </span>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 text-center text-sm">
+            {cells.map((day, index) => {
+              if (!day) return <span key={`empty-${index}`} />
+              const date = new Date(year, month, day)
+              const disabled = date < minDate || date > today
+              const isSelected = selected === `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              return (
+                <button
+                  key={`${year}-${month}-${day}`}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => choose(day)}
+                  className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full ${
+                    isSelected ? 'bg-brand font-semibold text-black' : 'text-white hover:bg-panel-2'
+                  } disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent`}
+                >
+                  {day}
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-2 flex justify-between text-sm">
+            <button
+              type="button"
+              className="text-muted hover:text-white"
+              onClick={() => {
+                onChange('')
+                setOpen(false)
+              }}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="text-brand hover:text-white"
+              onClick={() => {
+                setVisibleMonth(today)
+                onChange(toDisplayDate(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`))
+                setOpen(false)
+              }}
+            >
+              Today
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export default function ProfileForm() {
   const { user, updateProfile } = useAuth()
-  const pickerRef = useRef(null)
   const [name, setName] = useState(user?.name || '')
   const [dateOfBirth, setDateOfBirth] = useState(toDisplayDate(user?.dateOfBirth))
   const [saving, setSaving] = useState(false)
@@ -37,13 +195,6 @@ export default function ProfileForm() {
     setName(user?.name || '')
     setDateOfBirth(toDisplayDate(user?.dateOfBirth))
   }, [user?.name, user?.dateOfBirth])
-
-  const openPicker = () => {
-    const input = pickerRef.current
-    if (!input) return
-    if (typeof input.showPicker === 'function') input.showPicker()
-    else input.click()
-  }
 
   const handleSave = async (event) => {
     event.preventDefault()
@@ -104,25 +255,7 @@ export default function ProfileForm() {
           placeholder="DD/MM/YYYY"
           className="w-full rounded-xl border border-line bg-panel-2 py-3 pr-12 pl-4 text-white outline-none focus:border-brand"
         />
-        <button
-          type="button"
-          onClick={openPicker}
-          className="absolute top-1/2 right-3 -translate-y-1/2 text-brand"
-          aria-label="Open date picker"
-        >
-          <Calendar size={20} />
-        </button>
-        <input
-          ref={pickerRef}
-          type="date"
-          max={new Date().toISOString().slice(0, 10)}
-          min="1920-01-01"
-          value={toIsoDate(dateOfBirth)}
-          onChange={(event) => setDateOfBirth(toDisplayDate(event.target.value))}
-          className="pointer-events-none absolute h-0 w-0 opacity-0"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
+        <DobPicker value={dateOfBirth} onChange={setDateOfBirth} />
       </div>
 
       <button

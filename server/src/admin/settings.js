@@ -91,6 +91,7 @@ export function getSettingResource(SettingsEditComponent) {
       properties: {
         id: { isVisible: false },
         updatedAt: { isVisible: false },
+        socialLinks: { isVisible: false },
         store: { isVisible: false },
         theme: { isVisible: false },
         home: { isVisible: false },

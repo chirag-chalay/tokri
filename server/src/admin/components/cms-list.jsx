@@ -55,8 +55,7 @@ const CmsList = (props) => {
       const trimmed = value.trim()
       storeParamsRef.current({
         page: '1',
-        q: trimmed,
-        filters: trimmed ? { [titleProp]: trimmed } : {},
+        q: trimmed || undefined,
       })
     }, 300)
   }

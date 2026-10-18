@@ -1,5 +1,6 @@
 import { publicDeliveryConfig } from '../config/charges.js'
 import { toPublicAssetUrl } from './formatters.js'
+import { publicSocialLinks } from './socialLinks.js'
 
 export function parseFeaturedCategorySlugs(value) {
   if (!value) return []
@@ -20,7 +21,7 @@ export function parseFeaturedCategorySlugs(value) {
 
 export function formatPublicSettings(settings) {
   if (!settings) {
-    return { store: null, home: null, payment: null, messaging: null, charges: null }
+    return { store: null, home: null, payment: null, messaging: null, social: {}, charges: null }
   }
 
   return {
@@ -53,6 +54,7 @@ export function formatPublicSettings(settings) {
         whatsappEnabled: Boolean(settings.msg91WhatsappEnabled),
       },
     },
+    social: publicSocialLinks(settings.socialLinks),
     charges: {
       shippingFee: Number(settings.morningShippingFee ?? settings.shippingFee ?? 25),
       handlingFee: Number(settings.handlingFee ?? 2),

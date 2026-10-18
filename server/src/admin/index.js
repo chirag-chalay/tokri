@@ -44,7 +44,7 @@ import { buildOrderRoutes } from './orderRoutes.js'
 import { adminLocale } from './locale.js'
 import { INDIA_STATES } from '../data/indiaStates.js'
 import { buildDashboardAnalytics } from '../services/dashboardAnalytics.js'
-import { createSearchListHandler, readAdminSearch } from './list-search.js'
+import { categoryListLabel, createSearchListHandler, readAdminSearch } from './list-search.js'
 
 AdminJS.registerAdapter({
   Database: AdminJSPrisma.Database,
@@ -181,7 +181,7 @@ export async function buildAdminRouter() {
         options: {
           name: 'Products',
           navigation: { name: 'Catalog', icon: 'ShoppingCart' },
-          listProperties: ['name', 'slug', 'priceValue', 'category', 'isBestSeller', 'isActive'],
+          listProperties: ['name', 'slug', 'priceValue', 'weight', 'categoryList', 'isActive'],
           editProperties: [
             'name',
             'slug',
@@ -206,9 +206,14 @@ export async function buildAdminRouter() {
           actions: {
             ...resourceActions('manageProducts'),
             list: cmsListView('manageProducts', ['name', 'slug', 'hsnCode', 'badge', 'category.label'], {
-              include: { category: true },
+              include: {
+                category: true,
+                categoryLinks: { include: { category: true } },
+              },
               populate: { category: 'Category' },
               defaultSortBy: 'createdAt',
+              sidebarFilters: true,
+              presentRow: (row) => ({ categoryList: categoryListLabel(row) }),
             }),
             new: {
               isAccessible: canManage('manageProducts'),
@@ -231,11 +236,29 @@ export async function buildAdminRouter() {
           },
           properties: {
             name: { isTitle: true, label: 'Product' },
-            description: { type: 'richtext', label: 'Description' },
+            description: {
+              type: 'richtext',
+              label: 'Description',
+              isVisible: { list: false, filter: false, show: true, edit: true },
+            },
+            currency: { isVisible: { list: false, filter: false, show: true, edit: true } },
+            oldPriceValue: { isVisible: { list: false, filter: false, show: true, edit: true } },
+            weight: {
+              label: 'Weight',
+              isVisible: { list: true, filter: false, show: true, edit: true },
+            },
+            isBestSeller: { isVisible: { list: false, filter: true, show: true, edit: true } },
+            categoryList: {
+              type: 'string',
+              label: 'Category',
+              isSortable: false,
+              isVisible: { list: true, filter: false, show: false, edit: false },
+            },
+            sortOrder: { isVisible: { list: false, filter: false, show: true, edit: true } },
             image: { isVisible: false },
             mediaId: { isVisible: false },
             media: { isVisible: false },
-            category: { isVisible: { list: true, filter: true, show: true, edit: false } },
+            category: { isVisible: { list: false, filter: true, show: true, edit: false } },
             categoryLinks: { isVisible: false },
             reviews: { isVisible: false },
             orderItems: { isVisible: false },

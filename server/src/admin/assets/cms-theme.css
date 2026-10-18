@@ -1824,6 +1824,33 @@ table {
   background: var(--tokri-card);
 }
 
+/* Product list: category names stay in a fixed column and wrap. */
+table[data-css="Product-table"] {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table[data-css="Product-table"] th:nth-child(1),
+table[data-css="Product-table"] td:nth-child(1) {
+  width: 42px;
+}
+
+table[data-css="Product-table"] th:nth-child(6),
+table[data-css="Product-table"] td[data-property-name="categoryList"] {
+  width: 220px;
+  max-width: 220px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
+}
+
+table[data-css="Product-table"] td[data-property-name="categoryList"] * {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Select-all checkbox: unchecked / indeterminate (−) / checked (✓) */
 .tokri-select-all {
   position: relative;

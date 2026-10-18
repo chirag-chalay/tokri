@@ -27,6 +27,11 @@ const TABS = [
     ],
   },
   {
+    id: 'social',
+    label: 'Social',
+    fields: [],
+  },
+  {
     id: 'charges',
     label: 'Charges',
     fields: [
@@ -334,6 +339,65 @@ function NotifyInput({ field, value, onChange }) {
   )
 }
 
+const SOCIAL_FIELDS = [
+  { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/tokriii' },
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/tokriii' },
+  { key: 'threads', label: 'Threads', placeholder: 'https://www.threads.net/@tokriii' },
+  { key: 'x', label: 'X', placeholder: 'https://x.com/tokriii' },
+  { key: 'linkedin', label: 'LinkedIn', placeholder: 'https://www.linkedin.com/company/tokriii' },
+]
+
+function readSocialLinks(raw) {
+  const links = Object.fromEntries(SOCIAL_FIELDS.map((field) => [field.key, '']))
+  let value = raw
+  if (!raw) return links
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw)
+    } catch {
+      return links
+    }
+  }
+  if (!value || typeof value !== 'object') return links
+  for (const field of SOCIAL_FIELDS) {
+    links[field.key] = typeof value[field.key] === 'string' ? value[field.key] : ''
+  }
+  return links
+}
+
+function SocialFields({ value, onChange }) {
+  const links = readSocialLinks(value)
+
+  return (
+    <div className="tokri-notify-fields">
+      <section className="tokri-coupon-card">
+        <h4>Footer icons</h4>
+        <p>These links appear under the address on the website. Leave a box empty to hide that icon.</p>
+        {SOCIAL_FIELDS.map((field) => (
+          <label key={field.key} className="tokri-coupon-label">
+            {field.label}
+            <input
+              className="tokri-coupon-input"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder={field.placeholder}
+              value={links[field.key]}
+              onChange={(event) =>
+                onChange(
+                  'socialLinks',
+                  JSON.stringify({ ...links, [field.key]: event.target.value }),
+                )
+              }
+            />
+          </label>
+        ))}
+      </section>
+    </div>
+  )
+}
+
 function NotificationsFields({ params, onChange }) {
   return (
     <div className="tokri-notify-fields">
@@ -551,7 +615,9 @@ const SettingsEdit = (props) => {
                   ? 'Set copy and prices for Morning and Express delivery. Handling fee is added to every order.'
                   : tab.id === 'homepage'
                     ? 'These images and categories appear on the website homepage. Click Save changes after uploading.'
-                    : tab.id === 'notifications'
+                    : tab.id === 'social'
+                      ? 'Paste each page link. A link without https:// is completed for you. Save changes when you are done.'
+                      : tab.id === 'notifications'
                       ? 'Auth key, WhatsApp number, and namespace are shared. Each template has its own name and on/off toggle. Order and partner messages send only after COD is placed or the online payment is confirmed.'
                       : 'Update your store settings and click Save changes below.'}
               </Text>
@@ -747,6 +813,8 @@ const SettingsEdit = (props) => {
                 </div>
               ) : tab.id === 'notifications' ? (
                 <NotificationsFields params={params} onChange={handleChange} />
+              ) : tab.id === 'social' ? (
+                <SocialFields value={params.socialLinks} onChange={handleChange} />
               ) : (
                 properties.map((property) => (
                   <BasePropertyComponent

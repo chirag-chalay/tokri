@@ -98,7 +98,7 @@ export default function BlogListPage() {
           <div className="mt-6 rounded-2xl border border-dashed border-line bg-panel px-6 py-16 text-center">
             <h2 className="text-2xl font-semibold text-white">No posts yet</h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
-              New posts added in the admin under Content → Blog will show up here.
+              Stories on fruit, season, and how to pick them will appear here.
             </p>
           </div>
         ) : null}
