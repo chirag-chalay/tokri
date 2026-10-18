@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js'
+import { productListWhere } from './product-filters.js'
 
 export function readAdminSearch(query = {}) {
   const direct = query.q ?? query.query
@@ -73,24 +74,47 @@ function findRelatedResource(admin, resourceId) {
   }
 }
 
+export function categoryListLabel(row) {
+  const labels = []
+  const seen = new Set()
+  const add = (label) => {
+    const text = String(label || '').trim()
+    if (!text || seen.has(text)) return
+    seen.add(text)
+    labels.push(text)
+  }
+
+  for (const link of row?.categoryLinks || []) add(link.category?.label)
+  add(row?.category?.label)
+  return labels.join(', ')
+}
+
 export function createSearchListHandler(searchFields, options = {}) {
-  const { include, populate, extraWhere, defaultSortBy = 'id' } = options
+  const { include, populate, extraWhere, defaultSortBy = 'id', sidebarFilters = false, presentRow } = options
 
   return async (request, _response, context) => {
     const query = request.query || {}
     const perPage = Math.min(Number(query.perPage) || 10, 50)
     const page = Number(query.page) || 1
-    const searchTerm = readAdminSearch(query)
+    const searchTerm = sidebarFilters
+      ? String(query.q ?? query.query ?? '').trim()
+      : readAdminSearch(query)
     const requestedSort = String(query.sortBy || '')
     const relationKeys = new Set(Object.keys(include || {}))
-    const sortBy = /^[A-Za-z][A-Za-z0-9_]*$/.test(requestedSort) && !relationKeys.has(requestedSort)
+    const sortProperty = context.resource.decorate?.().getPropertyByKey?.(requestedSort)
+    const sortBy = /^[A-Za-z][A-Za-z0-9_]*$/.test(requestedSort)
+      && !relationKeys.has(requestedSort)
+      && (!sortProperty || sortProperty.isSortable())
       ? requestedSort
       : defaultSortBy
     const direction = query.direction === 'asc' ? 'asc' : 'desc'
     const search = searchWhere(searchFields, searchTerm)
-    const where = extraWhere && Object.keys(extraWhere).length
-      ? (search.OR ? { AND: [extraWhere, search] } : extraWhere)
-      : search
+    const sidebar = sidebarFilters ? productListWhere(query) : {}
+    const parts = []
+    if (extraWhere && Object.keys(extraWhere).length) parts.push(extraWhere)
+    if (search.OR) parts.push(search)
+    if (sidebar.AND) parts.push(sidebar)
+    const where = parts.length > 1 ? { AND: parts } : parts[0] || {}
     const delegate = prismaForResource(context.resource)
     if (!delegate?.findMany || !delegate?.count) {
       throw new Error(`Admin search is not configured for ${context.resource.id()}`)
@@ -109,6 +133,7 @@ export function createSearchListHandler(searchFields, options = {}) {
 
     const records = rows.map((row) => {
       const record = context.resource.build(toAdminParams(row))
+      if (presentRow) Object.assign(record.params, presentRow(row) || {})
       if (populate) {
         for (const [path, resourceId] of Object.entries(populate)) {
           const related = row[path]

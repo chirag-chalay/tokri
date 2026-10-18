@@ -54,6 +54,7 @@ const ProductEdit = (props) => {
   const previewSlug = normalizeSlugInput(slugInput) || normalizeSlugInput(params.name)
   const productUrl = previewSlug ? `${productUrlBase}/${previewSlug}` : null
   const selectedCategorySlugs = parseSlugs(params.categoryIds)
+  const isActive = params.isActive !== false && params.isActive !== 'false'
 
   const imageUrl = useMemo(() => {
     if (!params.image) return ''
@@ -339,6 +340,14 @@ const ProductEdit = (props) => {
 
       <section className="tokri-coupon-card">
         <h4>Store placement</h4>
+        <div style={{ marginBottom: 12 }}>
+          <StatusSwitch
+            checked={isActive}
+            title={isActive ? 'Active' : 'Inactive'}
+            hint={isActive ? 'Visible to customers' : 'Hidden from the website and app'}
+            onChange={(next) => setField('isActive', next)}
+          />
+        </div>
         <div className="tokri-choice-row">
           <FlagCard
             selected={params.isBestSeller === true || params.isBestSeller === 'true'}
@@ -357,14 +366,6 @@ const ProductEdit = (props) => {
             title="Featured"
             hint="Highlight this fruit"
             onClick={() => setField('isFeatured', !(params.isFeatured === true || params.isFeatured === 'true'))}
-          />
-          <FlagCard
-            selected={params.isActive !== false && params.isActive !== 'false'}
-            title="Active"
-            hint="Visible to customers"
-            onClick={() =>
-              setField('isActive', !(params.isActive !== false && params.isActive !== 'false'))
-            }
           />
         </div>
       </section>

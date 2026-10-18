@@ -343,6 +343,7 @@ model Setting {
   msg91WhatsappOrderTemplate     String?
   msg91WhatsappPartnerEnabled    Boolean  @default(true)
   msg91WhatsappPartnerTemplate   String?
+  socialLinks               Json?
   store                     Json?
   theme                     Json?
   home                      Json?
