@@ -86,7 +86,7 @@ export default function BlogDetailPage() {
           {post.category ? (
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">{post.category}</p>
           ) : null}
-          <h1 className="mt-3 text-4xl font-bold tracking-tight text-white sm:text-5xl">{post.title}</h1>
+          <h1 className="blog-detail-title">{post.title}</h1>
           {byline ? <p className="mt-3 text-sm text-muted">{byline}</p> : null}
         </header>
 

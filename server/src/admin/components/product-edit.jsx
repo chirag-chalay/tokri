@@ -13,6 +13,42 @@ const normalizeSlugInput = (value) =>
 
 const withoutTrailingSlash = (value) => String(value || '').replace(/\/+$/, '')
 
+const PRODUCT_DETAILS_HTML = `<h3>Product Details</h3>
+<div class="product-info">
+<div class="product-info-item">
+<p class="product-info-label">Health Benefits</p>
+<p>Rich in Antioxidants</p>
+</div>
+<div class="product-info-item">
+<p class="product-info-label">Description</p>
+<p>Write the fruit description here. Mention taste, how to use it, and what makes it special.</p>
+</div>
+<div class="product-info-item">
+<p class="product-info-label">Unit</p>
+<p>125 g</p>
+</div>
+<div class="product-info-item">
+<p class="product-info-label">Shelf Life</p>
+<p>4 days</p>
+</div>
+<div class="product-info-item">
+<p class="product-info-label">Taste Profile</p>
+<p>Sweet</p>
+</div>
+<div class="product-info-item">
+<p class="product-info-label">Disclaimer</p>
+<p>The image shown is for representation purposes only and may vary slightly from the actual product. Every effort is made to ensure the accuracy of all information displayed.</p>
+</div>
+<div class="product-info-item">
+<p class="product-info-label">Customer Care Details</p>
+<p>Email: <a href="mailto:support@tokriii.com">support@tokriii.com</a></p>
+</div>
+<div class="product-info-item">
+<p class="product-info-label">Country of Origin</p>
+<p>India</p>
+</div>
+</div>`
+
 function parseSlugs(raw) {
   if (!raw) return []
   if (Array.isArray(raw)) return raw.map((item) => String(item).trim()).filter(Boolean)
@@ -372,6 +408,18 @@ const ProductEdit = (props) => {
 
       <section className="tokri-coupon-card">
         <h4>Description</h4>
+        <p>
+          Click Insert details template, then edit the text for this fruit. Only Product Details
+          stays bold. The rest stays normal text, like the store product page.
+        </p>
+        <Button
+          type="button"
+          variant="outlined"
+          mb="lg"
+          onClick={() => setField('description', PRODUCT_DETAILS_HTML)}
+        >
+          Insert details template
+        </Button>
         {descriptionProperty ? (
           <Box style={{ minHeight: 220 }}>
             <BasePropertyComponent

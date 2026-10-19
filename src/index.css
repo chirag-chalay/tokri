@@ -251,8 +251,119 @@ code {
   color: inherit;
 }
 
+.product-details {
+  max-width: 48rem;
+  margin-top: 0.25rem;
+  color: #a1a1aa;
+}
+
+.product-details h3 {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.product-details > div,
+.product-info-item,
+.product-disclaimer,
+.customer-care {
+  margin-top: 1rem;
+  min-width: 0;
+}
+
+.product-details > h3 + div,
+.product-details h3 + .product-info,
+.product-info-item:first-child {
+  margin-top: 0;
+}
+
+.product-details p {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #a1a1aa;
+}
+
+.product-details > div > p:first-child,
+.product-details .product-info-item strong {
+  margin-bottom: 0.15rem;
+  font-weight: 400;
+  color: #e4e4e7;
+}
+
+.product-info {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.product-info .product-info-item {
+  margin-top: 0;
+}
+
+.product-details .product-info-label {
+  margin: 0 0 0.15rem;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: #e4e4e7;
+}
+
+.product-info-item > p:not(.product-info-label) {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.product-details a {
+  color: #4daf7b;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.product-details a:hover {
+  text-decoration: underline;
+}
+
+.product-details.is-collapsed .product-info-item:not(:first-child),
+.product-details.is-collapsed .product-disclaimer,
+.product-details.is-collapsed .customer-care,
+.product-details.is-collapsed > h3 + div ~ * {
+  display: none;
+}
+
+.product-details.is-collapsed.is-plain > h3 ~ * ~ *,
+.product-details.is-collapsed.is-plain:not(:has(> h3)) > :not(:first-child) {
+  display: none;
+}
+
+.product-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #4daf7b;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.product-details-toggle:hover {
+  color: #6ee7b7;
+}
+
+.product-details-toggle svg {
+  transition: transform 0.16s ease;
+}
+
 .account-detail h1,
-.cms-static-page h1.cms-static-page__title {
+.cms-static-page h1.cms-static-page__title,
+h1.blog-detail-title {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
@@ -261,9 +372,14 @@ code {
   color: #ffffff;
 }
 
+h1.blog-detail-title {
+  margin-top: 0.75rem;
+}
+
 @media (min-width: 768px) {
   .account-detail h1,
-  .cms-static-page h1.cms-static-page__title {
+  .cms-static-page h1.cms-static-page__title,
+  h1.blog-detail-title {
     font-size: 2.25rem;
   }
 }
