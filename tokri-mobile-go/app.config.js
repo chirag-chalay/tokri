@@ -17,16 +17,11 @@ module.exports = {
   expo: {
     name: isStaging ? 'Tokriii Staging' : 'Tokriii',
     slug: 'tokriii',
-    version: '1.0.4',
+    version: '1.0.5',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
     newArchEnabled: true,
-    splash: {
-      image: './assets/splash-icon.png',
-      resizeMode: 'contain',
-      backgroundColor: '#022c22',
-    },
     ios: {
       supportsTablet: true,
       buildNumber: '7',
@@ -50,7 +45,7 @@ module.exports = {
     },
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
-      versionCode: 7,
+      versionCode: 8,
       usesCleartextTraffic: true,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
@@ -68,6 +63,15 @@ module.exports = {
     },
     plugins: [
       './plugins/withUpiApps',
+      [
+        'expo-splash-screen',
+        {
+          image: './assets/splash-icon.png',
+          imageWidth: 280,
+          resizeMode: 'contain',
+          backgroundColor: '#022c22',
+        },
+      ],
       '@react-native-community/datetimepicker',
       [
         'expo-location',

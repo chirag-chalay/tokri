@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AppState, BackHandler, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import {
+  Alert,
+  AppState,
+  BackHandler,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetchJson } from '../lib/api'
 import { appBuild, appPlatform, storeUrl } from '../lib/appBuild'
@@ -70,54 +81,69 @@ export default function AppUpdateGate({ children }) {
     return () => sub.remove()
   }, [check])
 
-  useEffect(() => {
-    if (!open || decision?.action !== 'required' || Platform.OS !== 'android') return undefined
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      BackHandler.exitApp()
-      return true
-    })
-    return () => sub.remove()
-  }, [open, decision?.action])
-
   const later = async () => {
     const hours = Math.min(720, Math.max(1, Number(decision?.remindAfterHours) || 24))
     await AsyncStorage.setItem(snoozeKey(decision?.latestBuild), String(Date.now() + hours * 60 * 60 * 1000))
     setOpen(false)
   }
 
-  const update = () => {
-    Linking.openURL(storeUrl()).catch(() => {})
+  const update = async () => {
+    try {
+      await Linking.openURL(storeUrl())
+    } catch (error) {
+      Alert.alert('Unable to open the app store', error.message || 'Please try again later.')
+    }
   }
 
   const required = decision?.action === 'required'
   const maintenance = decision?.action === 'maintenance'
+  const closePopup = () => {
+    if (required && Platform.OS === 'android') {
+      BackHandler.exitApp()
+    } else if (!required && !maintenance) {
+      later()
+    }
+  }
 
   return (
     <View style={styles.fill}>
       {children}
-      {open ? (
-        <View style={[styles.cover, { backgroundColor: colors.canvas }]}>
-          <Text style={[styles.title, { color: colors.text }]}>{decision?.title || 'Update Tokriii'}</Text>
-          {decision?.message ? (
-            <Text style={[styles.message, { color: colors.muted }]}>{decision.message}</Text>
-          ) : null}
-          {maintenance ? null : (
-            <Pressable style={[styles.primary, { backgroundColor: colors.brand }]} onPress={update}>
-              <Text style={[styles.primaryText, { color: colors.ink }]}>Update</Text>
-            </Pressable>
-          )}
-          {required && Platform.OS === 'android' ? (
-            <Pressable style={styles.secondary} onPress={() => BackHandler.exitApp()}>
-              <Text style={[styles.secondaryText, { color: colors.muted }]}>Exit</Text>
-            </Pressable>
-          ) : null}
-          {!required && !maintenance ? (
-            <Pressable style={styles.secondary} onPress={later}>
-              <Text style={[styles.secondaryText, { color: colors.muted }]}>Not now</Text>
-            </Pressable>
-          ) : null}
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={closePopup}
+      >
+        <View style={[styles.cover, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.dialog, { backgroundColor: colors.panel, borderColor: colors.line }]}>
+            <Text style={[styles.title, { color: colors.text }]}>
+              {decision?.title || (maintenance ? 'Tokriii is temporarily unavailable' : 'Update Tokriii')}
+            </Text>
+            {decision?.message ? (
+              <Text style={[styles.message, { color: colors.muted }]}>{decision.message}</Text>
+            ) : null}
+            {maintenance ? null : (
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.primary, { backgroundColor: colors.brand }]}
+                onPress={update}
+              >
+                <Text style={[styles.primaryText, { color: colors.ink }]}>Update now</Text>
+              </Pressable>
+            )}
+            {required && Platform.OS === 'android' ? (
+              <Pressable accessibilityRole="button" style={styles.secondary} onPress={() => BackHandler.exitApp()}>
+                <Text style={[styles.secondaryText, { color: colors.muted }]}>Exit</Text>
+              </Pressable>
+            ) : null}
+            {!required && !maintenance ? (
+              <Pressable accessibilityRole="button" style={styles.secondary} onPress={later}>
+                <Text style={[styles.secondaryText, { color: colors.muted }]}>Cancel</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
-      ) : null}
+      </Modal>
     </View>
   )
 }
@@ -125,14 +151,22 @@ export default function AppUpdateGate({ children }) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   cover: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 28,
+    alignItems: 'center',
+    padding: 24,
+  },
+  dialog: {
+    width: '100%',
+    maxWidth: 420,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 24,
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
-    lineHeight: 38,
+    lineHeight: 30,
   },
   message: {
     marginTop: 12,
@@ -140,7 +174,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   primary: {
-    marginTop: 28,
+    marginTop: 24,
     borderRadius: 999,
     minHeight: 52,
     alignItems: 'center',
