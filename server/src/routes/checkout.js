@@ -16,6 +16,7 @@ import { previewCoupon } from '../services/coupons.js'
 import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
 import { env } from '../config/env.js'
 import { assertAppReleaseAllowed } from '../services/appRelease.js'
+import { quoteCheckoutDelivery } from '../services/deliveryQuote.js'
 
 const router = Router()
 
@@ -62,6 +63,18 @@ router.get('/config', optionalCustomer, async (req, res, next) => {
   try {
     const config = await getCheckoutConfig(req.customer)
     res.json(config)
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/quote', optionalCustomer, async (req, res, next) => {
+  try {
+    const items = await resolvePreviewItems(req.body?.items)
+    const option = req.body?.deliveryOption === 'express' ? 'express' : 'morning'
+    const discount = Number(req.body?.discount) || 0
+    const quote = await quoteCheckoutDelivery(items, req.customer?.id || null, option, Math.max(0, discount))
+    res.json(quote)
   } catch (error) {
     next(error)
   }

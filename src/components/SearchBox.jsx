@@ -40,7 +40,7 @@ function ResultCard({ product, onNavigate }) {
         onClick={onNavigate}
         className="block"
       >
-        <div className="relative mb-1 h-24 overflow-hidden rounded-md bg-panel">
+        <div className="relative mb-1 aspect-square w-full overflow-hidden rounded-md bg-panel flex items-center justify-center">
           {off > 0 && (
             <span className="absolute left-1 top-1 z-10 rounded bg-emerald-600 px-1 py-0.5 text-[9px] font-bold leading-none text-white shadow">
               {off}% OFF
@@ -49,7 +49,7 @@ function ResultCard({ product, onNavigate }) {
           <img
             src={product.image}
             alt={product.name}
-            className="h-full w-full object-cover transition group-hover:scale-105"
+            className="h-full w-full object-contain p-1 transition group-hover:scale-105"
             loading="lazy"
           />
         </div>

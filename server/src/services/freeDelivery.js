@@ -7,7 +7,7 @@ const FEATURE_DEPLOY_DATE = new Date('2026-10-06T00:00:00.000Z')
 
 /**
  * Returns account-based free delivery eligibility and usage for a customer.
- * - Every customer account gets their first 3 eligible deliveries with ₹0 delivery charge.
+ * - Eligible customer accounts get ₹0 Morning Delivery on their first 3 qualifying orders when enabled in Settings.
  * - From order 4 onward, normal delivery charges apply.
  * - Cancelled (status = 'cancelled') and failed (paymentStatus = 'failed' / 'refunded') orders do NOT consume quota.
  * - Incomplete/abandoned online orders (>15m pending) do not consume quota.
@@ -80,17 +80,14 @@ export async function getCustomerFreeDeliveryStatus(customerId) {
 }
 
 /**
- * Modifies delivery rates to reflect ₹0 delivery charge when eligible for account-level free delivery.
+ * Modifies morning delivery rates to reflect the account-level free delivery offer.
  */
 export function applyFreeDeliveryRates(rates) {
-  if (!rates) return rates
+  if (!rates || rates.option !== 'morning' || rates.firstThreeMorningEnabled === false) return rates
   const cloned = { ...rates }
   cloned.deliveryCharge = 0
   if (cloned.morning) {
     cloned.morning = { ...cloned.morning, fee: 0 }
-  }
-  if (cloned.express) {
-    cloned.express = { ...cloned.express, fee: 0 }
   }
   return cloned
 }

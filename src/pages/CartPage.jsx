@@ -76,6 +76,7 @@ function MobileCartView({
   deliveryConfig,
 }) {
   const navigate = useNavigate()
+  const { quoteLoading } = useCart()
 
   return (
     <div className="min-h-screen bg-canvas pb-28 lg:hidden">
@@ -157,7 +158,7 @@ function MobileCartView({
               className="flex w-full items-center justify-between rounded-xl bg-brand px-5 py-3.5 text-black transition active:bg-brand-hover"
             >
               <span>
-                <span className="block text-lg font-bold leading-none">{formatPrice(grandTotal)}</span>
+                <span className="block text-lg font-bold leading-none">{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</span>
                 <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wide text-black/70">
                   TOTAL
                 </span>

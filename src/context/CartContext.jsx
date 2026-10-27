@@ -5,17 +5,11 @@ import { authDelete, authGet, authPost, authPut, fetchJson, PLACEHOLDER_IMAGE, p
 import {
   DEFAULT_DELIVERY,
   defaultOptionForAddress,
-  deliveryChargeFor,
   mergeDeliveryConfig,
 } from '../lib/delivery'
 
 const CartContext = createContext(null)
 const CART_STORAGE_KEY = 'tokri_cart_v1'
-
-const DEFAULT_CHARGES = {
-  deliveryCharge: 25,
-  handlingCharge: 2,
-}
 
 const parsePrice = (price) => {
   const numeric = Number(String(price).replace(/[^0-9.]/g, ''))
@@ -99,10 +93,11 @@ export function CartProvider({ children }) {
   const { selectedAddress } = useAddress()
   const [cartItems, setCartItems] = useState(readStoredCart)
   const [showDrawer, setShowDrawer] = useState(false)
-  const [charges, setCharges] = useState(DEFAULT_CHARGES)
   const [deliveryConfig, setDeliveryConfig] = useState(DEFAULT_DELIVERY)
   const [deliveryOption, setDeliveryOption] = useState('morning')
   const [freeDelivery, setFreeDelivery] = useState(null)
+  const [quoteState, setQuoteState] = useState(null)
+  const [quoteError, setQuoteError] = useState('')
   const [coupon, setCoupon] = useState(null)
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
@@ -221,10 +216,6 @@ export function CartProvider({ children }) {
           ? await authGet('/app/bootstrap', user)
           : await fetchJson('/app/bootstrap')
         if (ignore || !data?.charges) return
-        setCharges({
-          deliveryCharge: Number(data.charges.deliveryCharge ?? DEFAULT_CHARGES.deliveryCharge),
-          handlingCharge: Number(data.charges.handlingCharge ?? DEFAULT_CHARGES.handlingCharge),
-        })
         if (data.charges.delivery || data.settings?.charges?.delivery) {
           setDeliveryConfig(mergeDeliveryConfig(data.charges.delivery || data.settings.charges.delivery))
         }
@@ -236,10 +227,6 @@ export function CartProvider({ children }) {
           fetchJson('/app/bootstrap')
             .then((data) => {
               if (ignore || !data?.charges) return
-              setCharges({
-                deliveryCharge: Number(data.charges.deliveryCharge ?? DEFAULT_CHARGES.deliveryCharge),
-                handlingCharge: Number(data.charges.handlingCharge ?? DEFAULT_CHARGES.handlingCharge),
-              })
               if (data.freeDelivery) setFreeDelivery(data.freeDelivery)
             })
             .catch(() => {})
@@ -343,7 +330,7 @@ export function CartProvider({ children }) {
     [cartItems],
   )
 
-  const itemsTotal = useMemo(
+  const localItemsTotal = useMemo(
     () => cartItems.reduce((sum, item) => sum + item.priceValue * item.quantity, 0),
     [cartItems],
   )
@@ -365,31 +352,63 @@ export function CartProvider({ children }) {
     pinDelivery && !pinDelivery[deliveryOption]?.enabled
       ? defaultOptionForAddress(selectedAddress)
       : deliveryOption
-  const activeFreeDelivery = freeDelivery || user?.freeDelivery
-  const isFreeDeliveryEligible = Boolean(
-    isLoggedIn &&
-      activeFreeDelivery &&
-      activeFreeDelivery.isEligible &&
-      (activeFreeDelivery.remaining > 0 || activeFreeDelivery.used < 3),
-  )
-  const standardDelivery = hasItems ? deliveryChargeFor(activeOption, itemsTotal, deliveryConfig) : 0
-  const deliveryCharge = isFreeDeliveryEligible ? 0 : standardDelivery
-  const handlingCharge = hasItems ? charges.handlingCharge : 0
   const discount = coupon?.discount ? Number(coupon.discount) : 0
-  const taxTotal = useMemo(() => {
-    return Math.round(
-      cartItems.reduce((sum, item) => {
-        const isTax = Boolean(item.isTaxable)
-        const rate = Number(item.gstRate || 0)
-        if (isTax && rate > 0) {
-          const lineTotal = Number(item.priceValue || 0) * Number(item.quantity || 1)
-          return sum + Math.round(lineTotal * (rate / 100) * 100) / 100
-        }
-        return sum
-      }, 0) * 100,
-    ) / 100
-  }, [cartItems])
-  const grandTotal = Math.max(0, Math.round((itemsTotal + deliveryCharge + handlingCharge + taxTotal - discount) * 100) / 100)
+  const quoteKey = JSON.stringify({
+    items: cartItems.map((item) => [item.id, item.quantity]),
+    option: activeOption,
+    discount,
+    customer: isLoggedIn ? user?.id : null,
+  })
+  const quote = quoteState?.key === quoteKey ? quoteState.data : null
+  const quoteLoading = hasItems && !quote
+  const itemsTotal = quote?.totals?.itemsTotal ?? localItemsTotal
+
+  useEffect(() => {
+    if (!hasItems) return undefined
+    let ignore = false
+    const payload = {
+      items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
+      deliveryOption: activeOption,
+      discount,
+    }
+    const request = isLoggedIn && user?.token
+      ? authPost('/checkout/quote', user, payload)
+      : postJson('/checkout/quote', payload)
+    request.then((data) => {
+      if (ignore) return
+      setQuoteState({ key: quoteKey, data })
+      setQuoteError('')
+    }).catch((error) => {
+      if (!ignore) setQuoteError(error.message || 'Could not calculate delivery charges.')
+    })
+    return () => { ignore = true }
+  }, [quoteKey, user?.token])
+
+  const refreshDeliveryQuote = useCallback(async () => {
+    if (!hasItems) return null
+    const payload = {
+      items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
+      deliveryOption: activeOption,
+      discount,
+    }
+    try {
+      const data = isLoggedIn && user?.token
+        ? await authPost('/checkout/quote', user, payload)
+        : await postJson('/checkout/quote', payload)
+      setQuoteState({ key: quoteKey, data })
+      setQuoteError('')
+      return data
+    } catch (error) {
+      setQuoteError(error.message || 'Could not calculate delivery charges.')
+      throw error
+    }
+  }, [activeOption, cartItems, discount, hasItems, isLoggedIn, quoteKey, user])
+
+  const activeFreeDelivery = freeDelivery || user?.freeDelivery
+  const deliveryCharge = quote?.totals?.deliveryCharge ?? 0
+  const handlingCharge = quote?.totals?.handlingCharge ?? 0
+  const taxTotal = quote?.totals?.taxTotal ?? 0
+  const grandTotal = quote?.totals?.grandTotal ?? 0
 
   const previewPayload = useCallback(
     () => ({
@@ -467,7 +486,7 @@ export function CartProvider({ children }) {
     return () => {
       ignore = true
     }
-  }, [activeOption, cartItems, charges, coupon?.code, isLoggedIn, previewPayload, user])
+  }, [activeOption, cartItems, coupon?.code, isLoggedIn, previewPayload, user])
 
   return (
     <CartContext.Provider
@@ -485,6 +504,10 @@ export function CartProvider({ children }) {
         handlingCharge,
         discount,
         grandTotal,
+        quote,
+        quoteLoading,
+        quoteError,
+        refreshDeliveryQuote,
         deliveryOption: activeOption,
         setDeliveryOption,
         deliveryConfig,
@@ -499,7 +522,6 @@ export function CartProvider({ children }) {
         openDrawer,
         closeDrawer,
         freeDelivery: activeFreeDelivery,
-        isFreeDeliveryEligible,
         refreshFreeDelivery,
       }}
     >

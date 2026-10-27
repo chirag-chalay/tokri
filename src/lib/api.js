@@ -198,13 +198,26 @@ export function installUploadFallback() {
     (event) => {
       const el = event.target
       if (!(el instanceof HTMLImageElement)) return
-      if (el.dataset.uploadFallbackTried === '1') return
 
-      const src = el.currentSrc || el.src || ''
-      if (!src.includes('://server.tokriii.com/uploads/')) return
+      if (el.dataset.uploadFallbackTried === '1') {
+        if (el.dataset.fallbackApplied !== '1') {
+          el.dataset.fallbackApplied = '1'
+          el.src = PLACEHOLDER_IMAGE
+        }
+        return
+      }
 
-      el.dataset.uploadFallbackTried = '1'
-      el.src = src.replace('://server.tokriii.com/', '://tokriii.com/')
+      const src = el.currentSrc || el.getAttribute('src') || el.src || ''
+      if (src.includes('://server.tokriii.com/uploads/')) {
+        el.dataset.uploadFallbackTried = '1'
+        el.src = src.replace('://server.tokriii.com/', '://tokriii.com/')
+        return
+      }
+
+      if (el.dataset.fallbackApplied !== '1') {
+        el.dataset.fallbackApplied = '1'
+        el.src = PLACEHOLDER_IMAGE
+      }
     },
     true,
   )

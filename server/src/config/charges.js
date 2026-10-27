@@ -40,6 +40,7 @@ export function publicDeliveryConfig(settings) {
       subtitle: String(settings?.morningDeliverySubtitle || DEFAULT_DELIVERY.morning.subtitle).trim() || DEFAULT_DELIVERY.morning.subtitle,
       fee: toMoney(settings?.morningShippingFee ?? settings?.shippingFee, DELIVERY_CHARGE),
       freeAbove: toMoney(settings?.morningFreeAbove, 0),
+      minimumOrderValue: 0,
     },
     express: {
       id: 'express',
@@ -47,6 +48,7 @@ export function publicDeliveryConfig(settings) {
       subtitle: String(settings?.expressDeliverySubtitle || DEFAULT_DELIVERY.express.subtitle).trim() || DEFAULT_DELIVERY.express.subtitle,
       fee: toMoney(settings?.expressShippingFee, EXPRESS_DELIVERY_CHARGE),
       freeAbove: toMoney(settings?.expressFreeAbove, 0),
+      minimumOrderValue: toMoney(settings?.expressMinimumOrderValue, 1251),
     },
   }
 }
@@ -78,6 +80,7 @@ export function ratesFromSettings(settings, option = 'morning') {
     option: chosen,
     deliveryCharge: delivery[chosen].fee,
     handlingCharge: toMoney(settings?.handlingFee, HANDLING_CHARGE),
+    firstThreeMorningEnabled: settings?.firstThreeMorningEnabled !== false,
     smallCartCharge: SMALL_CART_CHARGE,
     ...delivery,
   }

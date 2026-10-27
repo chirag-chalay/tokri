@@ -35,6 +35,8 @@ export function getSettingResource(SettingsEditComponent) {
         'expressDeliverySubtitle',
         'expressShippingFee',
         'expressFreeAbove',
+        'expressMinimumOrderValue',
+        'firstThreeMorningEnabled',
         'shippingFee',
         'handlingFee',
         'homeBannerImage',
@@ -128,6 +130,14 @@ export function getSettingResource(SettingsEditComponent) {
           type: 'number',
           label: 'Express free above (₹)',
           description: 'Free Express delivery when item total is at or above this amount. 0 means no free delivery.',
+        },
+        expressMinimumOrderValue: {
+          type: 'number',
+          label: 'Same Day minimum order (₹)',
+        },
+        firstThreeMorningEnabled: {
+          type: 'boolean',
+          label: 'First 3 orders free on Morning Delivery',
         },
         shippingFee: {
           type: 'number',

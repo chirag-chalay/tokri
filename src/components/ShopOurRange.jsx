@@ -145,7 +145,7 @@ export default function ShopOurRange() {
     <section className="my-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="text-[52px] font-bold text-black">
+          <h2 className="text-[52px] font-bold text-white">
             <span className="font-light">Shop By </span>Range
           </h2>
         </div>
@@ -202,24 +202,24 @@ export default function ShopOurRange() {
 
           <div className="w-full min-w-0 space-y-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-3xl font-bold text-black sm:text-4xl lg:text-[44px]">
+              <h2 className="text-3xl font-bold text-white sm:text-4xl lg:text-[44px]">
                 <span className="font-light">{activeCategory.title.split(' ')[0]} </span>
                 {activeCategory.title.split(' ').slice(1).join(' ') || 'Fruits'}
               </h2>
               <Link
                 to={`/shop?category=${activeCategory.slug}`}
-                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className="inline-flex items-center justify-center rounded-full border border-line bg-panel px-5 py-2.5 text-sm font-semibold text-mint shadow-sm transition hover:bg-panel-2 hover:text-white"
               >
                 View {activeCategory.title}
               </Link>
             </div>
 
             {loading ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500">
+              <div className="rounded-xl border border-line bg-panel p-10 text-center text-muted">
                 Loading products...
               </div>
             ) : products.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500">
+              <div className="rounded-xl border border-line bg-panel p-10 text-center text-muted">
                 No products in this category yet.
               </div>
             ) : (

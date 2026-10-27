@@ -160,6 +160,9 @@ export default function AddressFormModal({
             <div className="flex items-center rounded-xl border border-line bg-panel-2 px-3 py-2.5">
               <span className="text-sm text-muted">+91</span>
               <input
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={form.phone}
                 onChange={(e) => update('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                 className="ml-2 w-full bg-transparent text-sm text-white outline-none"
