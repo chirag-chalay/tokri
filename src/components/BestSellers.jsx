@@ -46,8 +46,16 @@ export default function BestSellers() {
             return (
               <article
                 key={product.id}
+                role="link"
+                tabIndex={0}
                 onClick={() => navigate(target)}
-                className="group relative flex h-full cursor-pointer flex-col rounded-lg border border-line bg-panel-2 p-1 transition hover:border-brand/40 sm:p-1.5"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    navigate(target)
+                  }
+                }}
+                className="group relative flex h-full cursor-pointer flex-col rounded-lg border border-line bg-panel-2 p-1 transition hover:border-brand/40 sm:p-1.5 focus:outline-none focus:ring-2 focus:ring-brand/60"
               >
                 <div className="relative mb-1 h-24 overflow-hidden rounded-md bg-panel sm:h-28">
                   {off > 0 && (

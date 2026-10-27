@@ -1,10 +1,6 @@
 import { Bike, Receipt, ShoppingBag, Tag } from 'lucide-react'
-import {
-  deliveryChargeFor,
-  formatDeliveryCharge,
-  remainingForFreeDelivery,
-  waivedDeliveryAmount,
-} from '../lib/delivery'
+import { formatDeliveryCharge } from '../lib/delivery'
+import { useCart } from '../context/CartContext'
 
 const formatPrice = (value) =>
   `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
@@ -45,13 +41,12 @@ export default function BillDetails({
   discount,
   grandTotal,
   deliveryOption,
-  deliveryConfig,
   title = 'Bill details',
 }) {
+  const { quote, quoteLoading } = useCart()
+  const selectedQuote = quote?.options?.[deliveryOption]
   const itemSavings = cartItems.reduce((sum, item) => sum + itemCutoff(item), 0)
-  const remainingForFree = remainingForFreeDelivery(deliveryOption, itemsTotal, deliveryConfig)
-  const standardDelivery = deliveryChargeFor(deliveryOption, itemsTotal, deliveryConfig)
-  const deliverySaved = Number(deliveryCharge) === 0 ? standardDelivery : waivedDeliveryAmount(deliveryOption, itemsTotal, deliveryConfig)
+  const deliverySaved = Number(selectedQuote?.deliverySavings || 0)
   const totalSavings = Math.round((itemSavings + Number(discount || 0) + deliverySaved) * 100) / 100
   const itemsOriginal = itemsTotal + itemSavings
 
@@ -74,16 +69,16 @@ export default function BillDetails({
         <BillRow
           icon={Bike}
           label="Delivery charges"
-          value={deliveryCharge > 0 ? formatDeliveryCharge(deliveryCharge) : 'FREE'}
-          free={!(deliveryCharge > 0)}
+          value={quoteLoading ? 'Calculating…' : formatDeliveryCharge(deliveryCharge)}
+          free={!quoteLoading && !(deliveryCharge > 0)}
         />
-        {deliveryCharge > 0 && remainingForFree > 0 ? (
+        {selectedQuote?.freeAboveMessage ? (
           <p className="-mt-1 mb-1 text-xs font-semibold text-mint">
-            Add {formatPrice(remainingForFree)} more for free delivery
+            {selectedQuote.freeAboveMessage}
           </p>
-        ) : deliveryCharge === 0 ? (
+        ) : selectedQuote?.deliveryMessage ? (
           <p className="-mt-1 mb-1 text-xs font-semibold text-mint">
-            🎉 Free delivery applied
+            {selectedQuote.deliveryMessage}
           </p>
         ) : null}
         {discount > 0 ? (
@@ -93,7 +88,7 @@ export default function BillDetails({
 
       <div className="mt-1 flex items-center justify-between border-t border-dashed border-line pt-3">
         <span className="text-base font-extrabold text-white">Grand total</span>
-        <span className="text-base font-extrabold text-white">{formatPrice(grandTotal)}</span>
+        <span className="text-base font-extrabold text-white">{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</span>
       </div>
 
       {totalSavings > 0 ? (

@@ -1,8 +1,10 @@
 import { useLoginFlow } from '../hooks/useLoginFlow'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import tokriLogo from '../assets/tokri-logo.png'
 import OtpInput from './OtpInput'
 
 export default function LoginPopup({ onClose }) {
+  const containerRef = useFocusTrap(true, onClose)
   const {
     step,
     setStep,
@@ -16,8 +18,17 @@ export default function LoginPopup({ onClose }) {
   } = useLoginFlow({ onSuccess: onClose })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="relative flex w-full max-w-md flex-col rounded-3xl border border-line bg-panel p-7 shadow-2xl shadow-black/40 sm:max-w-lg sm:p-8">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Login to Tokriii"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    >
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        className="relative flex w-full max-w-md flex-col rounded-3xl border border-line bg-panel p-7 shadow-2xl shadow-black/40 sm:max-w-lg sm:p-8 outline-none"
+      >
         <button
           type="button"
           onClick={onClose}
@@ -41,7 +52,9 @@ export default function LoginPopup({ onClose }) {
             <div className="mb-5 flex items-center rounded-2xl border border-line bg-panel-2 p-3">
               <span className="text-muted">+91</span>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="Enter mobile number"
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}

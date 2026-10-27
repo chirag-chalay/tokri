@@ -16,7 +16,6 @@ import { useSystemBottomInset } from '../lib/safeArea'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'
-import { remainingForFreeDelivery, waivedDeliveryAmount } from '../lib/delivery'
 
 const PAY_CHOICE_KEY = 'tokri_pay_choice'
 const ONLINE_CHOICES = ['gpay', 'phonepe', 'paytm', 'cred', 'amazon', 'bhim', 'card', 'netbanking', 'wallet']
@@ -58,6 +57,10 @@ export default function CartScreen({ navigation }) {
     deliveryConfig,
     setDeliveryConfig,
     pinDelivery,
+    quote,
+    quoteLoading,
+    quoteError,
+    refreshDeliveryQuote,
   } = useCart()
   const [suggested, setSuggested] = useState([])
   const [onlineEnabled, setOnlineEnabled] = useState(false)
@@ -69,6 +72,10 @@ export default function CartScreen({ navigation }) {
   const [razorpayConfig, setRazorpayConfig] = useState(null)
   const [installedUpiIds, setInstalledUpiIds] = useState([])
   const paymentWait = useRef(null)
+
+  useEffect(() => navigation.addListener('focus', () => {
+    refreshDeliveryQuote?.().catch(() => {})
+  }), [navigation, refreshDeliveryQuote])
 
   useEffect(() => {
     let ignore = false
@@ -143,8 +150,8 @@ export default function CartScreen({ navigation }) {
     [items],
   )
   const couponSavings = Number(discount) || 0
-  const deliverySaved = waivedDeliveryAmount(deliveryOption, itemsTotal, deliveryConfig)
-  const remainingForFree = remainingForFreeDelivery(deliveryOption, itemsTotal, deliveryConfig)
+  const selectedQuote = quote?.options?.[deliveryOption]
+  const deliverySaved = Number(selectedQuote?.deliverySavings || 0)
   const totalSavings = Math.round((itemSavings + couponSavings + deliverySaved) * 100) / 100
   const itemsOriginal = itemsTotal + itemSavings
 
@@ -158,6 +165,14 @@ export default function CartScreen({ navigation }) {
 
   const placeOrder = async () => {
     if (paying) return
+    if (quoteLoading || !quote) {
+      setNotice(quoteError || 'Calculating delivery charges. Please try again.')
+      return
+    }
+    if (!selectedQuote?.minimumMet) {
+      setNotice(selectedQuote?.minimumMessage || 'Minimum order value not met.')
+      return
+    }
     if (!isLoggedIn) {
       navigation.navigate('Login', { next: 'Checkout' })
       return
@@ -179,6 +194,11 @@ export default function CartScreen({ navigation }) {
     setNotice('')
     setPaying(true)
     try {
+      const currentQuote = await refreshDeliveryQuote()
+      const currentOption = currentQuote?.options?.[deliveryOption]
+      if (!currentOption?.minimumMet) {
+        throw new Error(currentOption?.minimumMessage || 'This delivery option is not available for this order.')
+      }
       const isUpi = Boolean(upiAppById(payChoice))
       const checkout = await authPost('/checkout/create-order', token, {
         addressId: selectedId,
@@ -362,7 +382,7 @@ export default function CartScreen({ navigation }) {
               <View style={styles.optionCard}>
                 <Text style={styles.billTitle}>Delivery option</Text>
                 {['morning', 'express'].map((optionId) => {
-                  const copy = deliveryConfig?.[optionId] || {}
+                  const copy = quote?.options?.[optionId] || deliveryConfig?.[optionId] || {}
                   const enabled = Boolean(pinDelivery?.[optionId]?.enabled)
                   const comingSoon = !enabled
                   const selected = deliveryOption === optionId && enabled
@@ -380,10 +400,12 @@ export default function CartScreen({ navigation }) {
                       <View style={[styles.optionDot, selected && styles.optionDotOn]} />
                       <View style={styles.optionCopy}>
                         <Text style={styles.optionTitle}>
-                          {copy.title || (optionId === 'express' ? 'Same day' : 'Flawless Morning Delivery')}
+                          {copy.title}
                           {comingSoon ? ' (coming soon)' : ''}
+                          {!comingSoon ? quoteLoading ? ' — Calculating…' : ` — ${formatPrice(copy.deliveryFee)}` : ''}
                         </Text>
                         {copy.subtitle ? <Text style={styles.optionSub}>{copy.subtitle}</Text> : null}
+                        {copy.minimumMessage ? <Text style={styles.optionSub}>{copy.minimumMessage}</Text> : null}
                       </View>
                     </Pressable>
                   )
@@ -408,13 +430,15 @@ export default function CartScreen({ navigation }) {
               <BillRow
                 icon="bicycle-outline"
                 label="Delivery charges"
-                value={deliveryCharge > 0 ? formatPrice(deliveryCharge) : 'FREE'}
-                free={!deliveryCharge}
+                value={quoteLoading ? 'Calculating…' : deliveryCharge > 0 ? formatPrice(deliveryCharge) : 'FREE'}
+                free={!quoteLoading && !deliveryCharge}
               />
-              {remainingForFree > 0 ? (
+              {selectedQuote?.freeAboveMessage ? (
                 <Text style={styles.freeNudge}>
-                  Add {formatPrice(remainingForFree)} more for free delivery
+                  {selectedQuote.freeAboveMessage}
                 </Text>
+              ) : selectedQuote?.freeDeliveryApplied && selectedQuote.offerMessage ? (
+                <Text style={styles.freeNudge}>{selectedQuote.offerMessage}</Text>
               ) : null}
               {couponSavings > 0 ? (
                 <BillRow icon="pricetag-outline" label="Coupon" value={`-${formatPrice(couponSavings)}`} free />
@@ -422,7 +446,7 @@ export default function CartScreen({ navigation }) {
 
               <View style={styles.grandRow}>
                 <Text style={styles.grandLabel}>Grand total</Text>
-                <Text style={styles.grandValue}>{formatPrice(grandTotal)}</Text>
+                <Text style={styles.grandValue}>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</Text>
               </View>
 
               {totalSavings > 0 ? (
@@ -460,7 +484,7 @@ export default function CartScreen({ navigation }) {
               </Pressable>
             </View>
 
-            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+            {notice || quoteError ? <Text style={styles.notice}>{notice || quoteError}</Text> : null}
 
             <View style={[styles.payBar, { paddingBottom: bottomInset + 10 }]}>
               <Pressable style={styles.payUsing} onPress={() => setPaySheet(true)} disabled={paying}>
@@ -477,10 +501,10 @@ export default function CartScreen({ navigation }) {
               <Pressable
                 style={[styles.placeBtn, paying && styles.placeBtnBusy]}
                 onPress={placeOrder}
-                disabled={paying}
+                disabled={paying || quoteLoading || !quote || !selectedQuote?.minimumMet}
               >
                 <View>
-                  <Text style={styles.placeAmount}>{formatPrice(grandTotal)}</Text>
+                  <Text style={styles.placeAmount}>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</Text>
                   <Text style={styles.placeTotal}>TOTAL</Text>
                 </View>
                 {paying ? (

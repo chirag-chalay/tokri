@@ -8,9 +8,8 @@ import Footer from '../components/Footer'
 const PAGE_SIZE = 24
 // A section counts as "current" once its first row passes this far down the panel.
 const ACTIVE_OFFSET_PX = 80
-// Scrolling from one category into the next is mobile-only. On larger screens the
-// panel keeps showing a single category, exactly as before.
-const MOBILE_QUERY = '(max-width: 767px)'
+// Unified breakpoint token matching Header and Cart (lg: 1024px)
+const MOBILE_QUERY = '(max-width: 1023px)'
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() =>
@@ -53,8 +52,16 @@ function ProductCard({ product, onNavigate }) {
 
   return (
     <article
+      role="link"
+      tabIndex={0}
       onClick={() => onNavigate(target)}
-      className="flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-line bg-panel-2 p-1.5 sm:p-2"
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          onNavigate(target)
+        }
+      }}
+      className="flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-line bg-panel-2 p-1.5 sm:p-2 focus:outline-none focus:ring-2 focus:ring-brand/60"
     >
       <div className="relative mb-1 aspect-square overflow-hidden rounded-md bg-panel">
         {off > 0 && (
@@ -794,7 +801,7 @@ export default function ShopAllPage() {
             >
               <div className="min-w-0 px-1.5 pb-3 pt-1 sm:px-2 sm:pb-4">
                 {loadingFeed || !sections.length ? (
-                  <div className="grid grid-cols-2 gap-2 sm:gap-2.5 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-8">
+                  <div className="shop-product-grid grid grid-cols-2 gap-2 sm:gap-2.5 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-8">
                     {Array.from({ length: 12 }).map((_, index) => (
                       <div
                         key={index}
@@ -829,7 +836,7 @@ export default function ShopAllPage() {
                         }}
                         className="min-w-0 pt-2 first:pt-0"
                       >
-                        <div className="grid grid-cols-2 gap-2 sm:gap-2.5 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-8">
+                        <div className="shop-product-grid grid grid-cols-2 gap-2 sm:gap-2.5 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-8">
                           {section.products.map((product) => (
                             <ProductCard
                               key={`${section.slug}-${product.id}`}

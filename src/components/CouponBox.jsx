@@ -6,10 +6,18 @@ export default function CouponBox({ compact = false }) {
   const { coupon, couponError, couponLoading, applyCoupon, removeCoupon } = useCart()
   const [code, setCode] = useState('')
   const [localError, setLocalError] = useState('')
+  const [clearedCouponError, setClearedCouponError] = useState(false)
+
+  const handleInputChange = (event) => {
+    setCode(event.target.value.toUpperCase())
+    if (localError) setLocalError('')
+    if (couponError) setClearedCouponError(true)
+  }
 
   const handleApply = async (event) => {
     event.preventDefault()
     setLocalError('')
+    setClearedCouponError(false)
     try {
       await applyCoupon(code)
       setCode('')
@@ -49,7 +57,7 @@ export default function CouponBox({ compact = false }) {
       <div className="flex gap-2">
         <input
           value={code}
-          onChange={(event) => setCode(event.target.value.toUpperCase())}
+          onChange={handleInputChange}
           placeholder="Enter code"
           className="min-w-0 flex-1 rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-white outline-none placeholder:text-muted focus:border-brand"
         />
@@ -61,8 +69,8 @@ export default function CouponBox({ compact = false }) {
           {couponLoading ? '…' : 'Apply'}
         </button>
       </div>
-      {(localError || couponError) && (
-        <p className="mt-2 text-sm text-rose-400">{localError || couponError}</p>
+      {(localError || (!clearedCouponError ? couponError : '')) && (
+        <p className="mt-2 text-sm text-rose-400">{localError || (!clearedCouponError ? couponError : '')}</p>
       )}
     </form>
   )

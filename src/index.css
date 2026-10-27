@@ -610,3 +610,77 @@ h1.blog-detail-title {
     transform: rotate(360deg);
   }
 }
+
+/* ==================================================
+   Mobile Header Responsive Composition
+   ================================================== */
+.mobile-header-logo-wordmark {
+  display: block;
+  height: 25px;
+  width: auto;
+  max-width: 86px;
+  object-fit: contain;
+}
+
+.mobile-header-logo-symbol {
+  display: none;
+  height: 28px;
+  width: auto;
+  max-width: 38px;
+  object-fit: contain;
+}
+
+/* Homepage responsive rules */
+@media (min-width: 410px) {
+  .mobile-header-home .mobile-header-logo-wordmark {
+    max-width: 96px;
+    height: 27px;
+  }
+}
+
+@media (max-width: 385px) {
+  .mobile-header-home .mobile-header-logo-wordmark {
+    max-width: 76px;
+    height: 23px;
+  }
+}
+
+/* At 365px and below (360px, 320px), use compact mark to give delivery block ample breathing room */
+@media (max-width: 365px) {
+  .mobile-header-home .mobile-header-logo-wordmark {
+    display: none;
+  }
+  .mobile-header-home .mobile-header-logo-symbol {
+    display: block;
+    height: 26px;
+  }
+}
+
+/* Inner pages responsive rules (when Back navigation button is present) */
+.mobile-header-inner .mobile-header-logo-wordmark {
+  display: none;
+}
+.mobile-header-inner .mobile-header-logo-symbol {
+  display: block;
+  height: 26px;
+}
+
+@media (min-width: 400px) {
+  .mobile-header-inner .mobile-header-logo-wordmark {
+    display: block;
+    max-width: 80px;
+    height: 24px;
+  }
+  .mobile-header-inner .mobile-header-logo-symbol {
+    display: none;
+  }
+}
+
+/* ==================================================
+   BUG-010: Narrow Screen Shop Product Grid Protection (<=340px)
+   ================================================== */
+@media (max-width: 340px) {
+  .shop-product-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+}
