@@ -50,16 +50,20 @@ export default function DeliveryAddressBar({ className = '', variant = 'mobile' 
   }
 
   return (
-    <div className={className}>
-      <p className="text-[16px] font-bold leading-tight text-white">Delivery to</p>
+    <div className={`min-w-0 flex flex-col justify-center ${className}`}>
+      <p className="text-[12px] sm:text-[13px] font-semibold leading-tight text-white/90 whitespace-nowrap tracking-tight">
+        Delivery To
+      </p>
       <button
         type="button"
         onClick={openPicker}
-        className="mt-0.5 flex max-w-full cursor-pointer items-center gap-1 text-left text-[11px] sm:gap-1.5 sm:text-xs"
+        className="mt-0.5 flex max-w-full cursor-pointer items-center gap-1 text-left text-[11px] sm:text-xs leading-tight text-mint transition hover:text-white"
       >
         <span
           className={`truncate ${
-            needsAddress && !detectedLabel && !locating ? 'font-semibold text-brand' : 'text-mint'
+            needsAddress && !detectedLabel && !locating
+              ? 'font-semibold text-brand'
+              : 'font-medium text-mint'
           }`}
         >
           {label}
@@ -67,10 +71,10 @@ export default function DeliveryAddressBar({ className = '', variant = 'mobile' 
         {canChangeAddress ? (
           <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold text-mint">
             Change
-            <ChevronDown size={12} />
+            <ChevronDown size={11} />
           </span>
         ) : (
-          <ChevronDown size={14} className="shrink-0 text-muted" />
+          <ChevronDown size={13} className="shrink-0 text-mint/70" />
         )}
       </button>
     </div>

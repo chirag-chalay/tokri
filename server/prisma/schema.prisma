@@ -319,6 +319,8 @@ model Setting {
   expressDeliverySubtitle   String?  @default("On-Demand Luxury")
   expressShippingFee        Decimal  @default(99) @db.Decimal(10, 2)
   expressFreeAbove          Decimal  @default(0) @db.Decimal(10, 2)
+  expressMinimumOrderValue  Decimal  @default(1251) @db.Decimal(10, 2)
+  firstThreeMorningEnabled  Boolean  @default(true)
   homeBannerImage           String?  @db.Text
   homeMobileBannerImage     String?  @db.Text
   homeHighlightImage        String?  @db.Text

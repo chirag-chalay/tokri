@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'
 import CouponBox from './CouponBox'
 import { formatDeliveryCharge } from '../lib/delivery'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 const formatPrice = (value) => `₹${value.toLocaleString('en-IN')}`
 
@@ -18,11 +19,14 @@ export default function CartDrawer() {
     handlingCharge,
     discount,
     grandTotal,
+    quoteLoading,
     showDrawer,
     closeDrawer,
     updateQuantity,
     removeItem,
   } = useCart()
+
+  const containerRef = useFocusTrap(Boolean(showDrawer), closeDrawer)
 
   if (!showDrawer) return null
 
@@ -32,9 +36,17 @@ export default function CartDrawer() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={closeDrawer}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Shopping Cart Drawer"
+      className="fixed inset-0 z-50 flex justify-end bg-black/50"
+      onClick={closeDrawer}
+    >
       <div
-        className="w-full max-w-md overflow-y-auto border-l border-line bg-panel p-6 text-white"
+        ref={containerRef}
+        tabIndex={-1}
+        className="w-full max-w-md overflow-y-auto border-l border-line bg-panel p-6 text-white outline-none"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">
@@ -113,7 +125,7 @@ export default function CartDrawer() {
               </div>
               <div className="flex items-center justify-between text-sm text-muted">
                 <span>Delivery charges</span>
-                <span className={deliveryCharge > 0 ? '' : 'text-mint'}>{formatDeliveryCharge(deliveryCharge)}</span>
+                <span className={deliveryCharge > 0 ? '' : 'text-mint'}>{quoteLoading ? 'Calculating…' : formatDeliveryCharge(deliveryCharge)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex items-center justify-between text-sm text-mint">
@@ -123,7 +135,7 @@ export default function CartDrawer() {
               )}
               <div className="flex items-center justify-between border-t border-line pt-4 text-base font-semibold text-white">
                 <span>Total</span>
-                <span>{formatPrice(grandTotal)}</span>
+                <span>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</span>
               </div>
             </div>
 

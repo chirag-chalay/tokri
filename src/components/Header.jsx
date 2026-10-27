@@ -6,6 +6,7 @@ import SearchBox from './SearchBox'
 import AccountMenu from './AccountMenu'
 import DeliveryAddressBar from './DeliveryAddressBar'
 import tokriLogo from '../assets/tokri-logo.png'
+import tokriMark from '../assets/tokri-mark.png'
 
 export default function Header({ onLoginClick, className = '' }) {
   const navigate = useNavigate()
@@ -43,32 +44,62 @@ export default function Header({ onLoginClick, className = '' }) {
     <header
       className={`sticky top-0 z-50 w-full border-b border-line bg-panel shadow-sm shadow-black/20 ${className}`}
     >
-      {/* Mobile header — address left, profile right (no logo) */}
+      {/* Mobile header */}
       <div className="lg:hidden">
-        <div className="px-4 pb-3 pt-3">
-          <div className="flex items-center gap-3">
-            {showMobileBack ? (
-              <button
-                type="button"
-                onClick={handleMobileBack}
-                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center text-white"
-                aria-label="Go back"
+        <div className="px-3 py-2.5 sm:px-4 sm:py-3">
+          <div
+            className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center ${
+              showMobileBack
+                ? 'mobile-header-inner gap-2 sm:gap-2.5'
+                : 'mobile-header-home gap-2.5 sm:gap-3.5'
+            }`}
+          >
+            {/* Zone 1 (Left): Tokriii Logo or Back + Logo */}
+            <div className="flex shrink-0 items-center gap-1">
+              {showMobileBack && (
+                <button
+                  type="button"
+                  onClick={handleMobileBack}
+                  className="inline-flex h-10 w-9 shrink-0 -ml-1 cursor-pointer items-center justify-center text-white transition hover:text-brand"
+                  aria-label="Go back"
+                >
+                  <ArrowLeft size={22} strokeWidth={2.25} />
+                </button>
+              )}
+              <Link
+                to="/"
+                className="inline-flex shrink-0 items-center focus:outline-none"
+                aria-label="Tokriii Home"
               >
-                <ArrowLeft size={22} strokeWidth={2.25} />
-              </button>
-            ) : null}
-            <DeliveryAddressBar className="min-w-0 flex-1" />
+                <img
+                  src={tokriLogo}
+                  alt="tokriii"
+                  className="mobile-header-logo-wordmark"
+                />
+                <img
+                  src={tokriMark}
+                  alt="tokriii"
+                  className="mobile-header-logo-symbol"
+                />
+              </Link>
+            </div>
+
+            {/* Zone 2 (Center): Delivery Address Block */}
+            <DeliveryAddressBar className="min-w-0" />
+
+            {/* Zone 3 (Right): Profile / Account Button */}
             <button
               type="button"
               onClick={handleProfileClick}
-              className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line text-white"
+              className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line bg-panel-2/50 text-white transition hover:border-brand/40 hover:bg-panel-2"
               aria-label={isLoggedIn ? 'Open profile' : 'Log in'}
             >
               <UserRound size={20} />
             </button>
           </div>
 
-          <div className="mt-3">
+          {/* Search Row */}
+          <div className="mt-2.5">
             <SearchBox variant="mobile" />
           </div>
         </div>
@@ -106,9 +137,14 @@ export default function Header({ onLoginClick, className = '' }) {
                 Login
               </button>
             )}
-            <button onClick={openDrawer} className="relative cursor-pointer text-white" type="button">
+            <button
+              onClick={openDrawer}
+              className="relative cursor-pointer text-white"
+              type="button"
+              aria-label={`View shopping cart (${totalCount} items)`}
+            >
               <ShoppingBagIcon size={30} />
-              <span className="absolute -right-2 -top-1 h-[20px] w-[20px] rounded-full bg-brand text-[13px] font-semibold text-black">
+              <span className="absolute -right-2 -top-1 inline-flex h-[20px] w-[20px] items-center justify-center rounded-full bg-brand text-[13px] font-semibold leading-none text-black text-center">
                 {totalCount}
               </span>
             </button>

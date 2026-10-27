@@ -6,36 +6,26 @@ import { useAddress } from './AddressContext'
 import {
   DEFAULT_DELIVERY,
   defaultOptionForAddress,
-  deliveryChargeFor,
   mergeDeliveryConfig,
 } from '../lib/delivery'
 
 const CartContext = createContext(null)
 const STORAGE_KEY = 'tokri_mobile_cart'
 
-const DEFAULT_RATES = {
-  deliveryCharge: 25,
-  handlingCharge: 2,
-}
-
-function withTotals(items, rates = DEFAULT_RATES, discount = 0) {
+function withTotals(items, _rates, discount = 0) {
   const safeItems = Array.isArray(items) ? items : []
   const itemsTotal = safeItems.reduce((sum, item) => sum + Number(item.priceValue) * Number(item.quantity), 0)
   const hasItems = safeItems.length > 0
-  const deliveryCharge = hasItems
-    ? deliveryChargeFor(rates.option || 'morning', itemsTotal, rates.delivery || DEFAULT_DELIVERY)
-    : 0
-  const handlingCharge = hasItems ? Number(rates.handlingCharge || 0) : 0
   const safeDiscount = hasItems ? Math.max(0, Number(discount) || 0) : 0
 
   return {
     items: safeItems,
     itemsTotal,
-    deliveryCharge,
-    handlingCharge,
+    deliveryCharge: 0,
+    handlingCharge: 0,
     smallCartCharge: 0,
     discount: safeDiscount,
-    grandTotal: Math.max(0, itemsTotal + deliveryCharge + handlingCharge - safeDiscount),
+    grandTotal: 0,
     totalCount: safeItems.reduce((sum, item) => sum + Number(item.quantity), 0),
   }
 }
@@ -93,10 +83,11 @@ export function CartProvider({ children }) {
   const { token, isLoggedIn, booting } = useAuth()
   const { selectedAddress } = useAddress()
   const [rates, setRates] = useState({
-    ...DEFAULT_RATES,
     option: 'morning',
     delivery: DEFAULT_DELIVERY,
   })
+  const [quoteState, setQuoteState] = useState(null)
+  const [quoteError, setQuoteError] = useState('')
   const [deliveryOption, setDeliveryOption] = useState('morning')
   const [cart, setCart] = useState(withTotals([]))
   const [coupon, setCoupon] = useState(null)
@@ -107,6 +98,56 @@ export function CartProvider({ children }) {
   const itemsRef = useRef([])
   const sessionRef = useRef(null)
   itemsRef.current = cart.items
+
+  const quoteKey = JSON.stringify({
+    items: cart.items.map((item) => [item.slug, item.quantity]),
+    option: rates.option || deliveryOption,
+    discount: coupon?.discount || 0,
+    customer: isLoggedIn ? token : null,
+  })
+  const quote = quoteState?.key === quoteKey ? quoteState.data : null
+  const quoteLoading = cart.items.length > 0 && !quote
+
+  useEffect(() => {
+    if (!cart.items.length) return undefined
+    let ignore = false
+    const body = {
+      items: cart.items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
+      deliveryOption: rates.option || deliveryOption,
+      discount: coupon?.discount || 0,
+    }
+    const request = isLoggedIn && token
+      ? authPost('/checkout/quote', token, body)
+      : postJson('/checkout/quote', body)
+    request.then((data) => {
+      if (ignore) return
+      setQuoteState({ key: quoteKey, data })
+      setQuoteError('')
+    }).catch((error) => {
+      if (!ignore) setQuoteError(error.message || 'Could not calculate delivery charges.')
+    })
+    return () => { ignore = true }
+  }, [quoteKey, token])
+
+  const refreshDeliveryQuote = useCallback(async () => {
+    if (!cart.items.length) return null
+    const body = {
+      items: cart.items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
+      deliveryOption: rates.option || deliveryOption,
+      discount: coupon?.discount || 0,
+    }
+    try {
+      const data = isLoggedIn && token
+        ? await authPost('/checkout/quote', token, body)
+        : await postJson('/checkout/quote', body)
+      setQuoteState({ key: quoteKey, data })
+      setQuoteError('')
+      return data
+    } catch (error) {
+      setQuoteError(error.message || 'Could not calculate delivery charges.')
+      throw error
+    }
+  }, [cart.items, coupon?.discount, deliveryOption, isLoggedIn, quoteKey, rates.option, token])
 
   const persist = useCallback(async (nextCart) => {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextCart))
@@ -137,8 +178,6 @@ export function CartProvider({ children }) {
         if (ignore || !data?.charges) return
         setRates((current) => ({
           ...current,
-          deliveryCharge: Number(data.charges.deliveryCharge ?? DEFAULT_RATES.deliveryCharge),
-          handlingCharge: Number(data.charges.handlingCharge ?? DEFAULT_RATES.handlingCharge),
           delivery: mergeDeliveryConfig(data.charges.delivery || data.settings?.charges?.delivery),
         }))
       })
@@ -487,10 +526,14 @@ export function CartProvider({ children }) {
       cart,
       items: cart.items,
       totalCount: cart.totalCount,
-      grandTotal: cart.grandTotal,
-      itemsTotal: cart.itemsTotal,
-      deliveryCharge: cart.deliveryCharge,
-      handlingCharge: cart.handlingCharge,
+      grandTotal: quote?.totals?.grandTotal ?? 0,
+      itemsTotal: quote?.totals?.itemsTotal ?? cart.itemsTotal,
+      deliveryCharge: quote?.totals?.deliveryCharge ?? 0,
+      handlingCharge: quote?.totals?.handlingCharge ?? 0,
+      quote,
+      quoteLoading,
+      quoteError,
+      refreshDeliveryQuote,
       smallCartCharge: cart.smallCartCharge,
       discount: cart.discount,
       deliveryOption: rates.option || deliveryOption,
@@ -530,6 +573,10 @@ export function CartProvider({ children }) {
     }),
     [
       cart,
+      quote,
+      quoteLoading,
+      quoteError,
+      refreshDeliveryQuote,
       rates,
       deliveryOption,
       selectedAddress,

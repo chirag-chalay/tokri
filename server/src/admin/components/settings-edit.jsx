@@ -43,6 +43,8 @@ const TABS = [
       'expressDeliverySubtitle',
       'expressShippingFee',
       'expressFreeAbove',
+      'expressMinimumOrderValue',
+      'firstThreeMorningEnabled',
       'handlingFee',
     ],
   },
@@ -720,7 +722,26 @@ const SettingsEdit = (props) => {
                         <span className="tokri-field-hint">0 means no free delivery</span>
                       </label>
                     </div>
+                    <label className="tokri-coupon-label">
+                      Minimum order value (₹)
+                      <input
+                        className="tokri-coupon-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={record?.params?.expressMinimumOrderValue ?? ''}
+                        onChange={(event) => handleChange('expressMinimumOrderValue', event.target.value)}
+                      />
+                    </label>
                   </section>
+                  <label className="tokri-coupon-label">
+                    <input
+                      type="checkbox"
+                      checked={isFlagOn(record?.params?.firstThreeMorningEnabled)}
+                      onChange={(event) => handleChange('firstThreeMorningEnabled', event.target.checked)}
+                    />
+                    First 3 orders free on Morning Delivery
+                  </label>
                   <label className="tokri-coupon-label tokri-charges-handling">
                     Handling charge (₹)
                     <input

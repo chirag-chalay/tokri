@@ -10,8 +10,6 @@ import { formatPrice, loadRazorpayScript } from '../lib/checkout'
 import {
   formatDeliveryCharge,
   mergeDeliveryConfig,
-  remainingForFreeDelivery,
-  waivedDeliveryAmount,
 } from '../lib/delivery'
 import { addressLabelIcon } from '../components/account/AccountSidebar'
 import AddressFormModal from '../components/account/AddressFormModal'
@@ -35,8 +33,10 @@ export default function CheckoutPage() {
     deliveryConfig,
     setDeliveryConfig,
     pinDelivery,
-    freeDelivery,
-    isFreeDeliveryEligible,
+    quote,
+    quoteLoading,
+    quoteError,
+    refreshDeliveryQuote,
     refreshFreeDelivery,
   } = useCart()
 
@@ -62,6 +62,7 @@ export default function CheckoutPage() {
         ])
         if (ignore) return
         refreshFreeDelivery?.()
+        refreshDeliveryQuote?.().catch(() => {})
         const onlineOn = Boolean(config?.razorpay?.enabled)
         const allowCod = config?.codEnabled !== false
         setRazorpayEnabled(onlineOn)
@@ -183,6 +184,7 @@ export default function CheckoutPage() {
   }
 
   const handleCheckout = async () => {
+    if (quoteLoading || !quote || !quote.options?.[deliveryOption]?.minimumMet) return
     if (!isLoggedIn) {
       Swal.fire({
         icon: 'info',
@@ -227,6 +229,11 @@ export default function CheckoutPage() {
 
     setPaying(true)
     try {
+      const currentQuote = await refreshDeliveryQuote()
+      const currentOption = currentQuote?.options?.[deliveryOption]
+      if (!currentOption?.minimumMet) {
+        throw new Error(currentOption?.minimumMessage || 'This delivery option is not available for this order.')
+      }
       const checkout = await authPost('/checkout/create-order', user, {
         items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
         addressId: selectedAddressId,
@@ -263,7 +270,7 @@ export default function CheckoutPage() {
     }
   }
 
-  const remainingForFree = remainingForFreeDelivery(deliveryOption, itemsTotal, deliveryConfig)
+  const selectedQuote = quote?.options?.[deliveryOption]
   const itemSavings = cartItems.reduce((sum, item) => {
     const oldPrice = Number(item.oldPriceValue) || Number(String(item.oldPrice || '').replace(/[^0-9.]/g, ''))
     const price = Number(item.priceValue)
@@ -271,7 +278,7 @@ export default function CheckoutPage() {
     return sum + (oldPrice - price) * Number(item.quantity || 0)
   }, 0)
   const totalSavings = Math.round(
-    (itemSavings + Number(discount || 0) + waivedDeliveryAmount(deliveryOption, itemsTotal, deliveryConfig)) * 100,
+    (itemSavings + Number(discount || 0) + Number(selectedQuote?.deliverySavings || 0)) * 100,
   ) / 100
 
   if (!cartItems.length && !paying) {
@@ -397,7 +404,7 @@ export default function CheckoutPage() {
               <p className="mt-1 text-sm text-muted">Morning is selected when it is available for your PIN.</p>
               <fieldset className="mt-4 space-y-3">
                 {['morning', 'express'].map((optionId) => {
-                  const copy = deliveryConfig?.[optionId] || {}
+                  const copy = quote?.options?.[optionId] || deliveryConfig?.[optionId] || {}
                   const availability =
                     addresses.find((item) => item.id === selectedAddressId)?.delivery || pinDelivery
                   const enabled = Boolean(availability?.[optionId]?.enabled)
@@ -426,11 +433,16 @@ export default function CheckoutPage() {
                       />
                       <span>
                         <span className="block font-semibold text-white">
-                          {copy.title || (optionId === 'express' ? 'Same day' : 'Flawless Morning Delivery')}
-                          {comingSoon ? ' (coming soon)' : isFreeDeliveryEligible ? ' — ₹0 (Free)' : ''}
+                          {copy.title}
+                          {comingSoon ? ' (coming soon)' : quote
+                            ? ` — ${formatDeliveryCharge(copy.deliveryFee)}`
+                            : ' — Calculating…'}
                         </span>
                         {copy.subtitle ? (
                           <span className="mt-1 block text-sm text-muted">{copy.subtitle}</span>
+                        ) : null}
+                        {copy.minimumMessage ? (
+                          <span className="mt-1 block text-sm text-muted">{copy.minimumMessage}</span>
                         ) : null}
                       </span>
                     </label>
@@ -477,16 +489,16 @@ export default function CheckoutPage() {
               <div className="flex justify-between">
                 <span>Delivery charges</span>
                 <span className={deliveryCharge > 0 ? '' : 'text-mint'}>
-                  {isFreeDeliveryEligible ? 'Free' : formatDeliveryCharge(deliveryCharge)}
+                  {quoteLoading ? 'Calculating…' : formatDeliveryCharge(deliveryCharge)}
                 </span>
               </div>
-              {isFreeDeliveryEligible ? (
+              {selectedQuote?.freeDeliveryApplied && selectedQuote.offerMessage ? (
                 <p className="text-xs text-mint">
-                  🎉 First 3 Orders Offer: Free delivery applied ({freeDelivery?.remaining} left)
+                  {selectedQuote.offerMessage}
                 </p>
-              ) : remainingForFree > 0 ? (
+              ) : selectedQuote?.freeAboveMessage ? (
                 <p className="text-xs text-mint">
-                  Add {formatPrice(remainingForFree)} more for free delivery
+                  {selectedQuote.freeAboveMessage}
                 </p>
               ) : null}
               {discount > 0 && (
@@ -499,7 +511,7 @@ export default function CheckoutPage() {
 
             <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-lg font-bold text-white">
               <span>Total</span>
-              <span>{formatPrice(grandTotal)}</span>
+              <span>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</span>
             </div>
             {totalSavings > 0 && (
               <div className="mt-3 rounded-xl bg-emerald-950/60 px-3 py-2 text-sm font-semibold text-mint">
@@ -535,11 +547,29 @@ export default function CheckoutPage() {
               </fieldset>
             )}
 
+            {/* Contextual guidance if checkout CTA is disabled */}
+            {!isLoggedIn ? (
+              <p className="mt-3 text-xs text-amber-300 text-center font-medium">
+                Please log in to complete your order
+              </p>
+            ) : !addresses.length ? (
+              <p className="mt-3 text-xs text-amber-300 text-center font-medium">
+                Add a delivery address to proceed
+              </p>
+            ) : !selectedQuote?.minimumMet ? (
+              <p className="mt-3 text-xs text-amber-300 text-center font-medium">
+                Minimum order amount not met
+              </p>
+            ) : null}
+
             <button
               type="button"
               onClick={handleCheckout}
               disabled={
                 paying ||
+                quoteLoading ||
+                !quote ||
+                !selectedQuote?.minimumMet ||
                 loading ||
                 !isLoggedIn ||
                 !addresses.length ||
@@ -552,9 +582,10 @@ export default function CheckoutPage() {
               {paying
                 ? 'Processing...'
                 : paymentMode === 'online'
-                  ? `Pay ${formatPrice(grandTotal)}`
+                  ? `Pay ${quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}`
                   : 'Place order (Cash on delivery)'}
             </button>
+            {quoteError ? <p className="mt-2 text-sm text-rose-400">{quoteError}</p> : null}
           </aside>
         </div>
       </div>

@@ -21,6 +21,8 @@ export const ALLOWED_SETTING_FIELDS = new Set([
   'expressDeliverySubtitle',
   'expressShippingFee',
   'expressFreeAbove',
+  'expressMinimumOrderValue',
+  'firstThreeMorningEnabled',
   'shippingFee',
   'handlingFee',
   'homeBannerImage',
@@ -56,9 +58,11 @@ const NUMBER_FIELDS = new Set([
   'morningFreeAbove',
   'expressShippingFee',
   'expressFreeAbove',
+  'expressMinimumOrderValue',
 ])
 
 const BOOLEAN_FIELDS = new Set([
+  'firstThreeMorningEnabled',
   'razorpayEnabled',
   'codEnabled',
   'msg91Enabled',

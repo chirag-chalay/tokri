@@ -10,14 +10,15 @@ import {
   verifyRazorpayPayment,
 } from './razorpay.js'
 import { listAddresses, snapshotCurrentAddress } from './addresses.js'
-import { calcCartTotals, calcItemTax, getChargeRates, publicDeliveryConfig } from '../config/charges.js'
+import { calcCartTotals, calcItemTax, publicDeliveryConfig } from '../config/charges.js'
 import { clearCart, getCartCheckoutItems } from './cart.js'
 import { applyCouponToItems, findActiveCoupon, redeemCoupon } from './coupons.js'
 import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
 import { notifyOrderStatus } from './push.js'
 import { notifyConfirmedOrder } from './msg91.js'
 import { assignmentForPincode, assertDeliveryOptionEnabled, expectedDeliveryDate } from './delivery.js'
-import { applyFreeDeliveryRates, getCustomerFreeDeliveryStatus } from './freeDelivery.js'
+import { getCustomerFreeDeliveryStatus } from './freeDelivery.js'
+import { getDeliveryDecision } from './deliveryQuote.js'
 
 export function isStoreIntraState(customerState) {
   if (!customerState) return true
@@ -118,13 +119,13 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
   const cartItems = await resolveCartItems(sourceItems)
   const address = await resolveAddress(user, addressId, addressSnapshot)
   const { option } = await assertDeliveryOptionEnabled(address.pincode, deliveryOption || address.delivery?.defaultOption)
-  let rates = await getChargeRates(option)
-
-  const freeDeliveryStatus = await getCustomerFreeDeliveryStatus(user.id)
-  const isFreeDelivery = Boolean(freeDeliveryStatus?.isEligible)
-  if (isFreeDelivery) {
-    rates = applyFreeDeliveryRates(rates)
+  const itemsTotal = cartItems.reduce((sum, item) => sum + item.priceValue * item.quantity, 0)
+  const decision = await getDeliveryDecision(user.id, option, itemsTotal)
+  if (!decision.minimumMet) {
+    throw Object.assign(new Error(decision.minimumMessage), { status: 400 })
   }
+  const rates = decision.rates
+  const isFreeDelivery = decision.freeDeliveryApplied
 
   const isInterState = !isStoreIntraState(address.state)
   let totals = calcCartTotals(cartItems, rates, 0, isInterState)
