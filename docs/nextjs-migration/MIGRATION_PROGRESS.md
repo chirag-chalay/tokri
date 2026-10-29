@@ -8,6 +8,6 @@ Local commands: `npm run dev` (Vite, 5222), `npm run build:next`, and `npm run s
 
 For these checks, the API used the restored local database through a read-only account and a local outbound network guard. No order, payment or OTP operation was tested. Product imagery used existing backend data and upload fallback.
 
-Homepage captures are in `before/`, `after/`, and `diff/` at 1440×900, 768×1024 and 390×844. These are viewport-only comparisons, not full-page or complete route parity checks. The pixel differences for these captures were zero. Other requested resolutions and flows remain untested.
+Homepage captures are in `before/`, `after/`, and `diff/` at 1440×900, 768×1024 and 390×844. These are viewport-only comparisons, not full-page or complete route parity checks. The 390×844 capture matched exactly; the 1440×900 and 768×1024 captures differed by 53 and 68 pixels respectively. The cause of these small differences has not been investigated. Other requested resolutions and flows remain untested.
 
 Next: migrate providers and the shared shell from React Router to App Router, then move indexable routes to server-rendered data with dynamic metadata, valid 404s, structured data, sitemap and robots. Verify all interactions and requested visual states before a staging PR is marked ready.
