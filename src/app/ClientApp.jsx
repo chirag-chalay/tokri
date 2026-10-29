@@ -11,5 +11,5 @@ export default function ClientApp() {
     installUploadFallback()
     installAnalytics()
   }, [])
-  return <BrowserRouter><App /></BrowserRouter>
+  return <BrowserRouter><App migratedRoutes /></BrowserRouter>
 }

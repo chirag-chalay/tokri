@@ -34,9 +34,15 @@ export default async function ProductPage({ params }) {
     ...(item.image && /^https?:\/\//i.test(item.image) ? { image: item.image } : {}),
     ...(item.sku ? { sku: item.sku } : {}),
     ...(item.currency && Number.isFinite(Number(item.priceValue)) ? {
-      offers: { '@type': 'Offer', url, priceCurrency: item.currency, price: item.priceValue,
-        ...(typeof item.stock === 'number' ? { availability: item.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' } : {}) },
+      offers: { '@type': 'Offer', url, priceCurrency: item.currency, price: item.priceValue },
     } : {}),
   }
-  return <NextShell><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(json) }} /><ProductView product={product} relatedProducts={relatedProducts} /></NextShell>
+  const breadcrumbItems = [{ name: 'Home', item: `${canonicalOrigin}/` }]
+  if (item.category?.label && (item.category.slug || item.categoryId)) {
+    breadcrumbItems.push({ name: item.category.label, item: `${canonicalOrigin}/shop?category=${encodeURIComponent(item.category.slug || item.categoryId)}` })
+  }
+  breadcrumbItems.push({ name: item.name, item: url })
+  const breadcrumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: breadcrumbItems.map((entry, index) => ({ '@type': 'ListItem', position: index + 1, ...entry })) }
+  return <NextShell><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(json) }} /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbs) }} /><ProductView product={product} relatedProducts={relatedProducts} /></NextShell>
 }
