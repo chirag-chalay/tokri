@@ -11,3 +11,9 @@ For these checks, the API used the restored local database through a read-only a
 Homepage captures are in `before/`, `after/`, and `diff/` at 1440×900, 768×1024 and 390×844. These are viewport-only comparisons, not full-page or complete route parity checks. The 390×844 capture matched exactly; the 1440×900 and 768×1024 captures differed by 53 and 68 pixels respectively. The cause of these small differences has not been investigated. Other requested resolutions and flows remain untested.
 
 Next: migrate providers and the shared shell from React Router to App Router, then move indexable routes to server-rendered data with dynamic metadata, valid 404s, structured data, sitemap and robots. Verify all interactions and requested visual states before a staging PR is marked ready.
+
+## Public data and crawl controls
+
+A server-only, unauthenticated, no-store public API layer now backs request-time product/blog metadata and the sitemap. Existing product/blog pages are still rendered by the React Router bridge; this is not an SSR migration. Missing product and blog records now return 404. `/robots.txt` disallows all crawling unless indexing is explicitly enabled and the request uses a production hostname. Root metadata also defaults to noindex; private bridge routes remain noindex even when public indexing is enabled.
+
+Local validation: `npm run build:next`, targeted ESLint, and `node scripts/verify-next-seo.mjs` passed against the read-only local API. Sitemap XML contained 64 active product URLs, 8 category query URLs, and 8 published blog URLs in the restored local data. A simulated unavailable API returned 503 for the sitemap. An explicit production-host/opt-in simulation on localhost checked private-route noindex. These are not full SEO, visual or functional regression results.
