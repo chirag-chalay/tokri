@@ -9,7 +9,7 @@ const singleSegmentRoutes = new Set([
   'about', 'careers', 'privacy-policy', 'terms-and-conditions',
   'help-faqs', 'returns-policy', 'support-center',
 ])
-const twoSegmentRoutes = new Set(['product', 'blog', 'order', 'p'])
+const twoSegmentRoutes = new Set(['blog', 'order', 'p'])
 const privateRoutes = new Set(['cart', 'checkout', 'account', 'login', 'profile', 'order'])
 const loadPublicDetail = cache((kind, slug) => publicGet(`/${kind === 'product' ? 'products' : 'blogs'}/${encodeURIComponent(slug)}`))
 
@@ -20,7 +20,7 @@ function descriptionText(value) {
 export async function generateMetadata({ params }) {
   const { path = [] } = await params
   if (privateRoutes.has(path[0])) return { robots: { index: false, follow: false } }
-  if (path.length !== 2 || !['product', 'blog'].includes(path[0])) return {}
+  if (path.length !== 2 || path[0] !== 'blog') return {}
   const item = await loadPublicDetail(path[0], path[1])
   if (!item) return {}
   const title = path[0] === 'product' ? item.name : item.title
@@ -47,7 +47,7 @@ export default async function Page({ params }) {
     (path.length === 1 && singleSegmentRoutes.has(path[0])) ||
     (path.length === 2 && twoSegmentRoutes.has(path[0]))
   if (!known) notFound()
-  if (path.length === 2 && ['product', 'blog'].includes(path[0])) {
+  if (path.length === 2 && path[0] === 'blog') {
     const item = await loadPublicDetail(path[0], path[1])
     if (!item) notFound()
   }
