@@ -33,3 +33,6 @@ tokri.sql
 *.njsproj
 *.sln
 *.sw?
+
+# Next.js local output
+.next/

@@ -11,10 +11,14 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server:setup": "npm run db:setup --prefix server",
-    "server:start": "npm run start --prefix server"
+    "server:start": "npm run start --prefix server",
+    "dev:next": "next dev --webpack --hostname 127.0.0.1 --port 3000",
+    "build:next": "next build --webpack",
+    "start:next": "next start --hostname 127.0.0.1 --port 3000"
   },
   "dependencies": {
     "lucide-react": "^1.8.0",
+    "next": "16.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0",

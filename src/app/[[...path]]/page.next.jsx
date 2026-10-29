@@ -1,0 +1,18 @@
+import { notFound } from 'next/navigation'
+import LegacyBridge from '../LegacyBridge'
+
+const singleSegmentRoutes = new Set([
+  'shop', 'blog', 'cart', 'checkout', 'account', 'login', 'profile',
+  'about', 'careers', 'privacy-policy', 'terms-and-conditions',
+  'help-faqs', 'returns-policy', 'support-center',
+])
+const twoSegmentRoutes = new Set(['product', 'blog', 'order', 'p'])
+
+export default async function Page({ params }) {
+  const { path = [] } = await params
+  const known = path.length === 0 ||
+    (path.length === 1 && singleSegmentRoutes.has(path[0])) ||
+    (path.length === 2 && twoSegmentRoutes.has(path[0]))
+  if (!known) notFound()
+  return <LegacyBridge />
+}
