@@ -38,6 +38,19 @@ for (const [kind, item] of [['product', products[0]], ['blog', blogs[0]]]) {
   assert.equal(textContent(headings[0]), name, `${kind} H1 missing from server HTML`)
   const title = findAll((node) => node.type === 'tag' && node.name === 'title', dom.children)[0]
   assert.ok(textContent(title).includes(name), `${kind} title incorrect`)
+  const meta = findAll((node) => node.type === 'tag' && node.name === 'meta', dom.children)
+  assert.ok(meta.find((node) => node.attribs.property === 'og:title')?.attribs.content.includes(name), `${kind} Open Graph title incorrect`)
+  const description = kind === 'product' ? item.description : item.excerpt
+  if (description) {
+    const expected = textContent(parseDocument(description)).replace(/\s+/g, ' ').trim()
+    assert.equal(meta.find((node) => node.attribs.name === 'description')?.attribs.content, expected, `${kind} description incorrect`)
+    assert.equal(meta.find((node) => node.attribs.property === 'og:description')?.attribs.content, expected, `${kind} Open Graph description incorrect`)
+  }
+  const sourceImage = kind === 'product' ? item.image : item.coverImage
+  if (sourceImage && /^https?:\/\//i.test(sourceImage)) {
+    assert.equal(meta.find((node) => node.attribs.property === 'og:image')?.attribs.content, sourceImage, `${kind} Open Graph image incorrect`)
+  }
+
   const canonical = findAll((node) => node.type === 'tag' && node.name === 'link' && node.attribs.rel === 'canonical', dom.children)[0]
   assert.equal(canonical?.attribs.href, `https://tokriii.com/${kind}/${slug}`)
   const scripts = findAll((node) => node.name === 'script' && node.attribs?.type === 'application/ld+json', dom.children)
