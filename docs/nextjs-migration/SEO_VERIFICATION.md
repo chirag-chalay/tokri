@@ -1,12 +1,12 @@
 # SEO verification
 
-The migration is not SEO-ready. The React Router bridge remains client-only; blog page bodies, homepage and shop content are absent from initial HTML. Product content is present in initial HTML. Dynamic category metadata, structured data, CMS metadata and CMS missing-record 404 handling remain incomplete.
+This application is not yet SEO-ready overall. Product and article details now render their visible content in the initial HTML; homepage, shop, blog listing and CMS pages remain in the client-only bridge. Dynamic category metadata, category canonical strategy and CMS missing-record 404 handling remain incomplete. Product breadcrumbs use its existing navigation data.
 
-Completed local checks:
+Local checks:
 
-- Product and article dynamic titles, canonical URLs and Open Graph titles use data from the public API; nonexistent slugs return HTTP 404. The product route is server-rendered; the article route remains a bridge route.
-- `/sitemap.xml` reads public products, categories and published blogs dynamically. Local XML parsing checked 64 product, 8 category and 8 blog links, with no private URLs. An API outage returned HTTP 503 instead of a misleading partial sitemap.
-- `/robots.txt` disallows all crawlers on localhost and preview hosts. Enabling public crawling requires `TOKRIII_INDEXING_ENABLED=true` and a production hostname. Root metadata defaults to noindex outside that combination. Cart, checkout, login, profile, account and order paths explicitly remain noindex.
-- `node scripts/verify-next-seo.mjs` exercises metadata, missing-record statuses, preview noindex and sitemap/robots against the safe local API. It checks a product H1, price, image and Product JSON-LD, but does not yet check article-body SSR or complete SEO correctness.
+- `node scripts/verify-next-seo.mjs` inspects the actual initial HTML, not hydration data. It verifies real product/article H1s, product price, weight and image, article paragraphs, heading IDs and image when present, canonical URLs, metadata, JSON-LD and missing-record 404s. It checks the three requested product slugs when they exist in the local data.
+- Product JSON-LD contains API-derived name, description, image and offer price/currency where present. It does not invent ratings or availability. BlogPosting uses the API title, excerpt, image, publication date and author where supplied.
+- `/sitemap.xml` reads public products, categories and published blogs dynamically; API failure returns HTTP 503. The query-category canonical strategy still needs review when shop SSR is migrated.
+- `/robots.txt` disallows crawling on localhost and preview hosts. Public crawling requires `TOKRIII_INDEXING_ENABLED=true` and a production hostname. Root metadata defaults to noindex outside that combination. Cart, checkout, login, profile, account and order paths remain noindex.
 
-All category canonical behavior, SEO body output, Article/Breadcrumb JSON-LD and production indexing behavior require further implementation and verification. Do not deploy this intermediate state.
+These tests do not establish full-site SEO correctness or production image access. Do not deploy this intermediate state.
