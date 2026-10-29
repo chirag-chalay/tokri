@@ -21,7 +21,7 @@ import { CartProvider, useCart } from './context/CartContext'
 import { AuthProvider } from './context/AuthContext'
 import { AddressProvider } from './context/AddressContext'
 import Footer from './components/Footer'
-import { trackPageView } from './lib/analytics'
+import { trackPageView } from './lib/telemetry'
 
 const CMS_PAGE_PATHS = [
   '/about',
