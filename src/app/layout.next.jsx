@@ -1,6 +1,12 @@
 import '../index.css'
+import { headers } from 'next/headers'
+import { indexingEnabled } from '../lib/server/indexing'
 
-export const metadata = { title: 'Tokriii — Premium & Exotic Fruits' }
+export async function generateMetadata() {
+  const requestHeaders = await headers()
+  const index = indexingEnabled(requestHeaders.get('host'))
+  return { title: 'Tokriii — Premium & Exotic Fruits', robots: { index, follow: index } }
+}
 
 export default function RootLayout({ children }) {
   return (
