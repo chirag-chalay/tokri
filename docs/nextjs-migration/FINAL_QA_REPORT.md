@@ -52,11 +52,14 @@ The migration achieves full route independence from the React Router bridge, syn
     - Implemented strict fail-closed validation in `scripts/verify-backend-contracts.mjs` before dynamic `await import(...)` of database-dependent modules, rejecting missing, malformed, remote, or unauthorized database URLs.
     - Acquired and vendored officially licensed (SIL OFL 1.1) Plus Jakarta Sans WOFF2 fonts (weights 400, 500, 600, 700 normal; 400 italic) into `public/fonts/` with `fonts.css`.
     - Added `headers()` in `next.config.mjs` emitting `X-Robots-Tag: noindex, nofollow` when `TOKRIII_INDEXING_ENABLED !== 'true'`, verified via `curl -sI`.
-11. `Current`: `test: add 10-viewport playwright parity audit suite, capture screenshots, and document responsive layout metrics`
+11. `b1d6c66`: `test: add 10-viewport playwright parity audit suite, capture screenshots, and document responsive layout metrics`
     - Added automated Playwright comparison script `scripts/verify-viewport-parity.mjs` executing side-by-side Vite vs Next.js tests across all 10 viewports.
     - Verified exact responsive layout and structural dimensions across all 10 device sizes (0px difference in header heights and container widths).
     - Captured initial paint and post-hydration screenshot evidence into `docs/ui-parity-audit/screenshots/`.
     - Created comprehensive audit report `docs/nextjs-migration/VIEWPORT_PARITY_AUDIT.md`.
+12. `913537b`: `feat: add host-aware x-robots-tag safeguard and synchronize feature branch to github origin`
+    - Enhanced `next.config.mjs` with host-aware header matching guaranteeing `X-Robots-Tag: noindex, nofollow` on all non-production hosts (staging `server.tokriii.com`, previews, localhost) even if `TOKRIII_INDEXING_ENABLED` is accidentally enabled.
+    - Repointed git remote `origin` to `git@github.com:chirag-chalay/tokri.git` and synchronized `feature/tokriii-react-to-nextjs` directly to GitHub.
 
 ---
 

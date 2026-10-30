@@ -5,20 +5,43 @@ const nextConfig = {
   pageExtensions: ['next.jsx', 'next.js'],
   images: { disableStaticImages: true },
   async headers() {
-    if (process.env.TOKRIII_INDEXING_ENABLED !== 'true') {
-      return [
+    const headersList = []
+
+    // Safeguard 1: Non-production hosts (staging, preview, internal IP, localhost)
+    // ALWAYS emit X-Robots-Tag: noindex, nofollow regardless of environment variables.
+    // This guarantees staging (e.g. server.tokriii.com) remains noindex even if
+    // TOKRIII_INDEXING_ENABLED is accidentally set to 'true'.
+    headersList.push({
+      source: '/:path*',
+      has: [
         {
-          source: '/:path*',
-          headers: [
-            {
-              key: 'X-Robots-Tag',
-              value: 'noindex, nofollow',
-            },
-          ],
+          type: 'host',
+          value: '(?!(www\\.)?tokriii\\.com$).*',
         },
-      ]
+      ],
+      headers: [
+        {
+          key: 'X-Robots-Tag',
+          value: 'noindex, nofollow',
+        },
+      ],
+    })
+
+    // Safeguard 2: If indexing is not explicitly enabled, emit noindex, nofollow
+    // across all domains (including production domain).
+    if (process.env.TOKRIII_INDEXING_ENABLED !== 'true') {
+      headersList.push({
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      })
     }
-    return []
+
+    return headersList
   },
   async rewrites() {
     return [
