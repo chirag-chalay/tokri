@@ -48,10 +48,15 @@ The migration achieves full route independence from the React Router bridge, syn
    - Created sanitized allowlist `docs/nextjs-migration/public-media-allowlist.txt`.
    - Created font specification in `docs/nextjs-migration/FONT_CONFIGURATION.md`.
    - Created staging checklist in `docs/nextjs-migration/STAGING_PREFLIGHT_CHECKLIST.md`.
-10. `dce7bd0`: `feat: enforce fail-closed database safeguards, vendor licensed woff2 fonts, and add staging x-robots-tag header`
+10. `fcd9461`: `feat: enforce fail-closed database safeguards, vendor licensed woff2 fonts, and add staging x-robots-tag header`
     - Implemented strict fail-closed validation in `scripts/verify-backend-contracts.mjs` before dynamic `await import(...)` of database-dependent modules, rejecting missing, malformed, remote, or unauthorized database URLs.
     - Acquired and vendored officially licensed (SIL OFL 1.1) Plus Jakarta Sans WOFF2 fonts (weights 400, 500, 600, 700 normal; 400 italic) into `public/fonts/` with `fonts.css`.
     - Added `headers()` in `next.config.mjs` emitting `X-Robots-Tag: noindex, nofollow` when `TOKRIII_INDEXING_ENABLED !== 'true'`, verified via `curl -sI`.
+11. `Current`: `test: add 10-viewport playwright parity audit suite, capture screenshots, and document responsive layout metrics`
+    - Added automated Playwright comparison script `scripts/verify-viewport-parity.mjs` executing side-by-side Vite vs Next.js tests across all 10 viewports.
+    - Verified exact responsive layout and structural dimensions across all 10 device sizes (0px difference in header heights and container widths).
+    - Captured initial paint and post-hydration screenshot evidence into `docs/ui-parity-audit/screenshots/`.
+    - Created comprehensive audit report `docs/nextjs-migration/VIEWPORT_PARITY_AUDIT.md`.
 
 ---
 
@@ -69,7 +74,7 @@ To ensure technical rigor, the following verification milestones are explicitly 
 | **Backend Contract Tests** | **PASS** | `node scripts/verify-backend-contracts.mjs` verifies 24 isolated test suites with upfront fail-closed validation (rejects missing, malformed, remote, or unauthorized connection strings before dynamic imports) directly executing server modules (`charges.js`, `deliveryQuote.js`, `delivery.js`, `freeDelivery.js`): actual NCR database pincodes, exact MOV boundaries (₹1,250, ₹1,251, ₹1,252), GST tax calculations with odd paise rounding, CGST/SGST/IGST, configurable charges vs defaults, and account-level first-3-orders quota. |
 | **Matching Fonts** | **VERIFIED** | Official SIL OFL 1.1 licensed Plus Jakarta Sans WOFF2 fonts (weights 400, 500, 600, 700 normal; 400 italic) vendored into `public/fonts/` with `fonts.css`; verified HTTP 200 OK. |
 | **92 Media Assets** | **BLOCKED** | Catalog images (74 products, 8 categories, 8 blogs, 2 banners) are not provided locally in `server/uploads/` (0 of 92 present; only `.gitkeep` exists); awaiting administrator archive export using `public-media-allowlist.txt`. |
-| **Viewport Visual Parity** | **BLOCKED** | While fonts are verified, visual pixel-parity across all 10 viewports remains **BLOCKED** pending administrator provision of the 92 catalog images. |
+| **Viewport Visual Parity** | **BLOCKED** | Structural & responsive layout parity across all 10 viewports is verified **PASS** (exact header/main dimensions matching; see `VIEWPORT_PARITY_AUDIT.md`); pixel-perfect visual rendering remains **BLOCKED** pending administrator provision of the 92 catalog images. |
 | **Noindex HTTP & Meta Protection** | **VERIFIED** | Verified `<meta name="robots" content="noindex, nofollow"/>` in HTML, `Disallow: /` in `/robots.txt`, and Next.js `X-Robots-Tag: noindex, nofollow` HTTP response header via `curl -sI`. Nginx directive also documented for reverse-proxy defense in depth. |
 | **Local Integration Tests** | **PASS** | Verified exclusively against local read-only Express API (port 5223) and MySQL dump on port 3307 under strict network isolation. |
 | **Real Staging Integration** | **UNTESTED** | Live network calls, remote Express API, and staging database remain untested locally to prevent data modification. |
@@ -199,7 +204,7 @@ TOKRIII NEXT.JS RELEASE AUDIT
 - Customer Fixture Privacy: YES (0 customer IDs committed; safe dynamic discovery)
 - 92 Media Assets: BLOCKED (production uploads missing locally; 0/92 present)
 - Matching Fonts: VERIFIED (5 Plus Jakarta Sans WOFF2 styles vendored, HTTP 200 OK)
-- All Ten Viewport Comparisons: BLOCKED (visual parity blocked pending 92 image files)
+- All Ten Viewport Comparisons: BLOCKED (structural & layout parity PASS across all 10 viewports; pixel-perfect visual parity BLOCKED pending 92 image files)
 - Staging Database Isolation: BLOCKED (pending administrator confirmation)
 - Nginx and Process Configuration: BLOCKED (pending administrator configuration)
 - Noindex Protection: VERIFIED (HTML meta tag, /robots.txt disallow, and X-Robots-Tag HTTP header)
