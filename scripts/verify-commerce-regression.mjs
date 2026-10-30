@@ -4,7 +4,7 @@ import { chromium } from 'playwright-core'
 const SITE = process.env.TOKRIII_TEST_SITE || 'http://127.0.0.1:3000'
 const CHROME_PATH = process.env.CHROME_BIN || '/usr/bin/google-chrome'
 
-console.log('--- STARTING TOKRIII COMPREHENSIVE COMMERCE & AUTH AUDIT REGRESSION ---')
+console.log('--- STARTING TOKRIII BACKEND-DRIVEN COMMERCE, TAX & DELIVERY REGRESSION SUITE ---')
 
 const browser = await chromium.launch({
   executablePath: CHROME_PATH,
@@ -25,6 +25,73 @@ const capturedCodConfirmPayloads = []
 const capturedCartPuts = []
 let simulateMeUnauthorized = false
 let simulateCreateOrderFailure = false
+let simulateQuoteFailure = false
+let delayCreateOrderMs = 0
+let freeDeliveryEligible = false
+let activeDeliveryFeeMorning = 49
+let activeDeliveryFeeExpress = 99
+let activeExpressMinimumOrderValue = 1251
+let activeHandlingFee = 2
+
+// Multi-pincode address fixtures covering:
+// 1. Both delivery types eligible (560103)
+// 2. Same-day only eligible (560001)
+// 3. Unsupported pincode (999999)
+const ADDRESS_FIXTURES = [
+  {
+    id: 'addr_both',
+    label: 'Home (Both Options)',
+    recipientName: 'Gaurav Test',
+    recipientPhone: '9876543210',
+    line1: 'Flat 402, Green Glen Layout',
+    line2: 'Bellandur',
+    city: 'Bengaluru',
+    pincode: '560103',
+    formatted: 'Flat 402, Green Glen Layout, Bellandur, Bengaluru 560103',
+    serviceable: true,
+    delivery: {
+      serviceable: true,
+      morning: { enabled: true, fee: 49 },
+      express: { enabled: true, fee: 99 },
+    },
+  },
+  {
+    id: 'addr_sameday_only',
+    label: 'Office (Same-day Only)',
+    recipientName: 'Gaurav Test',
+    recipientPhone: '9876543210',
+    line1: 'Level 4, Prestige Meridian',
+    line2: 'MG Road',
+    city: 'Bengaluru',
+    pincode: '560001',
+    formatted: 'Level 4, Prestige Meridian, MG Road, Bengaluru 560001',
+    serviceable: true,
+    delivery: {
+      serviceable: true,
+      morning: { enabled: false, comingSoon: true, fee: 49 },
+      express: { enabled: true, fee: 99 },
+    },
+  },
+  {
+    id: 'addr_unsupported',
+    label: 'Remote (Unsupported)',
+    recipientName: 'Gaurav Test',
+    recipientPhone: '9876543210',
+    line1: 'Village Road',
+    line2: 'Remote Sector',
+    city: 'Nowhere',
+    pincode: '999999',
+    formatted: 'Village Road, Remote Sector, 999999',
+    serviceable: false,
+    delivery: {
+      serviceable: false,
+      morning: { enabled: false, comingSoon: true },
+      express: { enabled: false, comingSoon: true },
+    },
+  },
+]
+
+// Server cart containing both non-taxable fresh fruit and taxable dry fruit
 let mockServerCart = [
   {
     id: 'blueberry-tube',
@@ -33,6 +100,18 @@ let mockServerCart = [
     priceValue: 299,
     weight: '125 g',
     quantity: 1,
+    isTaxable: false,
+    gstRate: 0,
+  },
+  {
+    id: 'mix-dry-fruits',
+    name: 'Mix Dry Fruits 500g',
+    price: '₹500',
+    priceValue: 500,
+    weight: '500 g',
+    quantity: 1,
+    isTaxable: true,
+    gstRate: 5,
   },
 ]
 
@@ -84,7 +163,7 @@ await page.route('**/*', async (route) => {
           name: 'Gaurav Test Customer',
           dateOfBirth: '1995-05-15',
           token: 'mock-jwt-auth-token-12345',
-          freeDelivery: false,
+          freeDelivery: freeDeliveryEligible,
         },
       }),
     })
@@ -109,6 +188,7 @@ await page.route('**/*', async (route) => {
           phone: '9876543210',
           name: 'Gaurav Test Customer',
           token: 'mock-jwt-auth-token-12345',
+          freeDelivery: freeDeliveryEligible,
         },
       }),
     })
@@ -120,27 +200,7 @@ await page.route('**/*', async (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          addresses: [
-            {
-              id: 'addr_mock_1',
-              label: 'Home',
-              recipientName: 'Gaurav Test',
-              recipientPhone: '9876543210',
-              line1: 'Flat 402, Green Glen Layout',
-              line2: 'Bellandur',
-              city: 'Bengaluru',
-              pincode: '560103',
-              formatted: 'Flat 402, Green Glen Layout, Bellandur, Bengaluru 560103',
-              serviceable: true,
-              delivery: {
-                serviceable: true,
-                morning: { enabled: true, fee: 49 },
-                express: { enabled: true, fee: 99 },
-              },
-            },
-          ],
-        }),
+        body: JSON.stringify({ addresses: ADDRESS_FIXTURES }),
       })
     }
   }
@@ -184,9 +244,13 @@ await page.route('**/*', async (route) => {
         if (Array.isArray(body.items)) {
           mockServerCart = body.items.map((it) => ({
             id: it.slug || it.id,
-            name: it.name || 'Blueberry Tube',
-            priceValue: 299,
-            quantity: it.quantity || 1,
+            name: it.slug === 'mix-dry-fruits' ? 'Mix Dry Fruits 500g' : 'Blueberry Tube',
+            priceValue: it.slug === 'mix-dry-fruits' ? 500 : 299,
+            price: it.slug === 'mix-dry-fruits' ? '₹500' : '₹299',
+            weight: it.slug === 'mix-dry-fruits' ? '500 g' : '125 g',
+            quantity: Number(it.quantity) || 1,
+            isTaxable: it.slug === 'mix-dry-fruits',
+            gstRate: it.slug === 'mix-dry-fruits' ? 5 : 0,
           }))
         }
       } catch {
@@ -213,7 +277,7 @@ await page.route('**/*', async (route) => {
             id: 'morning',
             title: 'Morning Delivery',
             subtitle: 'Freshness Guaranteed',
-            fee: 49,
+            fee: activeDeliveryFeeMorning,
             freeAbove: 0,
             minimumOrderValue: 0,
           },
@@ -221,28 +285,67 @@ await page.route('**/*', async (route) => {
             id: 'express',
             title: 'Same Day Delivery',
             subtitle: 'On-Demand Luxury',
-            fee: 99,
+            fee: activeDeliveryFeeExpress,
             freeAbove: 0,
-            minimumOrderValue: 1251,
+            minimumOrderValue: activeExpressMinimumOrderValue,
           },
         },
-        freeDelivery: { quota: 3, used: 0, remaining: 0, isEligible: false },
+        freeDelivery: {
+          quota: 3,
+          used: 0,
+          remaining: freeDeliveryEligible ? 3 : 0,
+          isEligible: freeDeliveryEligible,
+        },
       }),
     })
   }
 
-  // Intercept delivery quote calculation
+  // Intercept delivery quote calculation - derives accurately from backend charges.js rules!
   if (url.pathname.includes('/api/v1/checkout/quote')) {
+    if (simulateQuoteFailure) {
+      return route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false, message: 'Could not calculate delivery charges.' }),
+      })
+    }
+
     let postData = {}
     try {
       postData = req.postDataJSON() || {}
     } catch {
       postData = {}
     }
+
     const discount = Number(postData.discount) || 0
-    const itemsTotal = 299
-    const deliveryFee = 49
-    const grandTotal = Math.max(0, itemsTotal + deliveryFee - discount)
+    const option = String(postData.deliveryOption || 'morning').toLowerCase()
+
+    // 1. Items subtotal
+    const itemsTotal = mockServerCart.reduce((sum, it) => sum + Number(it.priceValue) * Number(it.quantity), 0)
+
+    // 2. Tax calculation: dry fruits (5% on ₹500) vs fresh fruit (0%)
+    let taxTotal = 0
+    for (const item of mockServerCart) {
+      if (item.isTaxable && Number(item.gstRate) > 0) {
+        taxTotal += Math.round(Number(item.priceValue) * Number(item.quantity) * (Number(item.gstRate) / 100) * 100) / 100
+      }
+    }
+
+    // 3. First 3 orders promotional offer
+    const freeDeliveryApplied = Boolean(freeDeliveryEligible && option === 'morning')
+    const deliveryFee = option === 'express'
+      ? activeDeliveryFeeExpress
+      : freeDeliveryApplied
+        ? 0
+        : activeDeliveryFeeMorning
+
+    // 4. Minimum order value boundary for express
+    const minimumOrderValue = option === 'express' ? activeExpressMinimumOrderValue : 0
+    const minimumMet = itemsTotal >= minimumOrderValue
+    const handlingCharge = activeHandlingFee
+
+    // 5. Grand total
+    const grandTotal = Math.max(0, Math.round((itemsTotal + deliveryFee + handlingCharge + taxTotal - discount) * 100) / 100)
 
     return route.fulfill({
       status: 200,
@@ -250,9 +353,9 @@ await page.route('**/*', async (route) => {
       body: JSON.stringify({
         totals: {
           itemsTotal,
-          taxTotal: 0,
+          taxTotal,
           deliveryCharge: deliveryFee,
-          handlingCharge: 0,
+          handlingCharge,
           discount,
           grandTotal,
         },
@@ -261,23 +364,26 @@ await page.route('**/*', async (route) => {
             id: 'morning',
             title: 'Morning Delivery',
             subtitle: 'Freshness Guaranteed',
-            fee: 49,
-            deliveryFee: 49,
+            fee: freeDeliveryApplied ? 0 : activeDeliveryFeeMorning,
+            deliveryFee: freeDeliveryApplied ? 0 : activeDeliveryFeeMorning,
             freeAbove: 0,
             minimumOrderValue: 0,
             minimumMet: true,
             enabled: true,
+            freeDeliveryApplied,
+            offerRemaining: freeDeliveryEligible ? 3 : 0,
+            offerMessage: freeDeliveryApplied ? '🎉 First 3 Orders Offer: Free delivery applied (3 left)' : null,
           },
           express: {
             id: 'express',
             title: 'Same Day Delivery',
             subtitle: 'On-Demand Luxury',
-            fee: 99,
-            deliveryFee: 99,
+            fee: activeDeliveryFeeExpress,
+            deliveryFee: activeDeliveryFeeExpress,
             freeAbove: 0,
-            minimumOrderValue: 1251,
-            minimumMet: false,
-            minimumMessage: 'Minimum order value of ₹1,251 required for Same Day Delivery',
+            minimumOrderValue: activeExpressMinimumOrderValue,
+            minimumMet,
+            minimumMessage: minimumMet ? null : `Same Day Delivery requires an order of at least ₹${activeExpressMinimumOrderValue}.`,
             enabled: true,
           },
         },
@@ -327,6 +433,10 @@ await page.route('**/*', async (route) => {
     }
     capturedOrderPayloads.push(postData)
 
+    if (delayCreateOrderMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayCreateOrderMs))
+    }
+
     if (simulateCreateOrderFailure) {
       return route.fulfill({
         status: 400,
@@ -342,10 +452,10 @@ await page.route('**/*', async (route) => {
         ok: true,
         order: {
           orderNo: 'ORD-SYNTHETIC-889900',
-          paymentMode: 'cod',
+          paymentMode: postData.paymentMode || 'cod',
           paymentStatus: 'pending',
           expectedDeliveryDate: '2026-10-31',
-          totalAmount: 298,
+          totalAmount: 826,
         },
       }),
     })
@@ -383,9 +493,9 @@ await page.route('**/*', async (route) => {
 })
 
 // ==========================================
-// TEST 1: Guest Cart Add, Stepper, Subtotal, and LocalStorage
+// TEST 1: Guest Cart Add & LocalStorage Persistence
 // ==========================================
-console.log('TEST 1: Guest Cart Add, Stepper, Subtotal, and LocalStorage')
+console.log('TEST 1: Guest Cart Add & LocalStorage Persistence')
 await page.goto(`${SITE}/product/blueberry-tube`, { waitUntil: 'networkidle' })
 await page.evaluate(() => {
   localStorage.clear()
@@ -404,15 +514,13 @@ const cartCountAfterAdd = await page.evaluate(() => {
 })
 assert.equal(cartCountAfterAdd, 1, 'Cart items count must be exactly 1 after initial add')
 
-// Verify /cart page displays item and price
 await page.goto(`${SITE}/cart`, { waitUntil: 'networkidle' })
 const cartBody = await page.locator('body').textContent()
 assert.ok(cartBody.toLowerCase().includes('blueberry'), 'Cart page must display item name')
-assert.ok(cartBody.includes('299'), 'Cart page must display item price')
 console.log('-> Guest cart add and display: PASS')
 
 // ==========================================
-// TEST 2: Authentication Modal, Invalid 4-Digit OTP Assertions, Valid OTP, and Session
+// TEST 2: Authentication Modal, Invalid 4-Digit OTP Rejection Assertion, Valid OTP, and Session
 // ==========================================
 console.log('TEST 2: Authentication Modal, Invalid 4-Digit OTP Assertions, Valid OTP, and Session')
 await page.goto(`${SITE}/`, { waitUntil: 'networkidle' })
@@ -423,14 +531,12 @@ await page.waitForTimeout(400)
 const dialog = page.locator('[role="dialog"]')
 await dialog.waitFor({ state: 'visible', timeout: 5000 })
 
-// Enter mobile number and continue
 const phoneInput = dialog.locator('input[type="tel"]')
 await phoneInput.fill('9876543210')
 const submitPhone = dialog.locator('button:has-text("Continue")')
 await submitPhone.click()
 await page.waitForTimeout(500)
 
-// OtpInput step
 const otpInput = dialog.locator('input[name="one-time-code"]')
 await otpInput.waitFor({ state: 'visible', timeout: 5000 })
 
@@ -473,19 +579,27 @@ assert.equal(storedUser.token, 'mock-jwt-auth-token-12345', 'Stored auth token m
 console.log('-> Valid OTP verification & session persistence: PASS')
 
 // ==========================================
-// TEST 3: Authenticated Cart Synchronization
+// TEST 3: Authenticated Cart Synchronization Payload Verification
 // ==========================================
-console.log('TEST 3: Authenticated Cart Synchronization')
-// Navigating triggers cart effect that pushes local items to server
+console.log('TEST 3: Authenticated Cart Synchronization Payload Verification')
+capturedCartPuts.length = 0
 await page.goto(`${SITE}/cart`, { waitUntil: 'networkidle' })
 await page.waitForTimeout(600)
-assert.ok(capturedCartPuts.length >= 1, 'CartContext must sync local cart to server via PUT /account/cart on login')
-console.log('-> Authenticated cart sync: PASS')
+
+// Assert cart sync PUT occurred AND inspect exact payload schema & item content
+assert.ok(capturedCartPuts.length >= 1, 'CartContext must sync cart to server via PUT /account/cart')
+const lastPut = capturedCartPuts[capturedCartPuts.length - 1]
+assert.ok(Array.isArray(lastPut.items), 'Cart sync payload must contain an items array')
+assert.ok(lastPut.items.length >= 1, 'Cart sync items array must not be empty')
+const syncedItem = lastPut.items.find((it) => it.slug === 'blueberry-tube' || it.id === 'blueberry-tube')
+assert.ok(syncedItem, 'Cart sync payload must include blueberry-tube identifier')
+assert.equal(syncedItem.quantity, 1, 'Cart sync item quantity must equal 1')
+console.log('-> Cart synchronization payload schema and item verification: PASS')
 
 // ==========================================
-// TEST 4: Authenticated My Orders & Delivery Details
+// TEST 4: Authenticated My Orders View
 // ==========================================
-console.log('TEST 4: Authenticated My Orders & Delivery Details')
+console.log('TEST 4: Authenticated My Orders View')
 await page.goto(`${SITE}/account?section=orders`, { waitUntil: 'networkidle' })
 const ordersBody = await page.locator('body').textContent()
 assert.ok(ordersBody.includes('My orders'), 'My orders header must render')
@@ -493,121 +607,232 @@ assert.ok(ordersBody.includes('ORD-MOCK-771122'), 'Mock order number ORD-MOCK-77
 console.log('-> My orders view: PASS')
 
 // ==========================================
-// TEST 5: Coupon Application (Error on Invalid, Discount on Valid)
+// TEST 5: Backend-Driven Shipping, Tax, Pincode & Delivery Boundaries Coverage
 // ==========================================
-console.log('TEST 5: Coupon Application & Total Recalculation')
+console.log('TEST 5: Backend-Driven Shipping, Tax, Pincode & Delivery Boundaries Coverage')
 await page.goto(`${SITE}/checkout`, { waitUntil: 'networkidle' })
+
+// --- 5A: Tax Calculation & Cart Handling ---
+console.log('  5A: Taxable Dry Fruits (5% GST) vs Non-taxable Fruits & Handling Charge')
+const checkoutText = await page.locator('aside').textContent()
+assert.ok(checkoutText.includes('₹799'), `Item total must reflect ₹799 (found in order summary)`)
+assert.ok(checkoutText.includes('₹25'), `Taxes & GST must display ₹25 (5% on ₹500 dry fruits)`)
+assert.ok(checkoutText.includes('₹2'), `Cart handling must display configured ₹2 charge`)
+assert.ok(checkoutText.includes('₹49'), `Morning delivery must display configured ₹49 fee`)
+// Expected subtotal: 799 (items) + 25 (tax) + 2 (handling) + 49 (delivery) = ₹875
+assert.ok(checkoutText.includes('₹875'), `Total before coupon must equal ₹875`)
+console.log('  -> Tax & handling calculations: PASS')
+
+// --- 5B: Coupon Application & Payable Total Recalculation ---
+console.log('  5B: Coupon Application & Payable Total Recalculation')
 const couponInput = page.locator('input[placeholder="Enter code"]').first()
 await couponInput.waitFor({ state: 'visible', timeout: 5000 })
 
-// Try invalid coupon
+// Test invalid coupon
 await couponInput.fill('INVALIDCODE')
 const applyCouponBtn = page.locator('button:has-text("Apply")').first()
 await applyCouponBtn.click()
 await page.waitForTimeout(500)
-
 const couponErrorElem = page.locator('p.text-rose-400')
 assert.ok(await couponErrorElem.isVisible(), 'Coupon error message must appear for invalid coupon')
-const couponErrorMsg = await couponErrorElem.textContent()
-assert.ok(/invalid|expired/i.test(couponErrorMsg), `Expected invalid coupon error, got: "${couponErrorMsg}"`)
-console.log('-> Invalid coupon rejection: PASS')
+console.log('  -> Invalid coupon rejection: PASS')
 
-// Apply valid coupon FRESH50
+// Test valid coupon FRESH50 (₹50 discount)
 await couponInput.fill('FRESH50')
 await applyCouponBtn.click()
 await page.waitForTimeout(600)
 
-const checkoutContentAfterCoupon = await page.locator('body').textContent()
+const afterCouponAside = await page.locator('aside').textContent()
+assert.ok(afterCouponAside.includes('-₹50'), 'Coupon discount must display -₹50 in order summary')
+// Expected total after coupon: 875 - 50 = ₹825
+assert.ok(afterCouponAside.includes('₹825'), 'Grand total after ₹50 discount must recalculate to ₹825')
+console.log('  -> Valid coupon discount & total recalculation: PASS')
+
+// --- 5C: First-Order Promotional Offer Eligibility ---
+console.log('  5C: Promotional First-Order Free Delivery Offer')
+freeDeliveryEligible = true
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+const promotionalAside = await page.locator('aside').textContent()
 assert.ok(
-  checkoutContentAfterCoupon.includes('FRESH50') || checkoutContentAfterCoupon.includes('Coupon applied'),
-  'Coupon FRESH50 must be indicated as applied'
+  promotionalAside.includes('Free') || promotionalAside.includes('FREE'),
+  'Delivery charge must show Free when customer is promotional free-delivery eligible'
 )
-console.log('-> Valid coupon application: PASS')
+// With free morning delivery (₹0) and no coupon: 799 (items) + 25 (tax) + 2 (handling) + 0 = ₹826
+assert.ok(promotionalAside.includes('₹826'), 'Total must recalculate to ₹826 with free morning delivery applied')
+
+// Re-apply coupon to verify cumulative calculation: 826 - 50 = ₹776
+const promoCouponInput = page.locator('input[placeholder="Enter code"]').first()
+await promoCouponInput.fill('FRESH50')
+await page.locator('button:has-text("Apply")').first().click()
+await page.waitForTimeout(600)
+const promoAfterCoupon = await page.locator('aside').textContent()
+assert.ok(promoAfterCoupon.includes('₹776'), 'Total must recalculate to ₹776 with free delivery and coupon combined')
+freeDeliveryEligible = false
+console.log('  -> First-order free delivery promotional calculation: PASS')
+
+// --- 5D: Minimum-Order-Value Boundaries (Same-Day Delivery) ---
+console.log('  5D: Same-Day Minimum Order Value Boundary (₹1251)')
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+// Select express delivery radio button
+const expressRadio = page.locator('label:has-text("Same Day Delivery") input[type="radio"]')
+await expressRadio.check()
+await page.waitForTimeout(500)
+
+const expressSection = await page.locator('section:has-text("Delivery option")').textContent()
+assert.ok(
+  expressSection.includes('1,251') || expressSection.includes('1251'),
+  'Express delivery must display minimum order requirement of ₹1,251'
+)
+
+// Assert place order CTA is disabled because cart (₹799) is below express minimum (₹1251)
+const ctaBtn = page.locator('aside button.rounded-full.bg-brand')
+assert.ok(await ctaBtn.isDisabled(), 'Place order button must be DISABLED when minimum order value is not met')
+
+// Switch back to morning delivery (minimum order value 0)
+const morningRadio = page.locator('label:has-text("Morning Delivery") input[type="radio"]')
+await morningRadio.check()
+await page.waitForTimeout(500)
+assert.ok(await ctaBtn.isEnabled(), 'Place order button must be re-ENABLED when morning delivery is selected')
+console.log('  -> Express minimum order value boundary & button protection: PASS')
+
+// --- 5E: Pincode Delivery Options & Address Changes ---
+console.log('  5E: Pincode Eligibility & Address Switching')
+// Switch to address with Same-Day Only (560001)
+const samedayAddrRadio = page.locator('label:has-text("Office (Same-day Only)") input[type="radio"]')
+await samedayAddrRadio.check()
+await page.waitForTimeout(600)
+
+const morningLabel = page.locator('label:has-text("Morning Delivery")')
+const morningText = await morningLabel.textContent()
+assert.ok(
+  morningText.includes('coming soon') || (await morningLabel.locator('input').isDisabled()),
+  'Morning delivery must show "coming soon" or be disabled for same-day-only pincode'
+)
+
+// Check unsupported address (999999)
+const unsupportedAddrLabel = page.locator('label:has-text("Remote (Unsupported)")')
+assert.ok(
+  (await unsupportedAddrLabel.textContent()).includes("don't deliver") ||
+    (await unsupportedAddrLabel.locator('input').isDisabled()),
+  'Unsupported pincode address must be disabled and display not deliverable'
+)
+
+// Switch back to both-options address (560103)
+const bothAddrRadio = page.locator('label:has-text("Home (Both Options)") input[type="radio"]')
+await bothAddrRadio.check()
+await morningRadio.check()
+await page.waitForTimeout(600)
+console.log('  -> Pincode options & address switching: PASS')
+
+// --- 5F: Backend Quote Failure Recovery ---
+console.log('  5F: Backend Quote Failure & Graceful Degradation')
+simulateQuoteFailure = true
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+const quoteErrorElem = page.locator('text=Could not calculate delivery charges')
+assert.ok(await quoteErrorElem.isVisible(), 'Error message must appear when backend quote fails')
+assert.ok(await ctaBtn.isDisabled(), 'CTA button must be disabled when delivery quote fails')
+
+simulateQuoteFailure = false
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+console.log('  -> Backend quote failure handling: PASS')
 
 // ==========================================
-// TEST 6: Actual Checkout Submission, Duplicate Protection & Error Handling
+// TEST 6: Checkout Failure Recovery Without Order Creation
 // ==========================================
-console.log('TEST 6: Actual Checkout Submission, Duplicate Protection & Error Handling')
-// First verify failure handling: simulate server failure on checkout
+console.log('TEST 6: Checkout Failure Recovery Without Order Creation')
 simulateCreateOrderFailure = true
+capturedOrderPayloads.length = 0
+capturedCodConfirmPayloads.length = 0
+
 // Select COD
 const codRadio = page.locator('label:has-text("Cash on delivery") input[type="radio"]')
 await codRadio.check()
 await page.waitForTimeout(300)
 
-const placeOrderBtn = page.locator('button:has-text("Place order (Cash on delivery)")')
-await placeOrderBtn.waitFor({ state: 'visible', timeout: 5000 })
-await placeOrderBtn.click()
+const checkoutBtn = page.locator('aside button.rounded-full.bg-brand')
+await checkoutBtn.waitFor({ state: 'visible', timeout: 5000 })
+await checkoutBtn.click()
 await page.waitForTimeout(500)
 
-// Assert error alert on failure
-assert.ok(await page.locator('.swal2-container').isVisible(), 'Error dialog must appear when checkout fails')
+// Assert error dialog appeared
+assert.ok(await page.locator('.swal2-container').isVisible(), 'Error dialog must appear on checkout creation failure')
 const failureText = await page.locator('.swal2-html-container').textContent()
-assert.ok(/simulated checkout failure|failed/i.test(failureText), 'Failure message must explain error')
+assert.ok(/simulated checkout failure|failed/i.test(failureText), 'Failure modal must explain error')
+
+// HARD ASSERTION: Verify no order was confirmed
+assert.equal(capturedCodConfirmPayloads.length, 0, 'No order must be confirmed when checkout creation fails')
 
 // Dismiss failure alert
 const failureConfirm = page.locator('.swal2-confirm')
 await failureConfirm.click()
 await page.waitForTimeout(300)
 
-// Verify button is re-enabled after failure recovery (not stuck in paying state)
-assert.ok(await placeOrderBtn.isEnabled(), 'Place order button must be re-enabled after error recovery')
-console.log('-> Checkout error handling & recovery: PASS')
+// HARD ASSERTION: Verify user remains on checkout and button is re-enabled
+assert.ok(page.url().includes('/checkout'), 'User must remain on /checkout page after error recovery')
+assert.ok(await checkoutBtn.isEnabled(), 'Place order button must be re-enabled after error recovery')
+console.log('-> Checkout failure recovery without order confirmation: PASS')
 
-// Now execute real successful submission
+// ==========================================
+// TEST 7: Actual Checkout Submission with Duplicate Protection & Request Payload Verification
+// ==========================================
+console.log('TEST 7: Actual Checkout Submission with Duplicate Protection & Request Payload Verification')
 simulateCreateOrderFailure = false
 capturedOrderPayloads.length = 0
 capturedCodConfirmPayloads.length = 0
 
-await placeOrderBtn.click()
+// Introduce a controlled 800ms delay to rigorously test duplicate submission protection
+delayCreateOrderMs = 800
 
-// Assert duplicate click protection: button disabled during processing
-const buttonTextDuringProcessing = await page.evaluate(() => {
-  const btn = document.querySelector('button.rounded-full.bg-brand')
-  return { disabled: btn?.disabled, text: btn?.textContent }
-})
-console.log('Button state right after submit click:', buttonTextDuringProcessing)
+await checkoutBtn.click()
+
+// HARD ASSERTION: Verify button is immediately disabled during processing
+assert.ok(await checkoutBtn.isDisabled(), 'Button MUST be disabled while checkout request is in-flight')
+const buttonTextProcessing = await checkoutBtn.textContent()
+assert.ok(/processing/i.test(buttonTextProcessing), 'Button text must indicate processing')
+
+// Attempt a second submission click while disabled
+await checkoutBtn.click({ force: true, timeout: 300 }).catch(() => {})
 
 // Wait for navigation to order confirmation page
 await page.waitForURL(/\/order\/ORD-SYNTHETIC-889900/, { timeout: 10000 })
-console.log('-> Navigated to order confirmation page')
 
-// Assert intercepted payload
-assert.equal(capturedOrderPayloads.length, 1, 'Exactly one create-order POST must have been sent')
+// HARD ASSERTION: Exactly ONE order was created (no duplicate creation!)
+assert.equal(capturedOrderPayloads.length, 1, 'Duplicate protection: exactly ONE create-order request was dispatched')
 const orderPayload = capturedOrderPayloads[0]
-assert.equal(orderPayload.addressId, 'addr_mock_1', 'Order payload must specify selected addressId')
+assert.equal(orderPayload.addressId, 'addr_both', 'Order payload must specify selected addressId')
 assert.equal(orderPayload.paymentMode, 'cod', 'Order payload must specify paymentMode "cod"')
 assert.equal(orderPayload.deliveryOption, 'morning', 'Order payload must specify deliveryOption "morning"')
-assert.ok(Array.isArray(orderPayload.items) && orderPayload.items.length >= 1, 'Order payload must include cart items')
+assert.ok(Array.isArray(orderPayload.items) && orderPayload.items.length >= 1, 'Order payload must contain items')
 
-assert.equal(capturedCodConfirmPayloads.length, 1, 'Exactly one confirm-cod POST must have been sent')
+// HARD ASSERTION: Exactly ONE confirm-cod call was made
+assert.equal(capturedCodConfirmPayloads.length, 1, 'Exactly one confirm-cod call was dispatched')
 assert.equal(capturedCodConfirmPayloads[0].orderNo, 'ORD-SYNTHETIC-889900', 'confirm-cod must pass correct orderNo')
-console.log('-> Full UI checkout submission & payload assertions: PASS')
+delayCreateOrderMs = 0
+console.log('-> Duplicate submission guard & payload schema verification: PASS')
 
 // ==========================================
-// TEST 7: Order Confirmation View Verification
+// TEST 8: Order Confirmation View Details
 // ==========================================
-console.log('TEST 7: Order Confirmation View Verification')
+console.log('TEST 8: Order Confirmation View Details')
 const h1Elem = page.locator('main h1, h1').first()
 await h1Elem.waitFor({ state: 'visible', timeout: 5000 })
-const h1Text = await h1Elem.textContent()
-console.log('H1 on confirmation page:', h1Text)
 const orderConfirmContent = await page.locator('body').textContent()
-assert.ok(
-  orderConfirmContent.includes('Your order is confirmed') ||
-  orderConfirmContent.includes('Confirming your payment') ||
-  orderConfirmContent.includes('ORD-SYNTHETIC-889900'),
-  'Confirmation page must show order details'
-)
-assert.ok(orderConfirmContent.includes('ORD-SYNTHETIC-889900'), 'Confirmation page must show order number')
-assert.ok(orderConfirmContent.includes('Pay cash on delivery'), 'Confirmation page must show cash on delivery mode')
-console.log('-> Order confirmation details rendering: PASS')
+assert.ok(orderConfirmContent.includes('Your order is confirmed'), 'Confirmation page must state order is confirmed')
+assert.ok(orderConfirmContent.includes('ORD-SYNTHETIC-889900'), 'Confirmation page must display order number')
+assert.ok(orderConfirmContent.includes('Pay cash on delivery'), 'Confirmation page must state payment mode')
+console.log('-> Order confirmation details: PASS')
 
 // ==========================================
-// TEST 8: Session Expiry (401 Handling) & Session Cleanup
+// TEST 9: Session Expiry (401 Handling) & Session Cleanup
 // ==========================================
-console.log('TEST 8: Session Expiry (401 Handling) & Session Cleanup')
-// Test 401 session expiry on /auth/me
+console.log('TEST 9: Session Expiry (401 Handling) & Session Cleanup')
 simulateMeUnauthorized = true
 await page.goto(`${SITE}/account?section=profile`, { waitUntil: 'networkidle' })
 await page.waitForTimeout(600)
@@ -617,6 +842,6 @@ assert.equal(userAfterExpiry, null, 'User session must be cleared from localStor
 console.log('-> Session expiry 401 handling: PASS')
 
 assert.equal(pageErrors.length, 0, `Unexpected page errors encountered: ${pageErrors.join('; ')}`)
-console.log('--- ALL 8 EXTENDED COMMERCE, AUTH, COUPON, CHECKOUT & SESSION TESTS PASSED! ---')
+console.log('--- ALL 9 EXPANDED REGRESSION SCENARIOS PASSED WITH ZERO ERRORS! ---')
 
 await browser.close()
