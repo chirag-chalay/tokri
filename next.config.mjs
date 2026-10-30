@@ -4,6 +4,22 @@ const apiTarget = process.env.TOKRIII_API_PROXY_TARGET || 'http://127.0.0.1:5223
 const nextConfig = {
   pageExtensions: ['next.jsx', 'next.js'],
   images: { disableStaticImages: true },
+  async headers() {
+    if (process.env.TOKRIII_INDEXING_ENABLED !== 'true') {
+      return [
+        {
+          source: '/:path*',
+          headers: [
+            {
+              key: 'X-Robots-Tag',
+              value: 'noindex, nofollow',
+            },
+          ],
+        },
+      ]
+    }
+    return []
+  },
   async rewrites() {
     return [
       { source: '/api/:path*', destination: `${apiTarget}/api/:path*` },

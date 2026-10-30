@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Ensure DATABASE_URL is set from readonly.env if not already present
+// --------------------------------------------------------------------------
+// STRICT FAIL-CLOSED SECURITY GUARD
+// Reject missing, malformed, remote or unauthorized connection strings
+// BEFORE any database-dependent modules are dynamically imported.
+// --------------------------------------------------------------------------
 if (!process.env.DATABASE_URL) {
   const readonlyEnvPath = path.resolve(process.env.HOME || '', '.local/share/tokriii-live-local-mysql/readonly.env')
   if (fs.existsSync(readonlyEnvPath)) {
@@ -18,22 +22,35 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
-// Security Guard: Prevent any unintended connection to remote or production databases
-if (process.env.DATABASE_URL) {
-  try {
-    const parsedDbUrl = new URL(process.env.DATABASE_URL.replace(/^mysql:\/\//, 'http://'))
-    const allowedHosts = ['127.0.0.1', 'localhost', '::1']
-    if (!allowedHosts.includes(parsedDbUrl.hostname) || parsedDbUrl.port !== '3307') {
-      throw new Error(`SECURITY GUARD TRIGGERED: Tests are restricted to local isolated MySQL on port 3307. Attempted: ${parsedDbUrl.hostname}:${parsedDbUrl.port}`)
-    }
-  } catch (err) {
-    if (err.message.includes('SECURITY GUARD')) throw err
-  }
+if (!process.env.DATABASE_URL) {
+  throw new Error('FAIL CLOSED: DATABASE_URL is required but unset. Backend contract tests must connect to authorized local isolated MySQL at localhost:3307.')
 }
 
-// Import actual backend business modules
-import { prisma } from '../server/src/lib/prisma.js'
-import {
+let parsedDbUrl
+try {
+  if (!process.env.DATABASE_URL.startsWith('mysql://')) {
+    throw new Error('DATABASE_URL must start with mysql://')
+  }
+  parsedDbUrl = new URL(process.env.DATABASE_URL.replace(/^mysql:\/\//, 'http://'))
+} catch (err) {
+  throw new Error(`FAIL CLOSED: Malformed DATABASE_URL: ${err.message}`)
+}
+
+const allowedHosts = ['127.0.0.1', 'localhost', '::1']
+if (!allowedHosts.includes(parsedDbUrl.hostname)) {
+  throw new Error(`FAIL CLOSED: Unauthorized host '${parsedDbUrl.hostname}'. Tests are strictly restricted to local isolated MySQL at localhost:3307.`)
+}
+if (parsedDbUrl.port !== '3307') {
+  throw new Error(`FAIL CLOSED: Unauthorized port '${parsedDbUrl.port}'. Tests are strictly restricted to local isolated MySQL at port 3307.`)
+}
+const dbName = parsedDbUrl.pathname.replace(/^\//, '')
+if (dbName !== 'tokri_live_local') {
+  throw new Error(`FAIL CLOSED: Unauthorized database '${dbName}'. Tests are strictly restricted to 'tokri_live_local'.`)
+}
+
+// Dynamically import database-dependent modules ONLY after strict validation passes
+const { prisma } = await import('../server/src/lib/prisma.js')
+const {
   calcItemTax,
   calcCartTotals,
   deliveryChargeFor,
@@ -44,22 +61,22 @@ import {
   DELIVERY_CHARGE,
   EXPRESS_DELIVERY_CHARGE,
   HANDLING_CHARGE,
-} from '../server/src/config/charges.js'
-import {
+} = await import('../server/src/config/charges.js')
+const {
   deliveryDecision,
-} from '../server/src/services/deliveryQuote.js'
-import {
+} = await import('../server/src/services/deliveryQuote.js')
+const {
   getCustomerFreeDeliveryStatus,
   applyFreeDeliveryRates,
   FREE_DELIVERY_QUOTA,
-} from '../server/src/services/freeDelivery.js'
-import {
+} = await import('../server/src/services/freeDelivery.js')
+const {
   deliveryAvailability,
   normalizePincode,
   findServiceablePincode,
   assertPincodeServiceable,
   assertDeliveryOptionEnabled,
-} from '../server/src/services/delivery.js'
+} = await import('../server/src/services/delivery.js')
 
 async function run() {
   console.log('=== STARTING TOKRIII BACKEND CONTRACT & BUSINESS RULE TEST SUITE ===')

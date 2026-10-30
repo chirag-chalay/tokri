@@ -43,11 +43,15 @@ The migration achieves full route independence from the React Router bridge, syn
 8. `482717e`: `test: add isolated backend contract verification suite, ground pincodes in live database, expand media manifest, and document staging readiness`
    - Added `scripts/verify-backend-contracts.mjs` with 24 test suites covering real NCR database pincodes, MOV boundaries (₹1,250, ₹1,251, ₹1,252), GST tax rounding, and first-3-orders promo.
    - Generated exhaustive 180+ line `MEDIA_MANIFEST.md` covering 92 public files and 14 quarantined files.
-9. `Pending`: `test: sanitize test customer privacy, add public media allowlist, and document staging preflight checklist`
+9. `92074c6`: `feat: sanitize test customer privacy, add public media allowlist, font spec, and staging preflight checklist`
    - Replaced hardcoded customer IDs in backend contract tests with safe runtime discovery.
    - Created sanitized allowlist `docs/nextjs-migration/public-media-allowlist.txt`.
    - Created font specification in `docs/nextjs-migration/FONT_CONFIGURATION.md`.
    - Created staging checklist in `docs/nextjs-migration/STAGING_PREFLIGHT_CHECKLIST.md`.
+10. `dce7bd0`: `feat: enforce fail-closed database safeguards, vendor licensed woff2 fonts, and add staging x-robots-tag header`
+    - Implemented strict fail-closed validation in `scripts/verify-backend-contracts.mjs` before dynamic `await import(...)` of database-dependent modules, rejecting missing, malformed, remote, or unauthorized database URLs.
+    - Acquired and vendored officially licensed (SIL OFL 1.1) Plus Jakarta Sans WOFF2 fonts (weights 400, 500, 600, 700 normal; 400 italic) into `public/fonts/` with `fonts.css`.
+    - Added `headers()` in `next.config.mjs` emitting `X-Robots-Tag: noindex, nofollow` when `TOKRIII_INDEXING_ENABLED !== 'true'`, verified via `curl -sI`.
 
 ---
 
@@ -62,12 +66,18 @@ To ensure technical rigor, the following verification milestones are explicitly 
 | **ESLint Static Analysis** | **PASS** | `npm run lint` reports 0 errors (7 pre-existing upstream hook warnings). |
 | **SEO Smoke Tests** | **PASS** | `node scripts/verify-next-seo.mjs` verifies SSR initial HTML, dynamic metadata, canonical URLs, JSON-LD, robots directives, and dynamic sitemap. |
 | **Frontend Mocked Tests** | **PASS** | `node scripts/verify-commerce-regression.mjs` verifies 9 automated scenarios in headless Chromium: guest cart, OTP auth modal with SweetAlert error assertion, cart sync PUT payload schema, orders history, tax & handling display, coupon discount recalculation, first-order promo, MOV button disabling, pincode switching, duplicate checkout protection, failure recovery, and session expiry. |
-| **Backend Contract Tests** | **PASS** | `node scripts/verify-backend-contracts.mjs` verifies 24 isolated test suites directly executing server modules (`charges.js`, `deliveryQuote.js`, `delivery.js`, `freeDelivery.js`): actual NCR database pincodes, exact MOV boundaries (₹1,250, ₹1,251, ₹1,252), GST tax calculations with odd paise rounding, CGST/SGST/IGST, configurable charges vs defaults, and account-level first-3-orders quota. |
+| **Backend Contract Tests** | **PASS** | `node scripts/verify-backend-contracts.mjs` verifies 24 isolated test suites with upfront fail-closed validation (rejects missing, malformed, remote, or unauthorized connection strings before dynamic imports) directly executing server modules (`charges.js`, `deliveryQuote.js`, `delivery.js`, `freeDelivery.js`): actual NCR database pincodes, exact MOV boundaries (₹1,250, ₹1,251, ₹1,252), GST tax calculations with odd paise rounding, CGST/SGST/IGST, configurable charges vs defaults, and account-level first-3-orders quota. |
+| **Matching Fonts** | **VERIFIED** | Official SIL OFL 1.1 licensed Plus Jakarta Sans WOFF2 fonts (weights 400, 500, 600, 700 normal; 400 italic) vendored into `public/fonts/` with `fonts.css`; verified HTTP 200 OK. |
+| **92 Media Assets** | **BLOCKED** | Catalog images (74 products, 8 categories, 8 blogs, 2 banners) are not provided locally in `server/uploads/` (0 of 92 present; only `.gitkeep` exists); awaiting administrator archive export using `public-media-allowlist.txt`. |
+| **Viewport Visual Parity** | **BLOCKED** | While fonts are verified, visual pixel-parity across all 10 viewports remains **BLOCKED** pending administrator provision of the 92 catalog images. |
+| **Noindex HTTP & Meta Protection** | **VERIFIED** | Verified `<meta name="robots" content="noindex, nofollow"/>` in HTML, `Disallow: /` in `/robots.txt`, and Next.js `X-Robots-Tag: noindex, nofollow` HTTP response header via `curl -sI`. Nginx directive also documented for reverse-proxy defense in depth. |
 | **Local Integration Tests** | **PASS** | Verified exclusively against local read-only Express API (port 5223) and MySQL dump on port 3307 under strict network isolation. |
 | **Real Staging Integration** | **UNTESTED** | Live network calls, remote Express API, and staging database remain untested locally to prevent data modification. |
-| **Full Design & Asset Parity** | **BLOCKED** | Catalog images (74 products, 8 categories, 8 blogs) and web font files (`Plus Jakarta Sans`) are missing locally; visual verification across viewports is **BLOCKED**. |
-| **Ready for Staging Review** | **NO** | Blocked until production uploads and font assets are provisioned on staging and staging server architecture questions are confirmed by an administrator. |
-| **Ready for Deployment** | **NO** | Strictly unauthorized. Never deploy directly without staging review and explicit owner authorization. |
+| **Staging Database Isolation** | **BLOCKED** | Pending administrator confirmation that staging uses an isolated database with zero write access to production MySQL. |
+| **Nginx & Process Arrangement** | **BLOCKED** | Pending administrator configuration on staging server (`server.tokriii.com`). |
+| **Rollback Plan** | **VERIFIED** | Documented in `STAGING_PREFLIGHT_CHECKLIST.md`: switching Nginx upstream back to the existing Vite build directory. |
+| **Ready for Staging Code Review** | **YES** | All code changes, test suites, font fixtures, and documentation are complete and verified. |
+| **Ready for Staging Deployment** | **NO** | Blocked until production uploads are provisioned on staging and staging server architecture questions are signed off by an authorized administrator. |
 
 ---
 
@@ -153,11 +163,11 @@ Using the backend decision function `deliveryDecision(settings, freeDelivery, op
 
 - See [`MEDIA_MANIFEST.md`](./MEDIA_MANIFEST.md) for the complete 180+ line asset inventory.
 - See [`public-media-allowlist.txt`](./public-media-allowlist.txt) for the sanitized 92-file export allowlist.
-- See [`FONT_CONFIGURATION.md`](./FONT_CONFIGURATION.md) for the local WOFF2 `@font-face` specification.
+- See [`FONT_CONFIGURATION.md`](./FONT_CONFIGURATION.md) for the local WOFF2 `@font-face` specification and verification.
 - **Public Media Referenced in Database:** 92 unique files (74 products, 8 categories, 8 blogs, 2 homepage banners).
 - **Quarantined Media Library Entries:** 14 records in `Media` table (reviews, superseded uploads) excluded from public snapshot.
-- **Web Font Requirements:** `Plus Jakarta Sans`: Normal styles (weights 400, 500, 600, 700), Italic style (weight 400).
-- **Current Parity Status:** `Real image parity: BLOCKED`, `Real font parity: BLOCKED`, `Multi-device responsive parity: BLOCKED`.
+- **Web Font Requirements:** `Plus Jakarta Sans`: Normal styles (weights 400, 500, 600, 700), Italic style (weight 400). Acquired under SIL OFL 1.1 license from `@fontsource/plus-jakarta-sans` and vendored to `public/fonts/`.
+- **Current Parity Status:** `Real image parity: BLOCKED (0 of 92 files present locally)`, `Real font parity: VERIFIED (5 WOFF2 files served via Next.js with HTTP 200)`, `Multi-device responsive parity: BLOCKED (pending image assets)`.
 
 ---
 
@@ -179,14 +189,21 @@ The following questions require confirmation from an authorized administrator pr
 
 ```
 TOKRIII NEXT.JS RELEASE AUDIT
-- Routes: 20/20 converted to App Router (0 legacy bridge routes)
+- Routes and SSR: PASS (20/20 converted to App Router, 0 legacy bridge routes)
 - Next.js Build: PASS
 - Vite Build: PASS
 - ESLint: PASS (0 errors, 7 pre-existing warnings)
 - SEO Verification: PASS
 - Mock Commerce Suite: PASS (9/9 scenarios)
-- Backend Contract Suite: PASS (24/24 suites)
+- Backend Contract Suite: PASS (24/24 suites, dynamic-import fail-closed guard)
 - Customer Fixture Privacy: YES (0 customer IDs committed; safe dynamic discovery)
+- 92 Media Assets: BLOCKED (production uploads missing locally; 0/92 present)
+- Matching Fonts: VERIFIED (5 Plus Jakarta Sans WOFF2 styles vendored, HTTP 200 OK)
+- All Ten Viewport Comparisons: BLOCKED (visual parity blocked pending 92 image files)
+- Staging Database Isolation: BLOCKED (pending administrator confirmation)
+- Nginx and Process Configuration: BLOCKED (pending administrator configuration)
+- Noindex Protection: VERIFIED (HTML meta tag, /robots.txt disallow, and X-Robots-Tag HTTP header)
+- Rollback Plan: VERIFIED (documented in STAGING_PREFLIGHT_CHECKLIST.md)
 - Public Media Allowlist: READY (92 files allowlisted; 14 quarantined)
 - Font Fixture Spec: READY (docs/nextjs-migration/FONT_CONFIGURATION.md)
 - Staging Preflight Checklist: READY (docs/nextjs-migration/STAGING_PREFLIGHT_CHECKLIST.md)
@@ -194,14 +211,11 @@ TOKRIII NEXT.JS RELEASE AUDIT
 - MOV Boundary Verified: YES (₹1,250 fail, ₹1,251 pass, ₹1,252 pass)
 - Tax & Odd Paise Rounding: YES (5% GST, CGST 8.32 / SGST 8.33 on ₹16.65)
 - First-3-Orders Promo: YES (Orders 1-3 free, 4 paid, express excluded)
-- Font Parity: BLOCKED (Plus Jakarta Sans WOFF2 not yet vendored)
-- Image Parity: BLOCKED (production uploads missing locally)
-- Viewport Visual Parity: BLOCKED (pending fonts and real assets)
 - CMS Sitemap Endpoint: PROPOSED (GET /api/v1/pages documented)
 - Feature Branch: feature/tokriii-react-to-nextjs (cleanly tracked)
 - Main Branch Modified: NO
 - Staging Modified: NO
 - Production Modified: NO
-- Ready for Code Review: YES
-- Ready for Staging Deployment: NO (Pending media snapshot, fonts, and administrator confirmation)
+- Ready for Staging Code Review: YES
+- Ready for Staging Deployment Approval: NO (Blocked on media snapshot and administrator infrastructure sign-off)
 ```
