@@ -56,8 +56,8 @@ function Stars({ rating = 5 }) {
   )
 }
 
-function ReviewCard({ review }) {
-  const avatar = resolveAssetUrl(review.image)
+function ReviewCard({ review, rawUrls = false }) {
+  const avatar = rawUrls ? review.image : resolveAssetUrl(review.image)
   const hasImage = review.image && avatar
 
   return (
@@ -89,8 +89,8 @@ function ReviewCard({ review }) {
   )
 }
 
-export default function Reviews() {
-  const [reviews, setReviews] = useState(fallbackReviews)
+export default function Reviews({ initialReviews, rawUrls = false }) {
+  const [reviews, setReviews] = useState(initialReviews?.length ? initialReviews.slice(0, MAX_REVIEWS) : fallbackReviews)
   const trackRef = useRef(null)
 
   useEffect(() => {
@@ -161,7 +161,7 @@ export default function Reviews() {
                     : 'w-[88%] shrink-0 snap-center lg:w-auto lg:shrink'
                 }
               >
-                <ReviewCard review={review} />
+                <ReviewCard review={review} rawUrls={rawUrls} />
               </div>
             ))}
           </div>

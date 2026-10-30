@@ -1,6 +1,6 @@
 # SEO verification
 
-This application is not yet SEO-ready overall. Product and article details now render their visible content in the initial HTML; homepage, shop, blog listing and CMS pages remain in the client-only bridge. Dynamic category metadata, category canonical strategy and CMS missing-record 404 handling remain incomplete. Product breadcrumbs use its existing navigation data.
+This application is not yet SEO-ready overall. Product and article details now render their visible content in the initial HTML; the homepage also renders public catalog content in initial HTML; shop, blog listing and CMS pages remain in the client-only bridge. Dynamic category metadata, category canonical strategy and CMS missing-record 404 handling remain incomplete. Product breadcrumbs use its existing navigation data.
 
 Local checks:
 

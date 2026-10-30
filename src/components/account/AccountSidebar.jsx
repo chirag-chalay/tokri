@@ -1,9 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Building2,
-  Home,
   LogOut,
-  MapPin,
   MapPinned,
   Package,
   UserRound,
@@ -70,8 +67,4 @@ export default function AccountSidebar({ activeSection }) {
   )
 }
 
-export function addressLabelIcon(label) {
-  if (label === 'Work') return Building2
-  if (label === 'Home') return Home
-  return MapPin
-}
+export { addressLabelIcon } from './addressLabelIcon'

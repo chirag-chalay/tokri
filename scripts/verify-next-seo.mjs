@@ -13,6 +13,29 @@ const products = JSON.parse((await get(`${api}/products?limit=1`)).text)
 const blogs = JSON.parse((await get(`${api}/blogs?limit=1`)).text).posts
 assert.ok(products.length && blogs.length, 'The local API needs at least one public product and blog')
 
+const home = await get(`${site}/`)
+assert.equal(home.status, 200)
+const homeDom = parseDocument(home.text)
+const homeMain = findAll((node) => node.type === 'tag' && node.name === 'main', homeDom.children)[0]
+assert.ok(homeMain, 'Homepage main content missing from initial HTML')
+const homeText = textContent(homeMain)
+const categories = JSON.parse((await get(`${api}/categories`)).text)
+const bestSellers = JSON.parse((await get(`${api}/products?flag=bestSeller&limit=12`)).text)
+const featured = JSON.parse((await get(`${api}/products?flag=featured&limit=100`)).text)
+const settings = JSON.parse((await get(`${api}/settings/public`)).text)
+if (categories.length) assert.ok(homeText.includes(categories[0].label), 'Homepage category missing from initial HTML')
+if (bestSellers.length) assert.ok(homeText.includes(bestSellers[0].name), 'Homepage bestseller missing from initial HTML')
+if (featured.length) assert.ok(homeText.includes(featured[0].name), 'Homepage seasonal product missing from initial HTML')
+const sectionHeadings = findAll((node) => node.type === 'tag' && node.name === 'h2', [homeMain]).map((node) => textContent(node).toLowerCase())
+for (const slug of settings.home?.featuredCategorySlugs || []) {
+  const category = categories.find((item) => item.slug === slug)
+  const title = category?.title || category?.label || slug.replace(/-/g, ' ')
+  const list = JSON.parse((await get(`${api}/products?category=${encodeURIComponent(slug)}&limit=12`)).text)
+  if (Array.isArray(list) && list.length) assert.ok(sectionHeadings.includes(title.toLowerCase()), `Homepage collection ${slug} missing from initial HTML`)
+}
+assert.match(home.text, /<meta name="robots" content="noindex, nofollow"\s*\/?\s*>/)
+console.log('homepage: public category, product and collection content SSR OK')
+
 const robots = await get(`${site}/robots.txt`)
 assert.equal(robots.status, 200)
 assert.match(robots.text, /Disallow: \/(?:\r?\n|$)/)

@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom'
+import { Link } from '../lib/navigation'
 import { resolveAssetUrl } from '../lib/api'
 
-export default function FruitHighlight({ image }) {
+export default function FruitHighlight({ image, rawUrls = false }) {
   if (!image) return null
 
   return (
@@ -13,7 +13,7 @@ export default function FruitHighlight({ image }) {
           className="group block cursor-pointer overflow-hidden rounded-xl"
         >
           <img
-            src={resolveAssetUrl(image)}
+            src={rawUrls ? image : resolveAssetUrl(image)}
             alt="Home highlight"
             className="block w-full object-cover transition duration-300 group-hover:scale-[1.015] group-hover:brightness-95"
             decoding="async"
