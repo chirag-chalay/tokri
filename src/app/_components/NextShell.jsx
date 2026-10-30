@@ -18,12 +18,19 @@ import { installAnalytics, trackPageView } from '../../lib/telemetry'
 function Chrome({ children, ready }) {
   const [showLogin, setShowLogin] = useState(false)
   const { totalCount } = useCart()
-  const sticky = ready && totalCount > 0
+  const pathname = usePathname()
+  const isCart = pathname === '/cart'
+  const isCheckout = pathname === '/checkout'
+  const isOrder = pathname.startsWith('/order/')
+  const isShop = pathname === '/shop'
+  const hideChrome = pathname === '/login' || pathname === '/profile' || isOrder
+  const sticky = ready && totalCount > 0 && !hideChrome && !isCart && !isCheckout
+  const footerVisibility = isCart ? 'hidden lg:block' : isShop ? 'hidden md:block' : ''
   return (
     <div className={sticky ? 'pb-24 lg:pb-0' : ''}>
-      {ready && <Header onLoginClick={() => setShowLogin(true)} />}
+      {ready && !hideChrome && <Header className={isCart ? 'hidden lg:block' : ''} onLoginClick={() => setShowLogin(true)} />}
       {children}
-      {ready && <div><Footer /></div>}
+      {ready && !hideChrome && <div className={footerVisibility}><Footer /></div>}
       {ready && <CartDrawer />}
       {sticky && <StickyCartBar />}
       {ready && <AddressPickerModal onDesktopLogin={() => setShowLogin(true)} />}

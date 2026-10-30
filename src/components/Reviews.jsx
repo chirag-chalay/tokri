@@ -90,7 +90,7 @@ function ReviewCard({ review, rawUrls = false }) {
 }
 
 export default function Reviews({ initialReviews, rawUrls = false }) {
-  const [reviews, setReviews] = useState(initialReviews?.length ? initialReviews.slice(0, MAX_REVIEWS) : fallbackReviews)
+  const [reviews, setReviews] = useState(Array.isArray(initialReviews) ? initialReviews.slice(0, MAX_REVIEWS) : fallbackReviews)
   const trackRef = useRef(null)
 
   useEffect(() => {

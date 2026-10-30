@@ -4,7 +4,7 @@ import { categories as fallbackCategories } from '../data/categories'
 import { fetchJson, resolveAssetUrl } from '../lib/api'
 
 export default function Categories({ initialCategories }) {
-  const [categories, setCategories] = useState(initialCategories?.length ? initialCategories : fallbackCategories)
+  const [categories, setCategories] = useState(Array.isArray(initialCategories) ? initialCategories : fallbackCategories)
 
   useEffect(() => {
     let ignore = false

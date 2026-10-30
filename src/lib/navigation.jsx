@@ -15,3 +15,5 @@ export function Link({ to, ...props }) {
 
 export function useNavigate() { return useNavigation().navigate }
 export function useLocation() { return useNavigation().location }
+
+export function useSearchParams() { return useNavigation().searchParamsState }

@@ -24,6 +24,15 @@ export default function NextNavigation({ children }) {
     }
   }, [router])
   const location = useMemo(() => ({ pathname, search: search ? `?${search}` : '' }), [pathname, search])
-  const value = useMemo(() => ({ navigate, location, LinkComponent }), [navigate, location])
+  const setSearchParams = useCallback((next, options = {}) => {
+    const current = new URLSearchParams(window.location.search)
+    const value = typeof next === 'function' ? next(current) : next
+    const query = new URLSearchParams(value).toString()
+    const url = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+    if (options.replace) router.replace(url, { scroll: false })
+    else router.push(url, { scroll: false })
+  }, [router])
+  const searchParamsState = useMemo(() => [new URLSearchParams(search), setSearchParams], [search, setSearchParams])
+  const value = useMemo(() => ({ navigate, location, searchParamsState, LinkComponent }), [navigate, location, searchParamsState])
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>
 }

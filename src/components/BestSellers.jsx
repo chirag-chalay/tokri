@@ -13,7 +13,7 @@ const discountPercent = (product) => {
 
 export default function BestSellers({ initialProducts, deferCart = false }) {
   const navigate = useNavigate()
-  const [products, setProducts] = useState(initialProducts?.length ? initialProducts : bestSellers)
+  const [products, setProducts] = useState(Array.isArray(initialProducts) ? initialProducts : bestSellers)
 
   useEffect(() => {
     let ignore = false

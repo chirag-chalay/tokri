@@ -36,6 +36,22 @@ for (const slug of settings.home?.featuredCategorySlugs || []) {
 assert.match(home.text, /<meta name="robots" content="noindex, nofollow"\s*\/?\s*>/)
 console.log('homepage: public category, product and collection content SSR OK')
 
+if (categories.length) {
+  const chosen = categories.find((item) => item.slug) || categories[0]
+  const slug = encodeURIComponent(chosen.slug)
+  const shop = await get(`${site}/shop?category=${slug}`)
+  assert.equal(shop.status, 200)
+  const dom = parseDocument(shop.text)
+  const main = findAll((node) => node.type === 'tag' && node.name === 'main', dom.children)[0]
+  assert.ok(main && textContent(main).includes(chosen.label), 'Shop category missing from initial HTML')
+  const page = JSON.parse((await get(`${api}/products?category=${slug}&page=1&limit=24`)).text)
+  if (page.products?.length) assert.ok(textContent(main).includes(page.products[0].name), 'Shop product missing from initial HTML')
+  const canonical = findAll((node) => node.type === 'tag' && node.name === 'link' && node.attribs.rel === 'canonical', dom.children)[0]
+  assert.equal(canonical?.attribs.href, `https://tokriii.com/shop?category=${slug}`)
+  assert.match(shop.text, /<meta name="robots" content="noindex, nofollow"\s*\/?\s*>/)
+  console.log('shop: public category and product content SSR, canonical and preview noindex OK')
+}
+
 const robots = await get(`${site}/robots.txt`)
 assert.equal(robots.status, 200)
 assert.match(robots.text, /Disallow: \/(?:\r?\n|$)/)
