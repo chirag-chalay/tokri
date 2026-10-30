@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from '../lib/navigation'
 import { ChevronRight, ShoppingCart } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 

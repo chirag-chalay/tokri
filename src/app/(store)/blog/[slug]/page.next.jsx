@@ -1,9 +1,8 @@
 import { notFound } from 'next/navigation'
-import NextShell from '../../_components/NextShell'
-import ArticleView from '../../_components/ArticleView'
-import { publicGet } from '../../../lib/server/public-api'
-import { getBlog, articleBody, detailMetadata, jsonLd } from '../../../lib/server/content'
-import { canonicalOrigin } from '../../../lib/server/indexing'
+import ArticleView from '../../../_components/ArticleView'
+import { publicGet } from '../../../../lib/server/public-api'
+import { getBlog, articleBody, detailMetadata, jsonLd } from '../../../../lib/server/content'
+import { canonicalOrigin } from '../../../../lib/server/indexing'
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
@@ -27,5 +26,5 @@ export default async function BlogPage({ params }) {
     ...(post.updatedAt ? { dateModified: post.updatedAt } : {}),
     ...(post.author ? { author: { name: post.author } } : {}),
   }
-  return <NextShell><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(json) }} /><ArticleView post={post} others={others} headings={headings} body={body} canonical={canonical} /></NextShell>
+  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(json) }} /><ArticleView post={post} others={others} headings={headings} body={body} canonical={canonical} /></>
 }

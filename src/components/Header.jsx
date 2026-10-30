@@ -1,4 +1,4 @@
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from '../lib/navigation'
 import { ArrowLeft, UserRound, ShoppingBag as ShoppingBagIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'

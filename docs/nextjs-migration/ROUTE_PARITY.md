@@ -12,4 +12,4 @@ Status values: MIGRATED + VERIFIED, MIGRATED + NEEDS QA, LEGACY BRIDGE, BLOCKED,
 | `/p/:slug`, `/about`, `/careers`, `/privacy-policy`, `/terms-and-conditions`, `/help-faqs`, `/returns-policy`, `/support-center` | LEGACY BRIDGE | Content is client-rendered. |
 | `/cart`, `/checkout`, `/order/:orderNo`, `/account`, `/login`, `/profile` | LEGACY BRIDGE | Noindex applied; full safe functional regression remains outstanding. |
 
-Three of 20 route patterns have dedicated App Router routes; 17 remain on the client-only bridge. The migrated detail pages still use a temporary React Router adapter for shared header/footer components. Unknown patterns and missing product/blog records return HTTP 404; missing CMS records need server-side status handling.
+Three of 20 route patterns have dedicated App Router routes; 17 remain on the client-only bridge. The migrated detail pages use native Next navigation; legacy bridge routes still use React Router. Unknown patterns and missing product/blog records return HTTP 404; missing CMS records need server-side status handling.

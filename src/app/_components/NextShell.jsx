@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Router, createPath } from 'react-router-dom'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import NextNavigation from './NextNavigation'
 import { AuthProvider } from '../../context/AuthContext'
 import { AddressProvider } from '../../context/AddressContext'
 import { CartProvider, useCart } from '../../context/CartContext'
@@ -32,25 +32,16 @@ function Chrome({ children, ready }) {
   )
 }
 
-// The shared chrome still uses React Router hooks. This adapter forwards its
-// navigation to Next; it never mounts the legacy Routes tree on migrated pages.
 const subscribe = () => () => {}
 const clientSnapshot = () => true
 const serverSnapshot = () => false
 
 export default function NextShell({ children }) {
-  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const search = searchParams.toString()
   const ready = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot)
-  const navigator = useMemo(() => ({
-    createHref: (to) => typeof to === 'string' ? to : createPath(to),
-    encodeLocation: (to) => typeof to === 'string' ? { pathname: to } : to,
-    go: (delta) => window.history.go(delta),
-    push: (to) => router.push(typeof to === 'string' ? to : createPath(to)),
-    replace: (to) => router.replace(typeof to === 'string' ? to : createPath(to)),
-  }), [router])
+
 
   useEffect(() => {
     installUploadFallback()
@@ -68,10 +59,10 @@ export default function NextShell({ children }) {
   }, [pathname, search])
 
   return (
-    <Router location={{ pathname, search: search ? `?${search}` : '' }} navigator={navigator}>
+    <NextNavigation>
       <AuthProvider><AddressProvider><CartProvider>
         <div className="min-h-screen bg-canvas"><Chrome ready={ready}>{children}</Chrome></div>
       </CartProvider></AddressProvider></AuthProvider>
-    </Router>
+    </NextNavigation>
   )
 }

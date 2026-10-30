@@ -1,9 +1,8 @@
 import { notFound } from 'next/navigation'
-import NextShell from '../../_components/NextShell'
-import ProductView from '../../_components/ProductView'
-import { publicGet } from '../../../lib/server/public-api'
-import { getProduct, cleanHtml, plainText, assetUrl, detailMetadata, jsonLd } from '../../../lib/server/content'
-import { canonicalOrigin } from '../../../lib/server/indexing'
+import ProductView from '../../../_components/ProductView'
+import { publicGet } from '../../../../lib/server/public-api'
+import { getProduct, cleanHtml, plainText, assetUrl, detailMetadata, jsonLd } from '../../../../lib/server/content'
+import { canonicalOrigin } from '../../../../lib/server/indexing'
 
 export async function generateMetadata({ params }) {
   const { productId } = await params
@@ -44,5 +43,5 @@ export default async function ProductPage({ params }) {
   breadcrumbItems.push({ name: item.name, item: url })
   const breadcrumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList',
     itemListElement: breadcrumbItems.map((entry, index) => ({ '@type': 'ListItem', position: index + 1, ...entry })) }
-  return <NextShell><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(json) }} /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbs) }} /><ProductView product={product} relatedProducts={relatedProducts} /></NextShell>
+  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(json) }} /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbs) }} /><ProductView product={product} relatedProducts={relatedProducts} /></>
 }

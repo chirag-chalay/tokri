@@ -27,7 +27,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/app/**/*.next.{js,jsx}', 'src/lib/server/**/*.js'],
+    files: ['src/app/**/*.next.{js,jsx}', 'src/lib/server/**/*.js', 'src/lib/navigation.jsx'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: { 'react-refresh/only-export-components': 'off' },
   },

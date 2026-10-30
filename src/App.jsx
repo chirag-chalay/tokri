@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Header from './components/Header'
+import LegacyNavigation from './lib/LegacyNavigation'
 import LoginPopup from './components/LoginPopup'
 import Home from './pages/Home'
 import ProductDetail from './pages/ProductDetail'
@@ -131,7 +132,7 @@ function AppShell({ migratedRoutes }) {
 
 function App({ migratedRoutes = false }) {
   return (
-    <AuthProvider>
+    <LegacyNavigation><AuthProvider>
       <AddressProvider>
         <CartProvider>
           <div className="min-h-screen bg-canvas">
@@ -139,7 +140,7 @@ function App({ migratedRoutes = false }) {
           </div>
         </CartProvider>
       </AddressProvider>
-    </AuthProvider>
+    </AuthProvider></LegacyNavigation>
   )
 }
 
