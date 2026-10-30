@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Header from './components/Header'
+import LegacyNavigation from './lib/LegacyNavigation'
 import LoginPopup from './components/LoginPopup'
 import Home from './pages/Home'
 import ProductDetail from './pages/ProductDetail'
@@ -54,7 +55,12 @@ function ScrollToTop() {
   return null
 }
 
-function AppShell() {
+function ReloadMigratedRoute() {
+  useEffect(() => { window.location.reload() }, [])
+  return null
+}
+
+function AppShell({ migratedRoutes }) {
   const [showLogin, setShowLogin] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -77,6 +83,8 @@ function AppShell() {
 
   useEffect(() => {
     if (location.state?.openLogin) {
+      // Preserve the existing route-state login behavior.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowLogin(true)
       navigate(location.pathname, { replace: true, state: {} })
     }
@@ -93,11 +101,11 @@ function AppShell() {
       )}
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/product/:productId" element={<ProductDetail />} />
+        <Route path="/product/:productId" element={migratedRoutes ? <ReloadMigratedRoute /> : <ProductDetail />} />
         <Route path="/category/:categoryId" element={<CategoryToShopRedirect />} />
         <Route path="/shop" element={<ShopAllPage />} />
         <Route path="/blog" element={<BlogListPage />} />
-        <Route path="/blog/:slug" element={<BlogDetailPage />} />
+        <Route path="/blog/:slug" element={migratedRoutes ? <ReloadMigratedRoute /> : <BlogDetailPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/order/:orderNo" element={<OrderSuccessPage />} />
@@ -122,17 +130,17 @@ function AppShell() {
   )
 }
 
-function App() {
+function App({ migratedRoutes = false }) {
   return (
-    <AuthProvider>
+    <LegacyNavigation><AuthProvider>
       <AddressProvider>
         <CartProvider>
           <div className="min-h-screen bg-canvas">
-            <AppShell />
+            <AppShell migratedRoutes={migratedRoutes} />
           </div>
         </CartProvider>
       </AddressProvider>
-    </AuthProvider>
+    </AuthProvider></LegacyNavigation>
   )
 }
 

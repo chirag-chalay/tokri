@@ -33,3 +33,9 @@ tokri.sql
 *.njsproj
 *.sln
 *.sw?
+
+# Next.js local output
+.next/
+
+# UI Parity Audit Screenshots
+docs/ui-parity-audit/screenshots/

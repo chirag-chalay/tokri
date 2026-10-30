@@ -11,14 +11,21 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server:setup": "npm run db:setup --prefix server",
-    "server:start": "npm run start --prefix server"
+    "server:start": "npm run start --prefix server",
+    "dev:next": "next dev --webpack --hostname 127.0.0.1 --port 3000",
+    "build:next": "next build --webpack",
+    "start:next": "next start --hostname 127.0.0.1 --port 3000"
   },
   "dependencies": {
+    "domutils": "4.0.2",
+    "htmlparser2": "12.0.0",
     "lucide-react": "^1.8.0",
+    "next": "16.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0",
     "react-slick": "^0.31.0",
+    "sanitize-html": "2.18.1",
     "slick-carousel": "^1.8.1",
     "sweetalert2": "^11.26.24",
     "swiper": "^12.1.3"
@@ -34,6 +41,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "playwright-core": "^1.64.1",
     "postcss": "^8.5.9",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.4"

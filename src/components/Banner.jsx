@@ -1,9 +1,9 @@
-import { Link } from 'react-router-dom'
+import { Link } from '../lib/navigation'
 import { resolveAssetUrl } from '../lib/api'
 
-export default function Banner({ image, mobileImage }) {
-  const desktopSrc = image ? resolveAssetUrl(image) : null
-  const mobileSrc = mobileImage ? resolveAssetUrl(mobileImage) : null
+export default function Banner({ image, mobileImage, rawUrls = false }) {
+  const desktopSrc = image ? (rawUrls ? image : resolveAssetUrl(image)) : null
+  const mobileSrc = mobileImage ? (rawUrls ? mobileImage : resolveAssetUrl(mobileImage)) : null
   const src = mobileSrc || desktopSrc
 
   if (!src) return null

@@ -12,19 +12,22 @@ export default function CmsPage() {
   }, [routeSlug, location.pathname])
 
   const [page, setPage] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
+  const [loading, setLoading] = useState(Boolean(slug))
+  const [notFound, setNotFound] = useState(!slug)
+  const [prevSlug, setPrevSlug] = useState(slug)
+
+  if (prevSlug !== slug) {
+    setPrevSlug(slug)
+    setLoading(Boolean(slug))
+    setNotFound(!slug)
+  }
 
   useEffect(() => {
     if (!slug) {
-      setNotFound(true)
-      setLoading(false)
       return undefined
     }
 
     let ignore = false
-    setLoading(true)
-    setNotFound(false)
 
     fetchJson(`/pages/${encodeURIComponent(slug)}`)
       .then((data) => {

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from '../lib/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useAddress } from '../context/AddressContext'
 import { authDelete, authPost } from '../lib/api'
 import AddressFormModal from './account/AddressFormModal'
-import { addressLabelIcon } from './account/AccountSidebar'
+import { addressLabelIcon } from './account/addressLabelIcon'
 
 export default function AddressPickerModal({ onDesktopLogin }) {
   const navigate = useNavigate()

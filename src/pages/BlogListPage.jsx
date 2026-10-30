@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
 import { fetchJson } from '../lib/api'
 import BlogCard from '../components/BlogCard'
@@ -5,10 +7,10 @@ import BlogCard from '../components/BlogCard'
 const FIRST_PAGE = 18
 const NEXT_PAGE = 6
 
-export default function BlogListPage() {
-  const [posts, setPosts] = useState([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
+export default function BlogListPage({ initialData }) {
+  const [posts, setPosts] = useState(initialData?.posts || [])
+  const [total, setTotal] = useState(Number(initialData?.total) || 0)
+  const [loading, setLoading] = useState(!initialData)
   const [loadingMore, setLoadingMore] = useState(false)
   const [failed, setFailed] = useState(false)
   const sentinelRef = useRef(null)
@@ -106,7 +108,7 @@ export default function BlogListPage() {
         {!loading && !failed && posts.length > 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
             {posts.map((post) => (
-              <BlogCard key={post.slug} post={post} />
+              <BlogCard key={post.slug} post={post} rawUrls={Boolean(initialData)} />
             ))}
           </div>
         ) : null}

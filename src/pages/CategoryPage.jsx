@@ -17,11 +17,16 @@ export default function CategoryPage() {
   const fallbackCategory = categoryDetails[categoryId]
   const [category, setCategory] = useState(fallbackCategory)
   const [loading, setLoading] = useState(!fallbackCategory)
+  const [prevId, setPrevId] = useState(categoryId)
+
+  if (prevId !== categoryId) {
+    setPrevId(categoryId)
+    setLoading(!fallbackCategory)
+  }
 
   useEffect(() => {
     let ignore = false
 
-    setLoading(!fallbackCategory)
     fetchJson(`/categories/${categoryId}`)
       .then((item) => {
         if (!ignore) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from '../lib/navigation'
 import { Search, X } from 'lucide-react'
 import { fetchJson, normalizeProduct } from '../lib/api'
 import CartControl from './CartControl'
