@@ -16,7 +16,7 @@ const nextConfig = {
       has: [
         {
           type: 'host',
-          value: '(?!(www\\.)?tokriii\\.com$).*',
+          value: '(?!(www\\.)?tokriii\\.com(:[0-9]+)?$).*',
         },
       ],
       headers: [
