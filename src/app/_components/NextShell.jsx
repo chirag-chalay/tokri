@@ -38,9 +38,9 @@ function Chrome({ children, ready }) {
   const footerVisibility = isCart ? 'hidden lg:block' : isShop ? 'hidden md:block' : ''
   return (
     <div className={sticky ? 'pb-24 lg:pb-0' : ''}>
-      {ready && !hideChrome && <Header className={isCart ? 'hidden lg:block' : ''} onLoginClick={() => setShowLogin(true)} />}
+      {!hideChrome && <Header className={isCart ? 'hidden lg:block' : ''} onLoginClick={() => setShowLogin(true)} />}
       {children}
-      {ready && !hideChrome && <div className={footerVisibility}><Footer /></div>}
+      {!hideChrome && <div className={footerVisibility}><Footer /></div>}
       {ready && <CartDrawer />}
       {sticky && <StickyCartBar />}
       {ready && <AddressPickerModal onDesktopLogin={() => setShowLogin(true)} />}

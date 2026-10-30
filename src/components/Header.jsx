@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import { useNavigate, useLocation, Link } from '../lib/navigation'
 import { ArrowLeft, UserRound, ShoppingBag as ShoppingBagIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -8,11 +9,18 @@ import DeliveryAddressBar from './DeliveryAddressBar'
 import tokriLogo from '../assets/tokri-logo.png'
 import tokriMark from '../assets/tokri-mark.png'
 
+const subscribe = () => () => {}
+const clientSnapshot = () => true
+const serverSnapshot = () => false
+
 export default function Header({ onLoginClick, className = '' }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { totalCount, openDrawer } = useCart()
   const { isLoggedIn } = useAuth()
+  const ready = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot)
+  const activeLoggedIn = ready && isLoggedIn
+  const activeCount = ready ? totalCount : 0
   const showMobileBack = location.pathname !== '/'
 
   const handleProfileClick = () => {
@@ -92,7 +100,7 @@ export default function Header({ onLoginClick, className = '' }) {
               type="button"
               onClick={handleProfileClick}
               className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line bg-panel-2/50 text-white transition hover:border-brand/40 hover:bg-panel-2"
-              aria-label={isLoggedIn ? 'Open profile' : 'Log in'}
+              aria-label={activeLoggedIn ? 'Open profile' : 'Log in'}
             >
               <UserRound size={20} />
             </button>
@@ -127,7 +135,7 @@ export default function Header({ onLoginClick, className = '' }) {
           </div>
 
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:self-auto">
-            {isLoggedIn ? (
+            {activeLoggedIn ? (
               <AccountMenu />
             ) : (
               <button
@@ -141,11 +149,11 @@ export default function Header({ onLoginClick, className = '' }) {
               onClick={openDrawer}
               className="relative cursor-pointer text-white"
               type="button"
-              aria-label={`View shopping cart (${totalCount} items)`}
+              aria-label={`View shopping cart (${activeCount} items)`}
             >
               <ShoppingBagIcon size={30} />
               <span className="absolute -right-2 -top-1 inline-flex h-[20px] w-[20px] items-center justify-center rounded-full bg-brand text-[13px] font-semibold leading-none text-black text-center">
-                {totalCount}
+                {activeCount}
               </span>
             </button>
           </div>
