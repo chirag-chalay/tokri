@@ -1,5 +1,6 @@
 import { publicGet, getAllPublicBlogs } from '../../lib/server/public-api'
 import { canonicalOrigin } from '../../lib/server/indexing'
+import { publicCmsSlugs } from '../../lib/server/cms-slugs'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,12 +8,14 @@ const escapeXml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&':
 
 export async function GET() {
   try {
-    const [products, categories, posts] = await Promise.all([
+    const [products, categories, posts, cmsPages] = await Promise.all([
       publicGet('/products'), publicGet('/categories'), getAllPublicBlogs(),
+      Promise.all(publicCmsSlugs.map((slug) => publicGet(`/pages/${encodeURIComponent(slug)}`))),
     ])
     if (!Array.isArray(products) || !Array.isArray(categories)) throw new Error('Unexpected catalog response')
     const paths = [
       '/', '/shop', '/blog',
+      ...cmsPages.flatMap((page, index) => page ? [`/${publicCmsSlugs[index]}`] : []),
       ...products.filter((item) => item.slug).map((item) => `/product/${encodeURIComponent(item.slug)}`),
       ...categories.filter((item) => item.slug).map((item) => `/shop?category=${encodeURIComponent(item.slug)}`),
       ...posts.filter((item) => item.slug).map((item) => `/blog/${encodeURIComponent(item.slug)}`),

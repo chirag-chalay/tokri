@@ -8,6 +8,7 @@ import { canonicalOrigin } from './indexing'
 
 export const getProduct = cache((slug) => publicGet(`/products/${encodeURIComponent(slug)}`))
 export const getBlog = cache((slug) => publicGet(`/blogs/${encodeURIComponent(slug)}`))
+export const getCmsPage = cache((slug) => publicGet(`/pages/${encodeURIComponent(slug)}`))
 
 export function cleanHtml(html, transformTags = {}) {
   return sanitizeHtml(String(html || ''), {

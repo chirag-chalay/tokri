@@ -53,3 +53,9 @@ The local SSR smoke test and Next/Vite builds passed; a browser test checked gue
 Local checks covered desktop and mobile category switches, product ordering against the local API, category URL/title/canonical updates, guest cart persistence, product navigation and browser back. Targeted lint, Next and Vite builds, and SSR/SEO smoke checks passed. Controlled screenshots at 1440, 768 and 390px were pixel-identical with external assets blocked; real-image/font parity and the remaining viewports are unverified. The local server never used production credentials or external messaging/payment calls.
 
 For the Next homepage, a successful but empty public API list no longer substitutes the legacy hardcoded fallback products or reviews in server output; API failure does not produce a fabricated indexable catalog. The original Vite defaults remain available for the legacy app.
+
+## Blog listing and CMS batch
+
+`/blog`, `/p/[slug]` and the seven named CMS URLs now have dedicated App Router pages. The listing and published CMS title/body are present in initial HTML, with API-derived titles and canonical URLs. Missing CMS slugs return HTTP 404. CMS rich text is sanitized before server rendering. The sitemap now includes the named CMS routes only when their corresponding public API records exist; the existing API does not expose a public list of arbitrary `/p/` slugs.
+
+Local API/HTML checks covered all seven named CMS pages, the `/p/about` alias, an invalid CMS slug, and the blog listing. Blog-list-to-article, back navigation and CMS-to-home were exercised. About and blog-list full-page screenshots matched at 1440 and 390px with external requests blocked. Actual images/fonts, other CMS pages' visual states, and remaining viewports still need QA.

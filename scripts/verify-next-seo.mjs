@@ -52,6 +52,36 @@ if (categories.length) {
   console.log('shop: public category and product content SSR, canonical and preview noindex OK')
 }
 
+const listing = await get(`${site}/blog`)
+assert.equal(listing.status, 200)
+const listingDom = parseDocument(listing.text)
+const listingMain = findAll((node) => node.type === 'tag' && node.name === 'main', listingDom.children)[0]
+assert.ok(listingMain && textContent(listingMain).includes(blogs[0].title), 'Blog listing content missing from initial HTML')
+const listingCanonical = findAll((node) => node.name === 'link' && node.attribs?.rel === 'canonical', listingDom.children)[0]
+assert.equal(listingCanonical?.attribs.href, 'https://tokriii.com/blog')
+
+for (const slug of ['about', 'careers', 'privacy-policy', 'terms-and-conditions', 'help-faqs', 'returns-policy', 'support-center']) {
+  const source = await get(`${api}/pages/${slug}`)
+  if (source.status === 404) continue
+  assert.equal(source.status, 200)
+  const record = JSON.parse(source.text)
+  const response = await get(`${site}/${slug}`)
+  assert.equal(response.status, 200)
+  const dom = parseDocument(response.text)
+  const main = findAll((node) => node.type === 'tag' && node.name === 'main', dom.children)[0]
+  const heading = main && findAll((node) => node.type === 'tag' && node.name === 'h1', [main])[0]
+  assert.ok(heading && textContent(heading) === record.title, `${slug}: CMS title missing from initial HTML`)
+  const paragraph = findAll((node) => node.type === 'tag' && node.name === 'p' && textContent(node).trim(), parseDocument(record.body || '').children)[0]
+  if (paragraph) assert.ok(textContent(main).includes(textContent(paragraph).trim()), `${slug}: CMS body missing from initial HTML`)
+  const canonical = findAll((node) => node.name === 'link' && node.attribs?.rel === 'canonical', dom.children)[0]
+  assert.equal(canonical?.attribs.href, `https://tokriii.com/${slug}`)
+  assert.match(response.text, /<meta name="robots" content="noindex, nofollow"\s*\/?\s*>/)
+}
+const alias = await get(`${site}/p/about`)
+if (alias.status === 200) assert.ok(alias.text.includes('https://tokriii.com/about'), 'CMS alias canonical incorrect')
+assert.equal((await get(`${site}/p/nonexistent-migration-987654`)).status, 404)
+console.log('blog listing and CMS pages: initial HTML, canonicals and missing-record 404 OK')
+
 const robots = await get(`${site}/robots.txt`)
 assert.equal(robots.status, 200)
 assert.match(robots.text, /Disallow: \/(?:\r?\n|$)/)
@@ -60,6 +90,7 @@ assert.equal(sitemap.status, 200)
 assert.match(sitemap.text, /<urlset\b/)
 assert.ok(sitemap.text.includes(`https://tokriii.com/product/${encodeURIComponent(products[0].slug)}`))
 assert.ok(sitemap.text.includes(`https://tokriii.com/blog/${encodeURIComponent(blogs[0].slug)}`))
+if (alias.status === 200) assert.ok(sitemap.text.includes('https://tokriii.com/about'))
 assert.doesNotMatch(sitemap.text, /<loc>[^<]*\/(?:cart|checkout|account|profile|login|order)(?:[\/?<])/)
 
 for (const [kind, item] of [['product', products[0]], ['blog', blogs[0]]]) {

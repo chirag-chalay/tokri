@@ -1,12 +1,8 @@
 import { notFound } from 'next/navigation'
 import LegacyBridge from '../LegacyBridge'
 
-const singleSegmentRoutes = new Set([
-  'shop', 'blog', 'cart', 'checkout', 'account', 'login', 'profile',
-  'about', 'careers', 'privacy-policy', 'terms-and-conditions',
-  'help-faqs', 'returns-policy', 'support-center',
-])
-const twoSegmentRoutes = new Set(['order', 'p'])
+const singleSegmentRoutes = new Set(['cart', 'checkout', 'account', 'login', 'profile'])
+const twoSegmentRoutes = new Set(['order'])
 const privateRoutes = new Set(['cart', 'checkout', 'account', 'login', 'profile', 'order'])
 
 export async function generateMetadata({ params }) {

@@ -1,6 +1,6 @@
 # SEO verification
 
-This application is not yet SEO-ready overall. Product and article details now render their visible content in the initial HTML; the homepage also renders public catalog content in initial HTML; shop category and first-page product content also render in initial HTML; blog listing and CMS pages remain in the client-only bridge. Shop query categories now have dynamic metadata and query-specific canonicals; CMS missing-record 404 handling remains incomplete. Product breadcrumbs use its existing navigation data.
+This application is not yet SEO-ready overall. Product and article details now render their visible content in the initial HTML; the homepage also renders public catalog content in initial HTML; shop category and first-page product content, blog listing and CMS body content also render in initial HTML. Shop query categories have dynamic metadata and query-specific canonicals; missing CMS records return 404. Product breadcrumbs use its existing navigation data. CMS metadata uses only published API content.
 
 Local checks:
 
@@ -10,3 +10,5 @@ Local checks:
 - `/robots.txt` disallows crawling on localhost and preview hosts. Public crawling requires `TOKRIII_INDEXING_ENABLED=true` and a production hostname. Root metadata defaults to noindex outside that combination. Cart, checkout, login, profile, account and order paths remain noindex.
 
 These tests do not establish full-site SEO correctness or production image access. Do not deploy this intermediate state.
+
+- The sitemap includes published named CMS routes. Arbitrary `/p/` pages cannot be enumerated by the current public API.
