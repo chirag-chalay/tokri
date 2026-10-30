@@ -19,17 +19,33 @@ This document provides the complete, exhaustive mapping of all public media and 
 
 ## 2. Administrator Instructions for Authorized Media Snapshot
 
-To enable full local and staging pixel-perfect parity verification without exposing private server files or risking the live production environment:
+To enable full local and staging pixel-perfect parity verification without exposing private server files or risking the live production environment, a sanitized file allowlist has been generated at [`public-media-allowlist.txt`](./public-media-allowlist.txt) listing exclusively the 92 public storefront assets (excluding all 14 quarantined or unreferenced media records).
 
-1. **Read-Only Archive Creation:** An authorized server administrator should create a tarball of the public uploads directory on the live server:
-   ```bash
-   tar -czf tokriii-public-uploads.tar.gz -C /path/to/server uploads/categories uploads/products uploads/blog uploads/general
-   ```
-2. **Extraction Destination:** Extract the archive into the local worktree at:
-   ```bash
-   tar -xzf tokriii-public-uploads.tar.gz -C /home/gaurav/Documents/tokriii-nextjs/server/
-   ```
-3. **Font Files:** Download the approved WOFF2 font files for `Plus Jakarta Sans` (weights 400, 500, 600, 700 normal, 400 italic) into `public/fonts/` or permit CDN font downloads during visual verification.
+### Option A: Tarball Export via Allowlist (Recommended)
+On the live production host, an authorized administrator should navigate to the server root (where the `uploads/` directory resides) and execute:
+```bash
+# Verify the allowlist file is copied to the server, then archive strictly the allowlisted files:
+tar -czf tokriii-public-media-snapshot.tar.gz -T public-media-allowlist.txt
+```
+
+### Option B: Rsync Transfer via Allowlist
+Alternatively, an administrator can pull only the allowlisted files directly into the local worktree:
+```bash
+rsync -av --files-from=docs/nextjs-migration/public-media-allowlist.txt \
+  user@remote-host:/path/to/server/ \
+  /home/gaurav/Documents/tokriii-nextjs/server/
+```
+
+### Extraction Destination
+If using the tarball export (Option A), extract it into the local worktree:
+```bash
+tar -xzf tokriii-public-media-snapshot.tar.gz -C /home/gaurav/Documents/tokriii-nextjs/server/
+```
+
+> [!IMPORTANT]
+> - Do NOT transfer the entire `uploads/` directory indiscriminately.
+> - Ensure all 14 quarantined records listed in Section 8 remain excluded.
+> - Git is configured to ignore all files under `server/uploads/**` (except `.gitkeep`); never force-add uploaded images into Git.
 
 ---
 

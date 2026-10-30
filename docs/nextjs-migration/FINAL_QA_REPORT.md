@@ -12,7 +12,6 @@ The migration achieves full route independence from the React Router bridge, syn
 - **Untouched Local React Repo:** `/home/gaurav/Documents/tokri` (preserved without overwriting local changes).
 - **Migration Worktree:** `/home/gaurav/Documents/tokriii-nextjs`
 - **Active Feature Branch:** `feature/tokriii-react-to-nextjs`
-- **Current Feature Branch Commit:** `b58f8fb` (and pending staging report commit)
 - **Isolated Local Database:** `tokri_live_local` on `127.0.0.1:3307` (restored from compressed dump `chirag-live-20261029T085327Z.sql.gz`).
 - **Read-Only Local Express API:** Port `5223` wrapped with network isolation hook preventing outbound network connections.
 - **Next.js Production Host:** `http://127.0.0.1:3000`
@@ -41,6 +40,14 @@ The migration achieves full route independence from the React Router bridge, syn
 7. `b58f8fb`: `test: expand commerce regression with backend-driven shipping, tax, MOV and pincode boundaries; document media manifest and refine staging requirements`
    - Added automated sub-suites for tax calculations, coupon recalculation, promotional first-order delivery, express MOV boundaries, and address switching.
    - Created initial `MEDIA_MANIFEST.md`.
+8. `482717e`: `test: add isolated backend contract verification suite, ground pincodes in live database, expand media manifest, and document staging readiness`
+   - Added `scripts/verify-backend-contracts.mjs` with 24 test suites covering real NCR database pincodes, MOV boundaries (₹1,250, ₹1,251, ₹1,252), GST tax rounding, and first-3-orders promo.
+   - Generated exhaustive 180+ line `MEDIA_MANIFEST.md` covering 92 public files and 14 quarantined files.
+9. `Pending`: `test: sanitize test customer privacy, add public media allowlist, and document staging preflight checklist`
+   - Replaced hardcoded customer IDs in backend contract tests with safe runtime discovery.
+   - Created sanitized allowlist `docs/nextjs-migration/public-media-allowlist.txt`.
+   - Created font specification in `docs/nextjs-migration/FONT_CONFIGURATION.md`.
+   - Created staging checklist in `docs/nextjs-migration/STAGING_PREFLIGHT_CHECKLIST.md`.
 
 ---
 
@@ -64,7 +71,31 @@ To ensure technical rigor, the following verification milestones are explicitly 
 
 ---
 
-## 4. Grounded Backend Pincode Serviceability Analysis
+## 4. Git Divergence & Integration Analysis (`feature` vs `staging`)
+
+A comparison of `feature/tokriii-react-to-nextjs` against `origin/staging` revealed:
+- **Feature Branch Position:** 24 commits ahead of `origin/staging`.
+- **Staging Divergence:** 3 commits exist on `origin/staging` that were not in the feature branch's base history:
+  1. `28027dc`: `changes in splash screen and auto update` (modifies `tokri-mobile-go/app.config.js` and `tokri-mobile-go/src/components/AppUpdateGate.js` bumping mobile app version to 1.0.5 and refining modal dialog).
+  2. `f8578f0`: `Merge branch 'live-sync-2026-10-27' into staging` (merged `3c11c4a` live-source baseline into staging).
+  3. `1c0f0e2`: `fix: avoid blocked analytics module in local preview` (renamed `analytics.js` to `telemetry.js`).
+- **Conflict & Integration Assessment:**
+  - The mobile app changes in `tokri-mobile-go` auto-merge cleanly without touching any web storefront code.
+  - The telemetry rename in `1c0f0e2` is identical in content to commit `527221e` on the feature branch.
+  - The only file with modifications in both branches is `src/App.jsx`, where the feature branch introduced backward-compatible `LegacyNavigation` and `migratedRoutes` props to keep the Vite build working alongside Next.js.
+  - **Overall Risk:** Minimal / Zero technical conflict. Merging staging into feature branch or feature branch into staging will be clean and low-risk.
+
+---
+
+## 5. Test Privacy & Portability Improvements
+
+In `scripts/verify-backend-contracts.mjs`:
+- **Security Guard:** Added an upfront URL validator asserting `DATABASE_URL` connects exclusively to `127.0.0.1`, `localhost`, or `::1` on port `3307`. Any attempt to configure a remote or production database terminates immediately with an error.
+- **Privacy-Preserving Customer Fixtures:** Completely eliminated hardcoded customer IDs from the restored dump. The test now uses runtime dynamic query discovery to anonymously find customers with 0 orders and active orders, strictly verifying the underlying calculation logic without logging or committing personal identifiers.
+
+---
+
+## 6. Grounded Backend Pincode Serviceability Analysis
 
 Analysis of the `ServiceablePincode` table in the restored `tokri_live_local` database revealed that Tokriii operates exclusively within the National Capital Region (NCR - Delhi & Gurugram):
 
@@ -75,7 +106,7 @@ Analysis of the `ServiceablePincode` table in the restored `tokri_live_local` da
 
 ---
 
-## 5. Exact Minimum Order Value (MOV) Boundary Assessment
+## 7. Exact Minimum Order Value (MOV) Boundary Assessment
 
 Using the backend decision function `deliveryDecision(settings, freeDelivery, option, itemsTotal)` with `expressMinimumOrderValue = 1251`:
 
@@ -99,7 +130,7 @@ Using the backend decision function `deliveryDecision(settings, freeDelivery, op
 
 ---
 
-## 6. Tax, Handling, Delivery & Promotion Logic
+## 8. Tax, Handling, Delivery & Promotion Logic
 
 - **Tax Calculations (`calcItemTax`):**
   - Taxable items (Dry Fruits @ 5% GST): Even amount (₹500) produces ₹25.00 total tax (CGST ₹12.50, SGST ₹12.50).
@@ -118,30 +149,23 @@ Using the backend decision function `deliveryDecision(settings, freeDelivery, op
 
 ---
 
-## 7. Media Manifest & Web Font Specifications
+## 9. Media Manifest & Web Font Specifications
 
-See [`MEDIA_MANIFEST.md`](./MEDIA_MANIFEST.md) for the exhaustive 180+ line asset inventory.
-
+- See [`MEDIA_MANIFEST.md`](./MEDIA_MANIFEST.md) for the complete 180+ line asset inventory.
+- See [`public-media-allowlist.txt`](./public-media-allowlist.txt) for the sanitized 92-file export allowlist.
+- See [`FONT_CONFIGURATION.md`](./FONT_CONFIGURATION.md) for the local WOFF2 `@font-face` specification.
 - **Public Media Referenced in Database:** 92 unique files (74 products, 8 categories, 8 blogs, 2 homepage banners).
 - **Quarantined Media Library Entries:** 14 records in `Media` table (reviews, superseded uploads) excluded from public snapshot.
-- **Web Font Requirements:**
-  - `Plus Jakarta Sans`: Normal styles (weights 400, 500, 600, 700), Italic style (weight 400).
+- **Web Font Requirements:** `Plus Jakarta Sans`: Normal styles (weights 400, 500, 600, 700), Italic style (weight 400).
 - **Current Parity Status:** `Real image parity: BLOCKED`, `Real font parity: BLOCKED`, `Multi-device responsive parity: BLOCKED`.
 
 ---
 
-## 8. Dynamic CMS Sitemap Limitation & Proposed Endpoint
+## 10. Staging Review Checklist & Administrator Questions
 
-- **Limitation:** `server/src/routes/api.js` provides `GET /pages/:slug` for single-page retrieval but lacks a collection endpoint. `sitemap.xml` indexes known pre-defined CMS pages but cannot discover arbitrary `/p/[slug]` pages.
-- **Proposed Endpoint:** `GET /api/v1/pages` returning `{ ok: true, pages: [{ slug, title, updatedAt }] }` filtered by `isPublished: true`.
-- **Status:** **PROPOSED ONLY — NOT DEPLOYED.** Backend code remains untouched per safety instructions.
-
----
-
-## 9. Staging Review Checklist & Administrator Questions
+See [`STAGING_PREFLIGHT_CHECKLIST.md`](./STAGING_PREFLIGHT_CHECKLIST.md) for the complete preflight verification protocol.
 
 The following questions require confirmation from an authorized administrator prior to staging review:
-
 1. **Database Isolation:** Does the staging environment use an isolated database, or does it share the production MySQL database?
 2. **Process Management:** Will Next.js run under PM2 (e.g. port 3000) or as a container behind Nginx?
 3. **Nginx Routing:** What upstream rules will differentiate between the Express API (`server.tokriii.com`) and the Next.js storefront?
@@ -151,7 +175,7 @@ The following questions require confirmation from an authorized administrator pr
 
 ---
 
-## 10. Final Release Audit Summary
+## 11. Final Release Audit Summary
 
 ```
 TOKRIII NEXT.JS RELEASE AUDIT
@@ -162,16 +186,19 @@ TOKRIII NEXT.JS RELEASE AUDIT
 - SEO Verification: PASS
 - Mock Commerce Suite: PASS (9/9 scenarios)
 - Backend Contract Suite: PASS (24/24 suites)
+- Customer Fixture Privacy: YES (0 customer IDs committed; safe dynamic discovery)
+- Public Media Allowlist: READY (92 files allowlisted; 14 quarantined)
+- Font Fixture Spec: READY (docs/nextjs-migration/FONT_CONFIGURATION.md)
+- Staging Preflight Checklist: READY (docs/nextjs-migration/STAGING_PREFLIGHT_CHECKLIST.md)
 - Database Pincodes Grounded: YES (32 NCR pincodes analyzed)
 - MOV Boundary Verified: YES (₹1,250 fail, ₹1,251 pass, ₹1,252 pass)
 - Tax & Odd Paise Rounding: YES (5% GST, CGST 8.32 / SGST 8.33 on ₹16.65)
 - First-3-Orders Promo: YES (Orders 1-3 free, 4 paid, express excluded)
-- Media Manifest Complete: YES (92 public assets, 14 quarantined)
 - Font Parity: BLOCKED (Plus Jakarta Sans WOFF2 not yet vendored)
 - Image Parity: BLOCKED (production uploads missing locally)
 - Viewport Visual Parity: BLOCKED (pending fonts and real assets)
 - CMS Sitemap Endpoint: PROPOSED (GET /api/v1/pages documented)
-- Feature Branch: feature/tokriii-react-to-nextjs (pushed cleanly)
+- Feature Branch: feature/tokriii-react-to-nextjs (cleanly tracked)
 - Main Branch Modified: NO
 - Staging Modified: NO
 - Production Modified: NO

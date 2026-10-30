@@ -32,19 +32,24 @@ The owner confirmed `live-sync-2026-10-27` (`3c11c4a`) as the live-source baseli
      - Scenario 7 (Actual UI checkout submission with duplicate click protection `button.disabled = true` & payload inspection): PASS.
      - Scenario 8 (Order confirmation view details verification `/order/ORD-SYNTHETIC-889900`): PASS.
      - Scenario 9 (Session expiry on 401 Unauthorized and localStorage cleanup): PASS.
-4. **Backend Contract Verification Suite (`scripts/verify-backend-contracts.mjs`):**
+4. **Backend Contract Verification & Privacy Protection (`scripts/verify-backend-contracts.mjs`):**
    - Implemented 24 isolated test suites directly executing business modules (`charges.js`, `deliveryQuote.js`, `delivery.js`, `freeDelivery.js`):
      - Suite 1 (Pincode serviceability grounded in local DB): `122002` Gurugram (both), `122017` Gurugram (morning only), `110033` Delhi (express only), `999999` and `560001` (unsupported): PASS.
      - Suite 2 (Exact MOV boundaries): ₹1,250 below minimum, ₹1,251 exactly at minimum, ₹1,252 above minimum; morning MOV isolation; coupon discount independence: PASS.
      - Suite 3 (Tax calculations & rounding): 5% GST on ₹500, odd paise rounding on ₹333 (CGST 8.32, SGST 8.33), IGST 25.00 for inter-state, 0% GST fresh fruit, mixed cart, empty cart: PASS.
      - Suite 4 (Configurable charges vs defaults): default rates vs settings overrides (`handlingFee: 15`, `morningShippingFee: 49`, `expressShippingFee: 99`), `freeAbove` threshold logic: PASS.
-     - Suite 5 (First-3-orders promo & database quota): Orders 1-3 free morning delivery, 4th order pays standard fee, express delivery exempted from promo, settings toggle, and real database customer quota queries (0, 1, 2, 3, 6 orders): PASS.
-5. **Media Manifest & Missing Asset Inventory (`docs/nextjs-migration/MEDIA_MANIFEST.md`):**
-   - Completely mapped all 92 referenced public assets (74 products, 8 categories, 8 blogs, 2 homepage banners) and 14 quarantined media-library records.
-6. **SEO and CMS Analysis (`docs/nextjs-migration/SEO_VERIFICATION.md`):**
-   - Fully passing SSR and metadata verification. Documented backward-compatible proposal for `GET /api/v1/pages` collection endpoint.
+     - Suite 5 (First-3-orders promo & privacy-preserving database quota): Orders 1-3 free morning delivery, 4th order pays standard fee, express delivery exempted from promo, settings toggle, and safe anonymous dynamic discovery of customer quotas: PASS.
+   - Database connection guard verifies connection is strictly local (port 3307); blocks any remote or production host.
+5. **Media Manifest, Sanitized Allowlist & Font Specification:**
+   - Mapped all 92 referenced public assets (74 products, 8 categories, 8 blogs, 2 homepage banners) and 14 quarantined records in [`docs/nextjs-migration/MEDIA_MANIFEST.md`](./MEDIA_MANIFEST.md).
+   - Created standalone sanitized file allowlist in [`docs/nextjs-migration/public-media-allowlist.txt`](./public-media-allowlist.txt) for administrator snapshot export.
+   - Documented exact `Plus Jakarta Sans` local WOFF2 `@font-face` requirements in [`docs/nextjs-migration/FONT_CONFIGURATION.md`](./FONT_CONFIGURATION.md).
+6. **Staging Preflight & Infrastructure Verification:**
+   - Created comprehensive 10-point administrator checklist in [`docs/nextjs-migration/STAGING_PREFLIGHT_CHECKLIST.md`](./STAGING_PREFLIGHT_CHECKLIST.md) covering database isolation, PM2 process management, Nginx proxy configuration, internal ports, noindex directives, test gateway isolation, health checks, and rollback procedure.
+7. **Git Integration & Divergence Analysis:**
+   - Completed detailed divergence assessment against `origin/staging` (24 commits ahead, 3 behind). Verified zero conflict risk; mobile app updates in `tokri-mobile-go` auto-merge cleanly.
 
 ## Remaining Blockers
-- **Real Asset Parity (BLOCKED):** `server/uploads` in local repos and backup dump contains only `.gitkeep`. Uploaded catalog images reside only on live production. Google Fonts are blocked offline. Complete manifest prepared in `docs/nextjs-migration/MEDIA_MANIFEST.md`.
+- **Real Asset Parity (BLOCKED):** `server/uploads` in local repos and backup dump contains only `.gitkeep`. Uploaded catalog images reside only on live production. Google Fonts are blocked offline. Complete allowlist and instructions prepared in `docs/nextjs-migration/public-media-allowlist.txt`.
 - **Multi-Device Pixel Parity (BLOCKED):** Complete pixel-perfect visual diff across viewports requires the live asset bundle.
 - **CMS Sitemap Enumeration (BLOCKED by backend API contract):** `server/src/routes/api.js` exposes `GET /pages/:slug` but lacks a collection endpoint (`GET /pages`) to enumerate arbitrary CMS slugs. Dynamic sitemap currently includes all known published CMS pages.

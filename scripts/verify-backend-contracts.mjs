@@ -18,6 +18,19 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
+// Security Guard: Prevent any unintended connection to remote or production databases
+if (process.env.DATABASE_URL) {
+  try {
+    const parsedDbUrl = new URL(process.env.DATABASE_URL.replace(/^mysql:\/\//, 'http://'))
+    const allowedHosts = ['127.0.0.1', 'localhost', '::1']
+    if (!allowedHosts.includes(parsedDbUrl.hostname) || parsedDbUrl.port !== '3307') {
+      throw new Error(`SECURITY GUARD TRIGGERED: Tests are restricted to local isolated MySQL on port 3307. Attempted: ${parsedDbUrl.hostname}:${parsedDbUrl.port}`)
+    }
+  } catch (err) {
+    if (err.message.includes('SECURITY GUARD')) throw err
+  }
+}
+
 // Import actual backend business modules
 import { prisma } from '../server/src/lib/prisma.js'
 import {
@@ -380,37 +393,63 @@ async function run() {
   console.log('✓ 5D: Settings toggle disables promotional delivery: PASS')
   passed++
 
-  // 5E. Database Verification: Real Customers Free Delivery Status
-  // Test customer with 6 orders
-  const cust6 = await getCustomerFreeDeliveryStatus('cmucgtyuz0047sow7318gqrr4')
-  assert.equal(cust6.used, 6)
-  assert.equal(cust6.remaining, 0)
-  assert.equal(cust6.isEligible, false)
+  // 5E. Database Verification: Safe Privacy-Preserving Customer Quota Discovery
+  // Verify null and invalid ID handling
+  const nullStatus = await getCustomerFreeDeliveryStatus(null)
+  assert.equal(nullStatus.isEligible, false, 'Null customer ID must not be eligible')
+  assert.equal(nullStatus.remaining, 0)
+  assert.equal(nullStatus.used, 0)
 
-  // Test customer with 3 orders
-  const cust3 = await getCustomerFreeDeliveryStatus('cmv9k1fbb0005so4lth60wbeo')
-  assert.equal(cust3.used, 3)
-  assert.equal(cust3.remaining, 0)
-  assert.equal(cust3.isEligible, false)
+  const nonExistentStatus = await getCustomerFreeDeliveryStatus('nonexistent-test-id-000')
+  assert.equal(nonExistentStatus.isEligible, false, 'Nonexistent customer ID must not be eligible')
+  assert.equal(nonExistentStatus.remaining, 0)
+  assert.equal(nonExistentStatus.used, 0)
 
-  // Test customer with 2 orders
-  const cust2 = await getCustomerFreeDeliveryStatus('cmudo14r5005msow7681wbsn5')
-  assert.equal(cust2.used, 2)
-  assert.equal(cust2.remaining, 1)
-  assert.equal(cust2.isEligible, true)
+  // Dynamically discover customer records at runtime without exposing or committing personal identifiers
+  const custWith0 = await prisma.customer.findFirst({
+    where: { orders: { none: {} } },
+    select: { id: true }
+  })
+  if (custWith0) {
+    const status0 = await getCustomerFreeDeliveryStatus(custWith0.id)
+    assert.equal(status0.used, 0, 'Customer with 0 orders must have used = 0')
+    assert.equal(status0.remaining, 3, 'Customer with 0 orders must have 3 remaining')
+    assert.equal(status0.isEligible, true, 'Customer with 0 orders must be eligible')
+  }
 
-  // Test customer with 1 order
-  const cust1 = await getCustomerFreeDeliveryStatus('cmsabwzul0009soqki0sqyetm')
-  assert.equal(cust1.used, 1)
-  assert.equal(cust1.remaining, 2)
-  assert.equal(cust1.isEligible, true)
+  // Discover customers with order history and verify exact mathematical calculation
+  const discoveredCustomers = await prisma.customer.findMany({
+    where: { orders: { some: {} } },
+    select: {
+      id: true,
+      orders: {
+        select: {
+          id: true,
+          status: true,
+          paymentStatus: true,
+          paymentMode: true,
+        }
+      }
+    },
+    take: 10
+  })
 
-  // Test customer with 0 orders
-  const cust0 = await getCustomerFreeDeliveryStatus('cmr83fmip0001pwqslzfwpkgv')
-  assert.equal(cust0.used, 0)
-  assert.equal(cust0.remaining, 3)
-  assert.equal(cust0.isEligible, true)
-  console.log('✓ 5E: Real customer database quota assertions (0, 1, 2, 3, 6 orders): PASS')
+  for (const c of discoveredCustomers) {
+    const status = await getCustomerFreeDeliveryStatus(c.id)
+    // Filter according to business rule in freeDelivery.js:
+    // status !== 'cancelled', paymentStatus not in ['failed', 'refunded'], and online must be paid
+    const validCount = c.orders.filter(o => {
+      if (o.status === 'cancelled') return false
+      if (['failed', 'refunded'].includes(o.paymentStatus)) return false
+      if (o.paymentMode === 'online' && o.paymentStatus !== 'paid') return false
+      return true
+    }).length
+
+    assert.equal(status.used, validCount, `Customer used orders count must equal ${validCount}`)
+    assert.equal(status.remaining, Math.max(0, 3 - validCount), `Remaining orders must equal Math.max(0, 3 - ${validCount})`)
+    assert.equal(status.isEligible, validCount < 3, `Eligibility must equal ${validCount < 3}`)
+  }
+  console.log('✓ 5E: Safe privacy-preserving customer quota assertions (0 and active order counts): PASS')
   passed++
 
   console.log(`\n======================================================================`)
