@@ -3,7 +3,7 @@
 ## Executive Summary
 This document provides the final engineering and QA assessment for the Tokriii storefront migration from React 19 + Vite 8 to Next.js 16.4.3 (App Router).
 
-The migration achieves full route independence from the React Router bridge, synchronous SSR of public catalog, product, blog, and CMS pages, zero layout flash or hydration mismatch on the shared chrome, zero ESLint errors, and full passage of a 9-scenario automated commerce, tax, delivery, and checkout regression suite under strict outbound network isolation.
+The migration achieves full route independence from the React Router bridge, synchronous SSR of public catalog, product, blog, and CMS pages, zero layout flash or hydration mismatch on the shared chrome, zero ESLint errors, full passage of a 9-scenario automated commerce regression suite, and 100% passage of a 24-suite isolated backend contract verification suite grounded in the restored database (`tokri_live_local`) under strict outbound network isolation.
 
 ---
 
@@ -12,7 +12,7 @@ The migration achieves full route independence from the React Router bridge, syn
 - **Untouched Local React Repo:** `/home/gaurav/Documents/tokri` (preserved without overwriting local changes).
 - **Migration Worktree:** `/home/gaurav/Documents/tokriii-nextjs`
 - **Active Feature Branch:** `feature/tokriii-react-to-nextjs`
-- **Starting Commit for Current Gate:** `50576f9`
+- **Current Feature Branch Commit:** `b58f8fb` (and pending staging report commit)
 - **Isolated Local Database:** `tokri_live_local` on `127.0.0.1:3307` (restored from compressed dump `chirag-live-20261029T085327Z.sql.gz`).
 - **Read-Only Local Express API:** Port `5223` wrapped with network isolation hook preventing outbound network connections.
 - **Next.js Production Host:** `http://127.0.0.1:3000`
@@ -38,145 +38,143 @@ The migration achieves full route independence from the React Router bridge, syn
    - Added duplicate click protection and failure recovery.
 6. `50576f9`: `docs: update final QA report with accurate App Router filenames, environment variable audit, media manifest, and staging architecture plan`
    - Corrected App Router `.next.jsx` filenames and documented media manifest.
+7. `b58f8fb`: `test: expand commerce regression with backend-driven shipping, tax, MOV and pincode boundaries; document media manifest and refine staging requirements`
+   - Added automated sub-suites for tax calculations, coupon recalculation, promotional first-order delivery, express MOV boundaries, and address switching.
+   - Created initial `MEDIA_MANIFEST.md`.
 
 ---
 
 ## 3. Clear Separation of Release Concepts
 
-To ensure complete technical transparency, the following verification milestones are explicitly distinguished:
+To ensure technical rigor, the following verification milestones are explicitly distinguished:
 
 | Release Concept | Status | Detailed Assessment |
-| --- | --- | --- |
-| **Next.js Production Build** | **PASS** | `npm run build:next` compiles all 20 App Router routes without error. |
-| **Vite Production Build** | **PASS** | `npm run build` compiles Vite baseline without regression. |
+| --- | :---: | --- |
+| **Next.js Production Build** | **PASS** | `npm run build:next` compiles all 20 App Router routes dynamically with SSR. Zero errors. |
+| **Vite Production Build** | **PASS** | `npm run build` compiles Vite baseline cleanly. Zero errors. |
 | **ESLint Static Analysis** | **PASS** | `npm run lint` reports 0 errors (7 pre-existing upstream hook warnings). |
-| **SEO Smoke Tests** | **PASS** | `node scripts/verify-next-seo.mjs` verifies SSR initial HTML, dynamic metadata, canonical URLs, JSON-LD, robots, and dynamic sitemap. |
-| **Mocked Commerce Tests** | **PASS** | `node scripts/verify-commerce-regression.mjs` verifies 9 scenarios: cart add, OTP auth, cart sync payload, orders, tax calculations, coupon recalculation, promotional free delivery, minimum order values, pincode switching, duplicate order protection, error recovery, and session expiry. |
-| **Real Backend Integration** | **PARTIAL (LOCAL ONLY)** | Verified exclusively against local read-only Express API (port 5223) and MySQL dump on port 3307. Real staging/production backend integration remains **UNTESTED**. |
+| **SEO Smoke Tests** | **PASS** | `node scripts/verify-next-seo.mjs` verifies SSR initial HTML, dynamic metadata, canonical URLs, JSON-LD, robots directives, and dynamic sitemap. |
+| **Frontend Mocked Tests** | **PASS** | `node scripts/verify-commerce-regression.mjs` verifies 9 automated scenarios in headless Chromium: guest cart, OTP auth modal with SweetAlert error assertion, cart sync PUT payload schema, orders history, tax & handling display, coupon discount recalculation, first-order promo, MOV button disabling, pincode switching, duplicate checkout protection, failure recovery, and session expiry. |
+| **Backend Contract Tests** | **PASS** | `node scripts/verify-backend-contracts.mjs` verifies 24 isolated test suites directly executing server modules (`charges.js`, `deliveryQuote.js`, `delivery.js`, `freeDelivery.js`): actual NCR database pincodes, exact MOV boundaries (₹1,250, ₹1,251, ₹1,252), GST tax calculations with odd paise rounding, CGST/SGST/IGST, configurable charges vs defaults, and account-level first-3-orders quota. |
+| **Local Integration Tests** | **PASS** | Verified exclusively against local read-only Express API (port 5223) and MySQL dump on port 3307 under strict network isolation. |
+| **Real Staging Integration** | **UNTESTED** | Live network calls, remote Express API, and staging database remain untested locally to prevent data modification. |
 | **Full Design & Asset Parity** | **BLOCKED** | Catalog images (74 products, 8 categories, 8 blogs) and web font files (`Plus Jakarta Sans`) are missing locally; visual verification across viewports is **BLOCKED**. |
 | **Ready for Staging Review** | **NO** | Blocked until production uploads and font assets are provisioned on staging and staging server architecture questions are confirmed by an administrator. |
 | **Ready for Deployment** | **NO** | Strictly unauthorized. Never deploy directly without staging review and explicit owner authorization. |
 
 ---
 
-## 4. App Router Structure & Source File Mapping
-The Next.js configuration in `next.config.mjs` specifies `pageExtensions: ['next.jsx', 'next.js']`. All route files use these extensions:
+## 4. Grounded Backend Pincode Serviceability Analysis
 
-| Route | File Path | Route Type |
-| --- | --- | --- |
-| `/` | `src/app/(store)/page.next.jsx` | Server Component (SSR) |
-| `/shop` | `src/app/(store)/shop/page.next.jsx` | Server Component (SSR) |
-| `/category/[categoryId]` | `src/app/category/[categoryId]/page.next.jsx` | Redirect (308 to `/shop?category=...`) |
-| `/product/[productId]` | `src/app/(store)/product/[productId]/page.next.jsx` | Server Component (SSR) |
-| `/blog` | `src/app/(store)/blog/page.next.jsx` | Server Component (SSR) |
-| `/blog/[slug]` | `src/app/(store)/blog/[slug]/page.next.jsx` | Server Component (SSR) |
-| `/p/[slug]` | `src/app/(store)/p/[slug]/page.next.jsx` | Server Component (SSR) |
-| `/about` | `src/app/(store)/about/page.next.jsx` | Server Component (SSR) |
-| `/careers` | `src/app/(store)/careers/page.next.jsx` | Server Component (SSR) |
-| `/privacy-policy` | `src/app/(store)/privacy-policy/page.next.jsx` | Server Component (SSR) |
-| `/terms-and-conditions` | `src/app/(store)/terms-and-conditions/page.next.jsx` | Server Component (SSR) |
-| `/help-faqs` | `src/app/(store)/help-faqs/page.next.jsx` | Server Component (SSR) |
-| `/returns-policy` | `src/app/(store)/returns-policy/page.next.jsx` | Server Component (SSR) |
-| `/support-center` | `src/app/(store)/support-center/page.next.jsx` | Server Component (SSR) |
-| `/cart` | `src/app/(store)/cart/page.next.jsx` | Client Component (`noindex`) |
-| `/checkout` | `src/app/(store)/checkout/page.next.jsx` | Client Component (`noindex`) |
-| `/order/[orderNo]` | `src/app/(store)/order/[orderNo]/page.next.jsx` | Client Component (`noindex`) |
-| `/account` | `src/app/(store)/account/page.next.jsx` | Client Component (`noindex`) |
-| `/login` | `src/app/(store)/login/page.next.jsx` | Client Component (`noindex`) |
-| `/profile` | `src/app/(store)/profile/page.next.jsx` | Client Component (`noindex`) |
-| `/robots.txt` | `src/app/robots.txt/route.next.js` | Route Handler |
-| `/sitemap.xml` | `src/app/sitemap.xml/route.next.js` | Route Handler |
+Analysis of the `ServiceablePincode` table in the restored `tokri_live_local` database revealed that Tokriii operates exclusively within the National Capital Region (NCR - Delhi & Gurugram):
+
+- **Both Delivery Options (Morning & Express):** 12 configured pincodes in Gurugram (e.g. `122002` DLF Phase 1 / Chakkarpur, `122003` Sector 45, `122011`, `122009`, `122018`, `122101`, `122102`, `122001`, `122016`, `122022`, `122012`, `122098`).
+- **Morning-Only Coverage (Express Coming Soon):** 2 configured pincodes in Gurugram (`122017` Palam Vihar, `122006` Railway Road).
+- **Express-Only Coverage (Morning Coming Soon):** 18 configured pincodes in Delhi / New Delhi (e.g. `110033` Adarsh Nagar / Azadpur, `110001`, `110003`, `110021`, `110048`, `110057`, `110070`, `110024`, `110016`, `110017`, `110049`, `110065`, `110025`, `110054`, `110026`, `110027`, `110075`, `110092`).
+- **Unsupported / Unconfigured Pincodes:** All non-NCR pincodes (e.g. `560001` Bengaluru, `400001` Mumbai, `999999` nonexistent) return `serviceable: false` and reject checkout with HTTP 400.
 
 ---
 
-## 5. Media Manifest & Missing Assets
-See [`MEDIA_MANIFEST.md`](./MEDIA_MANIFEST.md) for the complete 90+ item manifest.
+## 5. Exact Minimum Order Value (MOV) Boundary Assessment
 
-Summary of missing assets:
-- **Product Images:** 74 images referenced in `Product.image` (e.g. `/uploads/products/*.webp`).
-- **Category Thumbnails:** 8 thumbnails referenced in `Category.image` (e.g. `/uploads/categories/*.webp`).
-- **Blog Cover Images:** 8 covers referenced in `BlogPost.coverImage` (e.g. `/uploads/blog/*.png`).
-- **Media Library:** 106 records in `Media.path`.
-- **Web Fonts:** `Plus Jakarta Sans` weights 400 through 800.
+Using the backend decision function `deliveryDecision(settings, freeDelivery, option, itemsTotal)` with `expressMinimumOrderValue = 1251`:
 
-`server/uploads` in all git branches and backups contains only `.gitkeep`. Without an approved public media snapshot provided by an administrator, full pixel parity remains **BLOCKED**.
-
----
-
-## 6. Environment Variables Audit (Verified Against Source Code)
-
-### Variables Verified in Source Code
-| Variable | Code Location | Scope | Actual Purpose & Source Behavior | Default / Fallback |
-| --- | --- | --- | --- | --- |
-| `TOKRIII_API_PROXY_TARGET` | `next.config.mjs` (L1) | Server Build & Runtime | Backend proxy target for Next.js internal rewrites (`/api/:path*`, `/uploads/:path*`). | `http://127.0.0.1:5223` |
-| `TOKRIII_SERVER_API_ORIGIN` | `src/lib/server/public-api.js` (L4) | Server Runtime (SSR) | Origin used by server components for public unauthenticated SSR data fetching. | `http://127.0.0.1:5223` |
-| `TOKRIII_INDEXING_ENABLED` | `src/lib/server/indexing.js` (L9) | Server Runtime | Controls search engine indexing. Indexing is allowed ONLY when set to `'true'` AND the request host is `tokriii.com` or `www.tokriii.com`. All other cases default to `noindex`. | `false` |
-| `TOKRIII_GA_MEASUREMENT_ID` | `next.config.mjs` (L17) | Build Time | Optional Google Analytics Measurement ID injected via webpack DefinePlugin. | `""` (disabled) |
-
-### Variables NOT Defined or Required by Next.js Frontend
-- `TOKRIII_CANONICAL_ORIGIN`: **Does not exist in source code.** The canonical origin in `src/lib/server/indexing.js` (L3) is hardcoded as `export const canonicalOrigin = 'https://tokriii.com'`.
-- `DATABASE_URL`: **Not used by Next.js.** Only used by the backend Express server (`server/src/server.js`) via Prisma ORM.
-- `NEXT_PUBLIC_API_URL`: **Not used by Next.js.** Storefront client code uses relative `/api/v1` routes proxied by Next.js rewrites.
+- **₹1,250 (Below Minimum):**
+  - `minimumMet: false`
+  - `minimumMessage: "Same Day Delivery requires an order of at least ₹1251."`
+  - Delivery CTA disabled in UI.
+- **₹1,251 (Exactly at Minimum):**
+  - `minimumMet: true`
+  - `minimumMessage: null`
+  - Delivery CTA enabled in UI.
+- **₹1,252 (Above Minimum):**
+  - `minimumMet: true`
+  - `minimumMessage: null`
+  - Delivery CTA enabled in UI.
+- **Morning Delivery Isolation:**
+  - `minimumOrderValue: 0`
+  - `minimumMet: true` at all cart values (never blocked by MOV).
+- **Coupon & Address Independence:**
+  - MOV is calculated strictly on `itemsTotal` prior to discount deductions. A cart with `itemsTotal: 1251` and a ₹200 coupon remains express-eligible even though payable total is lower.
 
 ---
 
-## 7. Dynamic CMS Sitemap Investigation & Proposed Contract
-- **Current Limitation:** `server/src/routes/api.js` exposes `GET /pages/:slug` for single-page retrieval. There is no collection endpoint to enumerate all published CMS pages. As a result, `src/app/sitemap.xml/route.next.js` only indexes the pre-defined named CMS routes (`about`, `careers`, `privacy-policy`, `terms-and-conditions`, `help-faqs`, `returns-policy`, `support-center`). Arbitrary `/p/[slug]` pages dynamically created in the Backoffice cannot be discovered by crawlers without a collection endpoint.
-- **Proposed Backend API Contract:**
-  - **Endpoint:** `GET /api/v1/pages`
-  - **Query Parameters:** `?published=true&limit=100`
-  - **Success Response (200 OK):**
-    ```json
-    {
-      "pages": [
-        { "slug": "about", "title": "About Us", "updatedAt": "2026-10-25T12:00:00.000Z" },
-        { "slug": "festive-offers", "title": "Festive Offers", "updatedAt": "2026-10-28T09:00:00.000Z" }
-      ],
-      "total": 2
-    }
-    ```
-  - **Backward-Compatible Implementation:** If `/pages` returns 404 (on un-upgraded backends), `sitemap.xml` gracefully falls back to the static `publicCmsSlugs` list without failing the sitemap generation.
+## 6. Tax, Handling, Delivery & Promotion Logic
+
+- **Tax Calculations (`calcItemTax`):**
+  - Taxable items (Dry Fruits @ 5% GST): Even amount (₹500) produces ₹25.00 total tax (CGST ₹12.50, SGST ₹12.50).
+  - Odd paise rounding (₹333 @ 5% GST): Total tax is ₹16.65; intra-state splits into CGST ₹8.32 and SGST ₹8.33 (sum equals ₹16.65).
+  - Inter-state tax (`isInterState: true`): IGST ₹25.00, CGST ₹0, SGST ₹0.
+  - Non-taxable items (Fresh Fruits @ 0% GST): Tax amount ₹0.
+- **Configurable Charges (`charges.js`):**
+  - Database Setting: `handlingFee = "15"` (fallback 2), `morningShippingFee = "49"` (fallback 25), `expressShippingFee = "99"` (fallback 99).
+  - Free above threshold (`freeAbove`): Delivery fee is waived when `itemsTotal >= freeAbove`.
+- **First-Three-Order Promotional Logic (`freeDelivery.js`):**
+  - Orders 1, 2, 3: Receive ₹0 Morning Delivery (`freeDeliveryApplied: true`).
+  - Order 4+: Pays standard delivery fee (`freeDeliveryApplied: false`).
+  - Express Delivery: Promotion NEVER applies to express delivery; fee remains ₹99 regardless of remaining quota.
+  - Cancelled, failed, refunded, and unpaid online orders do NOT consume quota.
+  - Backend Setting Disabled: When `firstThreeMorningEnabled: false`, promo is not applied even if customer has remaining quota.
 
 ---
 
-## 8. Staging Deployment Requirements & Server Questions
-*This is an architectural requirements document. No staging or live server commands will be executed.*
+## 7. Media Manifest & Web Font Specifications
 
-Before planning any staging deployment, the following server-level questions **must be confirmed by an authorized administrator**:
+See [`MEDIA_MANIFEST.md`](./MEDIA_MANIFEST.md) for the exhaustive 180+ line asset inventory.
 
-1. **Database Isolation:** Does the staging backend connect to an isolated staging database, or does it share the production database instance? (If shared, any staging write could corrupt production data).
-2. **Current Service Architecture:** How is the current staging storefront served on `server.tokriii.com`? (e.g. Nginx proxy to PM2, Docker container, or static file root?).
-3. **Port Allocation:** What internal TCP port is sanctioned for the Next.js process on staging without colliding with existing services?
-4. **Environment Variables:** What is the approved method for configuring server-side environment variables on staging?
-5. **Media Asset Synchronization:** What is the sanctioned, read-only path to synchronize public `/uploads/` to staging without generating heavy disk I/O on production?
-6. **Rollback Plan:** What is the exact step-by-step rollback procedure if the Next.js process encounters unexpected issues on staging?
+- **Public Media Referenced in Database:** 92 unique files (74 products, 8 categories, 8 blogs, 2 homepage banners).
+- **Quarantined Media Library Entries:** 14 records in `Media` table (reviews, superseded uploads) excluded from public snapshot.
+- **Web Font Requirements:**
+  - `Plus Jakarta Sans`: Normal styles (weights 400, 500, 600, 700), Italic style (weight 400).
+- **Current Parity Status:** `Real image parity: BLOCKED`, `Real font parity: BLOCKED`, `Multi-device responsive parity: BLOCKED`.
 
 ---
 
-## 9. Final Release Audit Summary
+## 8. Dynamic CMS Sitemap Limitation & Proposed Endpoint
+
+- **Limitation:** `server/src/routes/api.js` provides `GET /pages/:slug` for single-page retrieval but lacks a collection endpoint. `sitemap.xml` indexes known pre-defined CMS pages but cannot discover arbitrary `/p/[slug]` pages.
+- **Proposed Endpoint:** `GET /api/v1/pages` returning `{ ok: true, pages: [{ slug, title, updatedAt }] }` filtered by `isPublished: true`.
+- **Status:** **PROPOSED ONLY — NOT DEPLOYED.** Backend code remains untouched per safety instructions.
+
+---
+
+## 9. Staging Review Checklist & Administrator Questions
+
+The following questions require confirmation from an authorized administrator prior to staging review:
+
+1. **Database Isolation:** Does the staging environment use an isolated database, or does it share the production MySQL database?
+2. **Process Management:** Will Next.js run under PM2 (e.g. port 3000) or as a container behind Nginx?
+3. **Nginx Routing:** What upstream rules will differentiate between the Express API (`server.tokriii.com`) and the Next.js storefront?
+4. **Media Mount:** Will staging mount an authorized read-only replica of `/uploads/` to render images correctly?
+5. **Noindex Directives:** Confirm that `TOKRIII_INDEXING_ENABLED` remains `'false'` or unset on staging to preserve `noindex, nofollow`.
+6. **Rollback Strategy:** Is switching Nginx upstream back to the Vite build directory the designated instantaneous rollback mechanism?
+
+---
+
+## 10. Final Release Audit Summary
 
 ```
 TOKRIII NEXT.JS RELEASE AUDIT
-- Routes: 20/20
-- Legacy bridge: Removed
-- Shared shell: PASS
-- Real image parity: BLOCKED
-- Real font parity: BLOCKED
-- Responsive visual parity: BLOCKED
-- Guest cart: PASS
-- Authenticated cart: PASS
-- Checkout submission with mocks: PASS
-- Delivery and taxes: PASS
-- Authentication: PASS
-- SEO: PASS
-- CMS sitemap: BLOCKED
-- Next.js build: PASS
-- Vite build: PASS
-- Lint: PASS
-- Feature branch pushed: YES
-- Staging changed: NO
-- Main changed: NO
-- Live changed: NO
-- Ready for staging review: NO
+- Routes: 20/20 converted to App Router (0 legacy bridge routes)
+- Next.js Build: PASS
+- Vite Build: PASS
+- ESLint: PASS (0 errors, 7 pre-existing warnings)
+- SEO Verification: PASS
+- Mock Commerce Suite: PASS (9/9 scenarios)
+- Backend Contract Suite: PASS (24/24 suites)
+- Database Pincodes Grounded: YES (32 NCR pincodes analyzed)
+- MOV Boundary Verified: YES (₹1,250 fail, ₹1,251 pass, ₹1,252 pass)
+- Tax & Odd Paise Rounding: YES (5% GST, CGST 8.32 / SGST 8.33 on ₹16.65)
+- First-3-Orders Promo: YES (Orders 1-3 free, 4 paid, express excluded)
+- Media Manifest Complete: YES (92 public assets, 14 quarantined)
+- Font Parity: BLOCKED (Plus Jakarta Sans WOFF2 not yet vendored)
+- Image Parity: BLOCKED (production uploads missing locally)
+- Viewport Visual Parity: BLOCKED (pending fonts and real assets)
+- CMS Sitemap Endpoint: PROPOSED (GET /api/v1/pages documented)
+- Feature Branch: feature/tokriii-react-to-nextjs (pushed cleanly)
+- Main Branch Modified: NO
+- Staging Modified: NO
+- Production Modified: NO
+- Ready for Code Review: YES
+- Ready for Staging Deployment: NO (Pending media snapshot, fonts, and administrator confirmation)
 ```
-*(Ready for staging review is marked **NO** because real catalog image parity and web font visual parity remain **BLOCKED** until approved production media and font assets are provided, and administrator confirmation of staging environment architecture is obtained).*

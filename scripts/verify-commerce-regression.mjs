@@ -40,14 +40,14 @@ let activeHandlingFee = 2
 const ADDRESS_FIXTURES = [
   {
     id: 'addr_both',
-    label: 'Home (Both Options)',
+    label: 'Home (Both Options - Gurugram 122002)',
     recipientName: 'Gaurav Test',
     recipientPhone: '9876543210',
-    line1: 'Flat 402, Green Glen Layout',
-    line2: 'Bellandur',
-    city: 'Bengaluru',
-    pincode: '560103',
-    formatted: 'Flat 402, Green Glen Layout, Bellandur, Bengaluru 560103',
+    line1: 'DLF Phase 1, Golf Course Road',
+    line2: 'Chakkarpur',
+    city: 'Gurugram',
+    pincode: '122002',
+    formatted: 'DLF Phase 1, Golf Course Road, Chakkarpur, Gurugram 122002',
     serviceable: true,
     delivery: {
       serviceable: true,
@@ -57,14 +57,14 @@ const ADDRESS_FIXTURES = [
   },
   {
     id: 'addr_sameday_only',
-    label: 'Office (Same-day Only)',
+    label: 'Office (Same-day Only - Delhi 110033)',
     recipientName: 'Gaurav Test',
     recipientPhone: '9876543210',
-    line1: 'Level 4, Prestige Meridian',
-    line2: 'MG Road',
-    city: 'Bengaluru',
-    pincode: '560001',
-    formatted: 'Level 4, Prestige Meridian, MG Road, Bengaluru 560001',
+    line1: 'Azadpur Commercial Complex',
+    line2: 'Adarsh Nagar',
+    city: 'Delhi',
+    pincode: '110033',
+    formatted: 'Azadpur Commercial Complex, Adarsh Nagar, Delhi 110033',
     serviceable: true,
     delivery: {
       serviceable: true,
@@ -73,8 +73,25 @@ const ADDRESS_FIXTURES = [
     },
   },
   {
+    id: 'addr_morning_only',
+    label: 'Branch (Morning Only - Gurugram 122017)',
+    recipientName: 'Gaurav Test',
+    recipientPhone: '9876543210',
+    line1: 'C-Block Market',
+    line2: 'Palam Vihar',
+    city: 'Gurugram',
+    pincode: '122017',
+    formatted: 'C-Block Market, Palam Vihar, Gurugram 122017',
+    serviceable: true,
+    delivery: {
+      serviceable: true,
+      morning: { enabled: true, fee: 49 },
+      express: { enabled: false, comingSoon: true, fee: 99 },
+    },
+  },
+  {
     id: 'addr_unsupported',
-    label: 'Remote (Unsupported)',
+    label: 'Remote (Unsupported - 999999)',
     recipientName: 'Gaurav Test',
     recipientPhone: '9876543210',
     line1: 'Village Road',
@@ -701,8 +718,8 @@ console.log('  -> Express minimum order value boundary & button protection: PASS
 
 // --- 5E: Pincode Delivery Options & Address Changes ---
 console.log('  5E: Pincode Eligibility & Address Switching')
-// Switch to address with Same-Day Only (560001)
-const samedayAddrRadio = page.locator('label:has-text("Office (Same-day Only)") input[type="radio"]')
+// Switch to address with Same-Day Only (Delhi 110033)
+const samedayAddrRadio = page.locator('label', { hasText: '110033' }).locator('input[type="radio"]')
 await samedayAddrRadio.check()
 await page.waitForTimeout(600)
 
@@ -713,16 +730,28 @@ assert.ok(
   'Morning delivery must show "coming soon" or be disabled for same-day-only pincode'
 )
 
+// Switch to address with Morning Only (Gurugram 122017)
+const morningOnlyAddrRadio = page.locator('label', { hasText: '122017' }).locator('input[type="radio"]')
+await morningOnlyAddrRadio.check()
+await page.waitForTimeout(600)
+
+const expressLabel = page.locator('label:has-text("Same Day Delivery")')
+const expressText = await expressLabel.textContent()
+assert.ok(
+  expressText.includes('coming soon') || (await expressLabel.locator('input').isDisabled()),
+  'Express delivery must show "coming soon" or be disabled for morning-only pincode'
+)
+
 // Check unsupported address (999999)
-const unsupportedAddrLabel = page.locator('label:has-text("Remote (Unsupported)")')
+const unsupportedAddrLabel = page.locator('label', { hasText: '999999' })
 assert.ok(
   (await unsupportedAddrLabel.textContent()).includes("don't deliver") ||
     (await unsupportedAddrLabel.locator('input').isDisabled()),
   'Unsupported pincode address must be disabled and display not deliverable'
 )
 
-// Switch back to both-options address (560103)
-const bothAddrRadio = page.locator('label:has-text("Home (Both Options)") input[type="radio"]')
+// Switch back to both-options address (Gurugram 122002)
+const bothAddrRadio = page.locator('label', { hasText: '122002' }).locator('input[type="radio"]')
 await bothAddrRadio.check()
 await morningRadio.check()
 await page.waitForTimeout(600)
