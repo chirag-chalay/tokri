@@ -79,18 +79,21 @@ export default function MobileProfilePage() {
         <p className="mt-6 text-sm font-semibold text-muted">Your information</p>
 
         <div className="mt-3 divide-y divide-line">
-          {menuItems.map(({ key, label, icon: Icon, href }) => (
-            <Link
-              key={key}
-              to={href}
-              className="flex items-center gap-4 py-4 transition active:bg-panel"
-            >
-              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-panel text-mint">
-                <Icon size={22} />
-              </span>
-              <span className="text-base font-medium text-white">{label}</span>
-            </Link>
-          ))}
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.key}
+                to={item.href}
+                className="flex items-center gap-4 py-4 transition active:bg-panel"
+              >
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-panel text-mint">
+                  <Icon size={22} />
+                </span>
+                <span className="text-base font-medium text-white">{item.label}</span>
+              </Link>
+            )
+          })}
 
           <button
             type="button"

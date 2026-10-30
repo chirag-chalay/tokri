@@ -1,7 +1,5 @@
 import { PRODUCT_PLACEHOLDER, handleImageError } from '../lib/imageFallback'
 
-export { PRODUCT_PLACEHOLDER, handleImageError }
-
 export default function ProductImage({
   src,
   alt = 'Tokriii fresh fruit',

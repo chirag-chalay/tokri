@@ -54,7 +54,6 @@ export default function OrderSuccessPage() {
   const knownConfirmed = navState.confirmed === true || navState.paymentMode === 'cod'
   const token = user?.token
   const userRef = useRef(user)
-  userRef.current = user
 
   const [order, setOrder] = useState(() =>
     knownConfirmed
@@ -70,7 +69,11 @@ export default function OrderSuccessPage() {
   const confirmedRef = useRef(knownConfirmed)
   const cleared = useRef(false)
   const helpersRef = useRef({ clearCart, refreshFreeDelivery })
-  helpersRef.current = { clearCart, refreshFreeDelivery }
+
+  useEffect(() => {
+    userRef.current = user
+    helpersRef.current = { clearCart, refreshFreeDelivery }
+  }, [user, clearCart, refreshFreeDelivery])
 
   const markConfirmed = (data) => {
     confirmedRef.current = true

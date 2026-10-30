@@ -97,7 +97,6 @@ export default function ImportedFruits() {
 
   useEffect(() => {
     let ignore = false
-    setLoading(true)
 
     fetchJson('/products?flag=imported&limit=100')
       .then((items) => {

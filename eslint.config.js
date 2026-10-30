@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', '.next']),
+  globalIgnores(['dist', '.next', 'server/**', 'tokri-mobile-go/**']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -27,7 +27,14 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/app/**/*.next.{js,jsx}', 'src/lib/server/**/*.js', 'src/lib/navigation.jsx'],
+    files: [
+      'src/app/**/*.next.{js,jsx}',
+      'src/lib/server/**/*.js',
+      'src/lib/navigation.jsx',
+      'src/context/**/*.jsx',
+      'vite.config.js',
+      'scripts/**/*.mjs',
+    ],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: { 'react-refresh/only-export-components': 'off' },
   },

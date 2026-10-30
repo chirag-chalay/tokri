@@ -271,6 +271,13 @@ export default function MyOrders() {
   const [pagination, setPagination] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [prevQuery, setPrevQuery] = useState({ page, phone: user?.phone })
+
+  if (prevQuery.page !== page || prevQuery.phone !== user?.phone) {
+    setPrevQuery({ page, phone: user?.phone })
+    setLoading(true)
+    setError('')
+  }
 
   const changePage = (nextPage) => {
     setSearchParams(
@@ -291,8 +298,6 @@ export default function MyOrders() {
   useEffect(() => {
     let ignore = false
 
-    setLoading(true)
-    setError('')
     authGet(`/account/orders?page=${page}&perPage=10`, user)
       .then((data) => {
         if (!ignore) {
@@ -310,7 +315,7 @@ export default function MyOrders() {
     return () => {
       ignore = true
     }
-  }, [user?.phone, page])
+  }, [user, page])
 
   return (
     <div>

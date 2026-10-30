@@ -105,14 +105,19 @@ export default function ShopOurRange() {
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(2)
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [prevIndex, setPrevIndex] = useState(activeCategoryIndex)
   const trackRef = useRef(null)
+
+  if (prevIndex !== activeCategoryIndex) {
+    setPrevIndex(activeCategoryIndex)
+    setLoading(true)
+  }
 
   const activeCategory = rangeCategories[activeCategoryIndex]
   const isSlider = products.length > 3
 
   useEffect(() => {
     let ignore = false
-    setLoading(true)
 
     fetchJson(`/products?category=${encodeURIComponent(activeCategory.slug)}&limit=${MAX_PRODUCTS}`)
       .then((items) => {
