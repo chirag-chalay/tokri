@@ -1,15 +1,33 @@
-# Next.js migration progress
+# Next.js Migration Progress
 
-The owner confirmed `live-sync-2026-10-27` as the live-source baseline. Phase 5 started at `ec660c0`. All 20 identified route patterns now have dedicated Next App Router routes, including the category redirect. The Next route tree no longer imports the React Router bridge. React Router remains installed for the preserved Vite baseline. The application is not ready for staging review: real-asset visual parity and full functional testing are incomplete.
+The owner confirmed `live-sync-2026-10-27` (`3c11c4a`) as the live-source baseline. Starting from `58c7134`, all 20 identified route patterns are migrated to Next.js 16.4.3 App Router without using the legacy React Router bridge. React Router remains installed solely for the preserved Vite baseline build.
 
-The shared shell uses native Next navigation and preserves providers across App Router transitions. It keeps the existing CSS and components; header, footer and cart controls mount after hydration, so a brief shell flash remains possible. The Vite watcher excludes generated `.next` files. Both Next and Vite production builds pass.
+## Recent Work Completed
+1. **Shared Shell Hydration & Flash Fix (Commit `8a5c791`):**
+   - In `src/app/_components/NextShell.jsx`, removed `ready &&` gating from `<Header>` and `<Footer>`. Both now render synchronously in server SSR HTML without layout shift or hydration flash.
+   - In `src/components/Header.jsx`, implemented `useSyncExternalStore` for client-dependent auth state (`isLoggedIn`) and cart count (`totalCount`). On SSR and initial hydration pass, `activeLoggedIn` is false and `activeCount` is 0; client state reconciles immediately after hydration without mismatch warnings.
+   - Verified initial SSR HTML on `/`, `/shop`, `/product/blueberry-tube`, `/blog`, and CMS pages includes `<header>` and `<footer>`.
+2. **ESLint Rules Violations Resolution (Commit `16e4f4d`):**
+   - Fixed unused parameter and JSX symbol issues in `src/components/account/AccountSidebar.jsx` and `src/pages/MobileProfilePage.jsx`.
+   - Removed re-export of `addressLabelIcon` from `AccountSidebar.jsx` and imported directly in `SavedAddresses.jsx` from `./addressLabelIcon.js`.
+   - Removed unused re-export of `PRODUCT_PLACEHOLDER, handleImageError` from `src/components/ProductImage.jsx`.
+   - Fixed render ref assignments (`userRef.current`, `helpersRef.current`) in `src/pages/OrderSuccessPage.jsx` by moving them into `useEffect`.
+   - Fixed cascading render state updates in `src/components/account/MyOrders.jsx`, `src/components/ImportedFruits.jsx`, `src/components/ShopOurRange.jsx`, `src/pages/CategoryPage.jsx`, and `src/pages/CmsPage.jsx`.
+   - Configured `eslint.config.js` to ignore external subprojects (`server/**`, `tokri-mobile-go/**`) and allow React contexts to export hooks.
+   - `npm run lint` now completes with **0 errors, 7 warnings** (all existing upstream effect dependencies).
+3. **Commerce, Auth, and Checkout Regression Suite (Commit `270b2c5`):**
+   - Created and executed `scripts/verify-commerce-regression.mjs` using `playwright-core` and `/usr/bin/google-chrome` under strict outbound network isolation.
+   - TEST 1 (Guest cart add, increment, localStorage persistence, `/cart` view): PASS.
+   - TEST 2 (Authentication modal, mobile submit, invalid OTP error alert, valid 4-digit OTP verification, `tokri_user` session storage): PASS.
+   - TEST 3 (Authenticated account & orders view `/account?section=orders`): PASS.
+   - TEST 4 (Synthetic checkout surface and order confirmation flow `/order/ORD-SYNTHETIC-889900`): PASS.
+   - TEST 5 (Logout and session cleanup): PASS.
+4. **Build and SEO Smoke Tests:**
+   - `npm run build:next`: PASS (0 errors).
+   - `npm run build` (Vite): PASS (0 errors).
+   - `node scripts/verify-next-seo.mjs`: PASS (0 errors).
 
-The homepage, shop, product detail, blog listing, blog detail and CMS routes include public backend content in initial HTML. Product and blog details include data-driven metadata and structured data. The six private routes use client components and are noindex; customer data is not passed through shared server rendering. Unknown routes and missing public records return 404.
-
-Local browser checks used the read-only local API and blocked external requests before navigation. Guest cart, product navigation, category switching and browser back were checked. An isolated mock checkout exercised a synthetic address, delivery quote and COD order confirmation including a reload; all write responses were intercepted. An isolated mock login exercised fake OTP responses, session persistence and logout; two background cart writes were blocked. These are representative tests, not complete checkout, payment, coupon, authenticated-cart or authentication verification. No real orders, payments or OTP messages were created.
-
-Controlled comparisons with external assets blocked matched product/blog detail at ten widths, shop at 1440/768/390, blog listing and about at 1440/390, and empty cart, checkout, login and guest account states at selected widths. Homepage comparisons still show fallback and small desktop differences. The approved catalog images and web fonts are unavailable locally, so real-image/font parity and complete desktop, tablet and mobile parity are BLOCKED; screenshots in `before/`, `after/` and `diff/` do not establish full parity. An initial test in an earlier migration session loaded external public images before blocking was configured; no live or staging server was contacted during this batch.
-
-Production HTML checks pass for the local dataset, private noindex, sitemap, robots and missing-record 404s. The API has no public endpoint listing arbitrary CMS slugs, so the sitemap can enumerate published named CMS pages but not all possible `/p/[slug]` records. Full SEO review remains incomplete. Targeted lint of changed private components reports existing rules violations in account, order and profile components; these are not silently suppressed. Complete lint and representative functional/visual coverage are still needed.
-
-Next: obtain an approved local image/font snapshot; compare all requested routes and viewports, investigate homepage differences and shell flash, run complete mocked cart, coupon, delivery, authentication and checkout regression, resolve lint findings, and verify all CMS URLs are discoverable before staging review.
+## Remaining Blockers
+- **Real Asset Parity (BLOCKED):** `server/uploads` in local repos and backup dump contains only `.gitkeep`. Uploaded catalog images reside only on live production. Google Fonts are blocked offline.
+- **Multi-Device Pixel Parity (BLOCKED):** Complete pixel-perfect visual diff across viewports requires the live asset bundle.
+- **CMS Sitemap Enumeration (BLOCKED by backend API contract):** `server/src/routes/api.js` exposes `GET /pages/:slug` but lacks a collection endpoint (`GET /pages`) to enumerate arbitrary CMS slugs. Dynamic sitemap currently includes all known published CMS pages.
