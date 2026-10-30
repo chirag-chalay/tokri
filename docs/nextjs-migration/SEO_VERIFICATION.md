@@ -12,3 +12,7 @@ Local checks:
 These tests do not establish full-site SEO correctness or production image access. Do not deploy this intermediate state.
 
 - The sitemap includes published named CMS routes. Arbitrary `/p/` pages cannot be enumerated by the current public API.
+
+## Current route coverage
+
+All identified route patterns now use dedicated App Router routes; the Next React Router bridge has been removed. The production-build smoke test checks private route HTTP responses and noindex, plus an unknown-route 404. Browser smoke checks observed no page errors on the sampled private routes. Full production SEO validation remains incomplete, and arbitrary CMS page sitemap enumeration remains blocked by the existing API contract.

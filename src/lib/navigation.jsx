@@ -17,3 +17,6 @@ export function useNavigate() { return useNavigation().navigate }
 export function useLocation() { return useNavigation().location }
 
 export function useSearchParams() { return useNavigation().searchParamsState }
+
+export function useParams() { const useParamsHook = useNavigation().useParamsHook; return useParamsHook() }
+export function useClearNavigationState() { return useNavigation().clearNavigationState }

@@ -83,6 +83,13 @@ assert.equal((await get(`${site}/p/nonexistent-migration-987654`)).status, 404)
 console.log('blog listing and CMS pages: initial HTML, canonicals and missing-record 404 OK')
 
 const robots = await get(`${site}/robots.txt`)
+for (const path of ['/cart', '/checkout', '/account', '/login', '/profile', '/order/LOCAL-MOCK-123']) {
+  const response = await get(`${site}${path}`)
+  assert.equal(response.status, 200, `${path}: unexpected status`)
+  assert.match(response.text, /<meta name="robots" content="noindex, nofollow"\s*\/?\s*>/, `${path}: private route must be noindex`)
+}
+assert.equal((await get(`${site}/nonexistent-migration-987654`)).status, 404)
+console.log('private routes: HTTP status and noindex OK; unknown route returns 404')
 assert.equal(robots.status, 200)
 assert.match(robots.text, /Disallow: \/(?:\r?\n|$)/)
 const sitemap = await get(`${site}/sitemap.xml`)

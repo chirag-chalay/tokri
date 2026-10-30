@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from '../lib/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { authGet } from '../lib/api'

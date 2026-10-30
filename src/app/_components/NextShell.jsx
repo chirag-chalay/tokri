@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import NextNavigation from './NextNavigation'
+import { useLocation, useClearNavigationState } from '../../lib/navigation'
 import { AuthProvider } from '../../context/AuthContext'
 import { AddressProvider } from '../../context/AddressContext'
 import { CartProvider, useCart } from '../../context/CartContext'
@@ -19,6 +20,15 @@ function Chrome({ children, ready }) {
   const [showLogin, setShowLogin] = useState(false)
   const { totalCount } = useCart()
   const pathname = usePathname()
+  const location = useLocation()
+  const clearNavigationState = useClearNavigationState()
+  useEffect(() => {
+    if (!location.state?.openLogin) return
+    // Preserve the original route-state request to open the login popup.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShowLogin(true)
+    clearNavigationState()
+  }, [location.state, clearNavigationState])
   const isCart = pathname === '/cart'
   const isCheckout = pathname === '/checkout'
   const isOrder = pathname.startsWith('/order/')

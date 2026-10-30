@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from '../../lib/navigation'
 import { ChevronDown, ChevronLeft, ChevronRight, Download, Package } from 'lucide-react'
 import { authGet, downloadOrderInvoice, resolveAssetUrl } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'

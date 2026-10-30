@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from '../lib/navigation'
 import { ArrowLeft, FileClock, LogOut, MapPinned, Search, UserRound } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import DeliveryAddressBar from '../components/DeliveryAddressBar'
