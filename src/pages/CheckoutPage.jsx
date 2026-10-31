@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from '../lib/navigation'
 import { Plus } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { useAuth } from '../context/AuthContext'
@@ -11,7 +11,7 @@ import {
   formatDeliveryCharge,
   mergeDeliveryConfig,
 } from '../lib/delivery'
-import { addressLabelIcon } from '../components/account/AccountSidebar'
+import { addressLabelIcon } from '../components/account/addressLabelIcon'
 import AddressFormModal from '../components/account/AddressFormModal'
 import CouponBox from '../components/CouponBox'
 

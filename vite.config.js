@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 5222,
       strictPort: true,
+      watch: { ignored: ['**/.next/**'] },
 
       allowedHosts: [
         'tokriii.com',

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from '../lib/navigation'
 import { Truck, ShieldCheck, Clock, Leaf, Mail, Phone, MapPin } from 'lucide-react'
 import tokriLogo from '../assets/tokri-logo.png'
 import playStoreIcon from '../assets/play-store.svg'

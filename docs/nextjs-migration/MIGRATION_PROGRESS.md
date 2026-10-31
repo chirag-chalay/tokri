@@ -1,0 +1,55 @@
+# Next.js Migration Progress
+
+The owner confirmed `live-sync-2026-10-27` (`3c11c4a`) as the live-source baseline. Starting from `58c7134`, all 20 identified route patterns are migrated to Next.js 16.4.3 App Router without using the legacy React Router bridge. React Router remains installed solely for the preserved Vite baseline build.
+
+## Recent Work Completed
+1. **Shared Shell Hydration & Flash Fix (Commit `8a5c791`):**
+   - In `src/app/_components/NextShell.jsx`, removed `ready &&` gating from `<Header>` and `<Footer>`. Both now render synchronously in server SSR HTML without layout shift or hydration flash.
+   - In `src/components/Header.jsx`, implemented `useSyncExternalStore` for client-dependent auth state (`isLoggedIn`) and cart count (`totalCount`). On SSR and initial hydration pass, `activeLoggedIn` is false and `activeCount` is 0; client state reconciles immediately after hydration without mismatch warnings.
+   - Verified initial SSR HTML on `/`, `/shop`, `/product/blueberry-tube`, `/blog`, and CMS pages includes `<header>` and `<footer>`.
+2. **ESLint Rules Violations Resolution (Commit `16e4f4d`):**
+   - Fixed unused parameter and JSX symbol issues in `src/components/account/AccountSidebar.jsx` and `src/pages/MobileProfilePage.jsx`.
+   - Removed re-export of `addressLabelIcon` from `AccountSidebar.jsx` and imported directly in `SavedAddresses.jsx` from `./addressLabelIcon.js`.
+   - Removed unused re-export of `PRODUCT_PLACEHOLDER, handleImageError` from `src/components/ProductImage.jsx`.
+   - Fixed render ref assignments in `src/pages/OrderSuccessPage.jsx`.
+   - Fixed cascading render state updates in catalog and account effects.
+   - Configured `eslint.config.js` to ignore external subprojects and allow React contexts to export hooks.
+   - `npm run lint` now completes with **0 errors, 7 warnings**.
+3. **Commerce, Auth, and Checkout Regression Suite Hardening:**
+   - Script `scripts/verify-commerce-regression.mjs` upgraded with declared `playwright-core` devDependency and 9 comprehensive scenarios:
+     - Scenario 1 (Guest cart add, increment, localStorage persistence, `/cart` view): PASS.
+     - Scenario 2 (Authentication modal, mobile submit, invalid OTP error alert assertion, valid OTP verification, session storage): PASS.
+     - Scenario 3 (Authenticated cart synchronization with exact payload schema inspection `PUT /account/cart`): PASS.
+     - Scenario 4 (Authenticated account & orders view `/account?section=orders`): PASS.
+     - Scenario 5 (Backend-driven shipping, tax, and delivery boundaries coverage):
+       * 5A: Taxable dry fruit (5% GST) vs non-taxable fruit and handling charges: PASS.
+       * 5B: Coupon application, invalid code rejection, discount `-₹50` and total recalculation: PASS.
+       * 5C: First-order promotional free delivery offer (`freeDeliveryApplied = true`): PASS.
+       * 5D: Express delivery minimum-order-value boundary (₹1251) and button disabled guard: PASS.
+       * 5E: Pincode options (both, same-day-only, morning-only, unsupported grounded in real NCR data) and address switching: PASS.
+       * 5F: Backend quote failure recovery and error degradation: PASS.
+     - Scenario 6 (Checkout failure recovery without creating or confirming order): PASS.
+     - Scenario 7 (Actual UI checkout submission with duplicate click protection `button.disabled = true` & payload inspection): PASS.
+     - Scenario 8 (Order confirmation view details verification `/order/ORD-SYNTHETIC-889900`): PASS.
+     - Scenario 9 (Session expiry on 401 Unauthorized and localStorage cleanup): PASS.
+4. **Backend Contract Verification & Privacy Protection (`scripts/verify-backend-contracts.mjs`):**
+   - Implemented 24 isolated test suites directly executing business modules (`charges.js`, `deliveryQuote.js`, `delivery.js`, `freeDelivery.js`):
+     - Suite 1 (Pincode serviceability grounded in local DB): `122002` Gurugram (both), `122017` Gurugram (morning only), `110033` Delhi (express only), `999999` and `560001` (unsupported): PASS.
+     - Suite 2 (Exact MOV boundaries): ₹1,250 below minimum, ₹1,251 exactly at minimum, ₹1,252 above minimum; morning MOV isolation; coupon discount independence: PASS.
+     - Suite 3 (Tax calculations & rounding): 5% GST on ₹500, odd paise rounding on ₹333 (CGST 8.32, SGST 8.33), IGST 25.00 for inter-state, 0% GST fresh fruit, mixed cart, empty cart: PASS.
+     - Suite 4 (Configurable charges vs defaults): default rates vs settings overrides (`handlingFee: 15`, `morningShippingFee: 49`, `expressShippingFee: 99`), `freeAbove` threshold logic: PASS.
+     - Suite 5 (First-3-orders promo & privacy-preserving database quota): Orders 1-3 free morning delivery, 4th order pays standard fee, express delivery exempted from promo, settings toggle, and safe anonymous dynamic discovery of customer quotas: PASS.
+   - Database connection guard verifies connection is strictly local (port 3307); blocks any remote or production host.
+5. **Media Manifest, Sanitized Allowlist & Font Specification:**
+   - Mapped all 92 referenced public assets (74 products, 8 categories, 8 blogs, 2 homepage banners) and 14 quarantined records in [`docs/nextjs-migration/MEDIA_MANIFEST.md`](./MEDIA_MANIFEST.md).
+   - Created standalone sanitized file allowlist in [`docs/nextjs-migration/public-media-allowlist.txt`](./public-media-allowlist.txt) for administrator snapshot export.
+   - Documented exact `Plus Jakarta Sans` local WOFF2 `@font-face` requirements in [`docs/nextjs-migration/FONT_CONFIGURATION.md`](./FONT_CONFIGURATION.md).
+6. **Staging Preflight & Infrastructure Verification:**
+   - Created comprehensive 10-point administrator checklist in [`docs/nextjs-migration/STAGING_PREFLIGHT_CHECKLIST.md`](./STAGING_PREFLIGHT_CHECKLIST.md) covering database isolation, PM2 process management, Nginx proxy configuration, internal ports, noindex directives, test gateway isolation, health checks, and rollback procedure.
+7. **Git Integration & Divergence Analysis:**
+   - Completed detailed divergence assessment against `origin/staging` (24 commits ahead, 3 behind). Verified zero conflict risk; mobile app updates in `tokri-mobile-go` auto-merge cleanly.
+
+## Remaining Blockers
+- **Real Asset Parity (BLOCKED):** `server/uploads` in local repos and backup dump contains only `.gitkeep`. Uploaded catalog images reside only on live production. Google Fonts are blocked offline. Complete allowlist and instructions prepared in `docs/nextjs-migration/public-media-allowlist.txt`.
+- **Multi-Device Pixel Parity (BLOCKED):** Complete pixel-perfect visual diff across viewports requires the live asset bundle.
+- **CMS Sitemap Enumeration (BLOCKED by backend API contract):** `server/src/routes/api.js` exposes `GET /pages/:slug` but lacks a collection endpoint (`GET /pages`) to enumerate arbitrary CMS slugs. Dynamic sitemap currently includes all known published CMS pages.

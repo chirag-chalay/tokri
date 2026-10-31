@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from '../lib/navigation'
 import { bestSellers } from '../data/bestSellers'
 import { fetchJson, normalizeProducts } from '../lib/api'
-import CartControl from './CartControl'
+import DeferredCartControl from './DeferredCartControl'
 
 const discountPercent = (product) => {
   const price = Number(product.priceValue)
@@ -11,9 +11,9 @@ const discountPercent = (product) => {
   return Math.round((1 - price / oldPrice) * 100)
 }
 
-export default function BestSellers() {
+export default function BestSellers({ initialProducts, deferCart = false }) {
   const navigate = useNavigate()
-  const [products, setProducts] = useState(bestSellers)
+  const [products, setProducts] = useState(Array.isArray(initialProducts) ? initialProducts : bestSellers)
 
   useEffect(() => {
     let ignore = false
@@ -88,7 +88,7 @@ export default function BestSellers() {
                     )}
                   </div>
                   <span className="shrink-0" onClick={(event) => event.stopPropagation()}>
-                    <CartControl product={product} />
+                    <DeferredCartControl product={product} defer={deferCart} />
                   </span>
                 </div>
               </article>

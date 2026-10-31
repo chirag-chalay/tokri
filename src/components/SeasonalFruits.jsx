@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useNavigate } from '../lib/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchJson, normalizeProducts } from '../lib/api'
-import CartControl from './CartControl'
+import DeferredCartControl from './DeferredCartControl'
 
 const getSlidesPerView = (width) => {
   if (width >= 1280) return 8
@@ -12,18 +12,15 @@ const getSlidesPerView = (width) => {
   return 3
 }
 
+const subscribeViewport = (callback) => {
+  window.addEventListener('resize', callback)
+  return () => window.removeEventListener('resize', callback)
+}
+const viewportSnapshot = () => getSlidesPerView(window.innerWidth)
+const serverViewportSnapshot = () => 8
+
 function useSlidesPerView() {
-  const [slidesPerView, setSlidesPerView] = useState(() =>
-    typeof window !== 'undefined' ? getSlidesPerView(window.innerWidth) : 8,
-  )
-
-  useEffect(() => {
-    const update = () => setSlidesPerView(getSlidesPerView(window.innerWidth))
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [])
-
-  return slidesPerView
+  return useSyncExternalStore(subscribeViewport, viewportSnapshot, serverViewportSnapshot)
 }
 
 const discountPercent = (product) => {
@@ -33,7 +30,7 @@ const discountPercent = (product) => {
   return Math.round((1 - price / oldPrice) * 100)
 }
 
-function ProductCard({ product, onNavigate }) {
+function ProductCard({ product, onNavigate, deferCart }) {
   const off = discountPercent(product)
   const target = `/product/${product.slug || product.id}`
 
@@ -79,17 +76,17 @@ function ProductCard({ product, onNavigate }) {
           )}
         </div>
         <span className="shrink-0" onClick={(event) => event.stopPropagation()}>
-          <CartControl product={product} />
+          <DeferredCartControl product={product} defer={deferCart} />
         </span>
       </div>
     </article>
   )
 }
 
-export default function SeasonalFruits() {
+export default function SeasonalFruits({ initialProducts, deferCart = false }) {
   const navigate = useNavigate()
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [products, setProducts] = useState(initialProducts || [])
+  const [loading, setLoading] = useState(!initialProducts)
   const trackRef = useRef(null)
   const slidesPerView = useSlidesPerView()
 
@@ -97,8 +94,6 @@ export default function SeasonalFruits() {
 
   useEffect(() => {
     let ignore = false
-    setLoading(true)
-
     fetchJson('/products?flag=featured&limit=100')
       .then((items) => {
         if (!ignore) setProducts(normalizeProducts(items))
@@ -156,7 +151,7 @@ export default function SeasonalFruits() {
                 key={product.id}
                 className="w-[calc((100%-1rem)/3)] shrink-0 snap-start sm:w-[calc((100%-1.5rem)/4)] md:w-[calc((100%-2rem)/5)] lg:w-[calc((100%-3rem)/7)] xl:w-[calc((100%-3.5rem)/8)]"
               >
-                <ProductCard product={product} onNavigate={navigate} />
+                <ProductCard product={product} onNavigate={navigate} deferCart={deferCart} />
               </div>
             ))}
           </div>

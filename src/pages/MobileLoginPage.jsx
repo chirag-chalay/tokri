@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from '../lib/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import tokriLogo from '../assets/tokri-logo.png'

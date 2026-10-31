@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from '../lib/navigation'
 import { ArrowLeft, ChevronRight, Minus, Plus } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'

@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import fs from 'fs'
+import http from 'http'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { env } from './config/env.js'
@@ -19,6 +20,56 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const uploadsPath = path.join(__dirname, '../uploads')
 const distPath = path.join(__dirname, '../../dist')
 const hasDist = fs.existsSync(path.join(distPath, 'index.html'))
+const useNextStorefront = Boolean(env.nextOrigin)
+
+function isReservedStorefrontPath(reqPath) {
+  return (
+    reqPath.startsWith('/api') ||
+    reqPath.startsWith(env.adminPath) ||
+    reqPath.startsWith('/admin') ||
+    reqPath.startsWith('/uploads') ||
+    reqPath.startsWith('/partner')
+  )
+}
+
+function proxyToNext(req, res) {
+  let target
+  try {
+    target = new URL(env.nextOrigin)
+  } catch {
+    res.status(502).type('text').send('Storefront origin is invalid.')
+    return
+  }
+
+  const headers = { ...req.headers, host: target.host }
+  delete headers['accept-encoding']
+
+  const proxyReq = http.request(
+    {
+      protocol: target.protocol,
+      hostname: target.hostname,
+      port: target.port || (target.protocol === 'https:' ? 443 : 80),
+      path: req.originalUrl,
+      method: req.method,
+      headers,
+    },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode || 502, proxyRes.headers)
+      proxyRes.pipe(res)
+    },
+  )
+
+  proxyReq.on('error', (error) => {
+    console.error('Next storefront proxy failed:', error.message)
+    if (!res.headersSent) {
+      res.status(502).type('text').send('Storefront is temporarily unavailable.')
+    } else {
+      res.end()
+    }
+  })
+
+  req.pipe(proxyReq)
+}
 
 const app = express()
 
@@ -36,8 +87,11 @@ app.use(
 
 app.use('/uploads', express.static(uploadsPath))
 
-// Serve storefront from dist/ when present (staging/single-host). Live often uses nginx for this.
-if (hasDist) {
+// Next storefront (TOKRIII_NEXT_ORIGIN) keeps this public port for API/admin and proxies pages.
+// Otherwise serve Vite dist/ when present (staging/single-host). Live often uses nginx for HTML.
+if (useNextStorefront) {
+  // Storefront HTML/assets come from the local Next process via the catch-all below.
+} else if (hasDist) {
   app.use(express.static(distPath, { index: false, maxAge: '1h' }))
 } else {
   app.get('/', (_req, res) => {
@@ -79,18 +133,15 @@ api.use('/', apiRouter)
 api.use('/media', mediaRouter)
 app.use('/api/v1', api)
 
-// SPA fallback for storefront routes (must be after API + admin)
-if (hasDist) {
+// Storefront fallback (must be after API + admin)
+if (useNextStorefront) {
+  app.use((req, res, next) => {
+    if (isReservedStorefrontPath(req.path)) return next()
+    return proxyToNext(req, res)
+  })
+} else if (hasDist) {
   app.get('*', (req, res, next) => {
-    if (
-      req.path.startsWith('/api') ||
-      req.path.startsWith(env.adminPath) ||
-      req.path.startsWith('/admin') ||
-      req.path.startsWith('/uploads') ||
-      req.path.startsWith('/partner')
-    ) {
-      return next()
-    }
+    if (isReservedStorefrontPath(req.path)) return next()
     return res.sendFile(path.join(distPath, 'index.html'))
   })
 }
@@ -105,7 +156,11 @@ async function start() {
       console.log(`Public site: ${env.clientUrl}`)
       console.log(`Admin panel: ${env.appUrl}${env.adminPath}`)
       console.log(`API: ${env.apiUrl}/api/v1`)
-      console.log(`Storefront dist: ${hasDist ? distPath : 'not found (API-only root)'}`)
+      if (useNextStorefront) {
+        console.log(`Storefront proxy: ${env.nextOrigin}`)
+      } else {
+        console.log(`Storefront dist: ${hasDist ? distPath : 'not found (API-only root)'}`)
+      }
       const recover = () =>
         recoverPendingOnlinePayments()
           .then((ids) => {

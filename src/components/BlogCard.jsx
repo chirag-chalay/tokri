@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom'
+/* Shared date/byline helpers are also used by the legacy article page. */
+/* eslint-disable react-refresh/only-export-components */
+import { Link } from '../lib/navigation'
 import { resolveAssetUrl } from '../lib/api'
 
 export function formatBlogDate(value) {
@@ -15,7 +17,7 @@ export function blogByline(post, { authorFirst = false } = {}) {
   return parts.filter(Boolean).join(' · ')
 }
 
-export default function BlogCard({ post }) {
+export default function BlogCard({ post, rawUrls = false }) {
   const byline = blogByline(post)
 
   return (
@@ -26,7 +28,7 @@ export default function BlogCard({ post }) {
       <div className="relative aspect-[16/10] overflow-hidden bg-panel-2">
         {post.coverImage ? (
           <img
-            src={resolveAssetUrl(post.coverImage)}
+            src={rawUrls ? post.coverImage : resolveAssetUrl(post.coverImage)}
             alt=""
             className="absolute inset-0 h-full w-full object-cover object-center"
           />

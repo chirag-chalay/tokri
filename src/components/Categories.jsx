@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from '../lib/navigation'
 import { categories as fallbackCategories } from '../data/categories'
 import { fetchJson, resolveAssetUrl } from '../lib/api'
 
-export default function Categories() {
-  const [categories, setCategories] = useState(fallbackCategories)
+export default function Categories({ initialCategories }) {
+  const [categories, setCategories] = useState(Array.isArray(initialCategories) ? initialCategories : fallbackCategories)
 
   useEffect(() => {
     let ignore = false

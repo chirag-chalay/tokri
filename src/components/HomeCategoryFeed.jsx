@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Link, useNavigate } from '../lib/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchJson, normalizeProducts } from '../lib/api'
-import CartControl from './CartControl'
+import DeferredCartControl from './DeferredCartControl'
 
 const getSlidesPerView = (width) => {
   if (width >= 1280) return 8
@@ -12,18 +12,15 @@ const getSlidesPerView = (width) => {
   return 3
 }
 
+const subscribeViewport = (callback) => {
+  window.addEventListener('resize', callback)
+  return () => window.removeEventListener('resize', callback)
+}
+const viewportSnapshot = () => getSlidesPerView(window.innerWidth)
+const serverViewportSnapshot = () => 8
+
 function useSlidesPerView() {
-  const [slidesPerView, setSlidesPerView] = useState(() =>
-    typeof window !== 'undefined' ? getSlidesPerView(window.innerWidth) : 8,
-  )
-
-  useEffect(() => {
-    const update = () => setSlidesPerView(getSlidesPerView(window.innerWidth))
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [])
-
-  return slidesPerView
+  return useSyncExternalStore(subscribeViewport, viewportSnapshot, serverViewportSnapshot)
 }
 
 const discountPercent = (product) => {
@@ -33,7 +30,7 @@ const discountPercent = (product) => {
   return Math.round((1 - price / oldPrice) * 100)
 }
 
-function ProductCard({ product, onNavigate }) {
+function ProductCard({ product, onNavigate, deferCart }) {
   const off = discountPercent(product)
   const target = `/product/${product.slug || product.id}`
 
@@ -79,17 +76,17 @@ function ProductCard({ product, onNavigate }) {
           )}
         </div>
         <span className="shrink-0" onClick={(event) => event.stopPropagation()}>
-          <CartControl product={product} />
+          <DeferredCartControl product={product} defer={deferCart} />
         </span>
       </div>
     </article>
   )
 }
 
-function CategoryProductRow({ slug, title, limit = 12, onSettled }) {
+function CategoryProductRow({ slug, title, limit = 12, onSettled, initialProducts, deferCart = false }) {
   const navigate = useNavigate()
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [products, setProducts] = useState(initialProducts || [])
+  const [loading, setLoading] = useState(!initialProducts)
   const trackRef = useRef(null)
   const settledRef = useRef(false)
   const slidesPerView = useSlidesPerView()
@@ -100,7 +97,9 @@ function CategoryProductRow({ slug, title, limit = 12, onSettled }) {
   useEffect(() => {
     let ignore = false
     settledRef.current = false
-    setLoading(true)
+    // Preserve the existing reset for legacy lazy-loaded rows.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!initialProducts) setLoading(true)
 
     fetchJson(`/products?category=${encodeURIComponent(slug)}&limit=${pageSize}`)
       .then((items) => {
@@ -121,7 +120,7 @@ function CategoryProductRow({ slug, title, limit = 12, onSettled }) {
     return () => {
       ignore = true
     }
-  }, [slug, pageSize, onSettled])
+  }, [slug, pageSize, onSettled, initialProducts])
 
   const scrollByCard = (direction) => {
     const track = trackRef.current
@@ -170,7 +169,7 @@ function CategoryProductRow({ slug, title, limit = 12, onSettled }) {
                   key={product.id}
                   className="w-[calc((100%-1rem)/3)] shrink-0 snap-start sm:w-[calc((100%-1.5rem)/4)] md:w-[calc((100%-2rem)/5)] lg:w-[calc((100%-3rem)/7)] xl:w-[calc((100%-3.5rem)/8)]"
                 >
-                  <ProductCard product={product} onNavigate={navigate} />
+                  <ProductCard product={product} onNavigate={navigate} deferCart={deferCart} />
                 </div>
               ))}
             </div>
@@ -191,12 +190,13 @@ function CategoryProductRow({ slug, title, limit = 12, onSettled }) {
   )
 }
 
-export default function HomeCategoryFeed({ slugs }) {
+export default function HomeCategoryFeed({ slugs, initialSections }) {
   const categorySlugs = useMemo(
     () => (Array.isArray(slugs) ? slugs.filter(Boolean) : []),
     [slugs],
   )
   const slugKey = categorySlugs.join('|')
+  const hasInitialSections = Array.isArray(initialSections) && initialSections.map((item) => item.slug).join('|') === slugKey
   const [categories, setCategories] = useState([])
   const [visibleCount, setVisibleCount] = useState(0)
   const [rowReady, setRowReady] = useState(true)
@@ -218,6 +218,8 @@ export default function HomeCategoryFeed({ slugs }) {
   }, [categorySlugs.length])
 
   useEffect(() => {
+    // Preserve the existing lazy-feed reset when its category list changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisibleCount(0)
     setRowReady(true)
   }, [slugKey])
@@ -227,7 +229,7 @@ export default function HomeCategoryFeed({ slugs }) {
   }, [])
 
   useEffect(() => {
-    if (!rowReady || visibleCount >= categorySlugs.length) return undefined
+    if (hasInitialSections || !rowReady || visibleCount >= categorySlugs.length) return undefined
     const node = sentinelRef.current
     if (!node) return undefined
 
@@ -243,9 +245,15 @@ export default function HomeCategoryFeed({ slugs }) {
 
     observer.observe(node)
     return () => observer.disconnect()
-  }, [rowReady, visibleCount, categorySlugs.length])
+  }, [hasInitialSections, rowReady, visibleCount, categorySlugs.length])
 
   if (!categorySlugs.length) return null
+
+  if (hasInitialSections) {
+    return initialSections.map((section) => (
+      <CategoryProductRow key={section.slug} slug={section.slug} title={section.title} initialProducts={section.products} deferCart />
+    ))
+  }
 
   const titleFor = (slug) => {
     const category = categories.find((item) => item.slug === slug)

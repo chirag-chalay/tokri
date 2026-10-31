@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+'use client'
+
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Link, useNavigate, useSearchParams } from '../lib/navigation'
 import { fetchJson, normalizeProducts, resolveAssetUrl } from '../lib/api'
 import { useCart } from '../context/CartContext'
-import CartControl from '../components/CartControl'
+import DeferredCartControl from '../components/DeferredCartControl'
 import Footer from '../components/Footer'
 
 const PAGE_SIZE = 24
@@ -11,21 +13,16 @@ const ACTIVE_OFFSET_PX = 80
 // Unified breakpoint token matching Header and Cart (lg: 1024px)
 const MOBILE_QUERY = '(max-width: 1023px)'
 
+const subscribeMobile = (callback) => {
+  const query = window.matchMedia(MOBILE_QUERY)
+  query.addEventListener('change', callback)
+  return () => query.removeEventListener('change', callback)
+}
+const mobileSnapshot = () => window.matchMedia(MOBILE_QUERY).matches
+const serverMobileSnapshot = () => false
+
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window === 'undefined' ? false : window.matchMedia(MOBILE_QUERY).matches,
-  )
-
-  useEffect(() => {
-    const query = window.matchMedia(MOBILE_QUERY)
-    const onChange = (event) => setIsMobile(event.matches)
-
-    setIsMobile(query.matches)
-    query.addEventListener('change', onChange)
-    return () => query.removeEventListener('change', onChange)
-  }, [])
-
-  return isMobile
+  return useSyncExternalStore(subscribeMobile, mobileSnapshot, serverMobileSnapshot)
 }
 
 function mergeProducts(existing, incoming) {
@@ -46,7 +43,7 @@ const discountPercent = (product) => {
   return Math.round((1 - price / oldPrice) * 100)
 }
 
-function ProductCard({ product, onNavigate }) {
+function ProductCard({ product, onNavigate, deferCart }) {
   const off = discountPercent(product)
   const target = `/product/${product.slug || product.id}`
 
@@ -94,14 +91,14 @@ function ProductCard({ product, onNavigate }) {
           )}
         </div>
         <span className="shrink-0" onClick={(event) => event.stopPropagation()}>
-          <CartControl product={product} variant="shop" addLabel="ADD" />
+          <DeferredCartControl product={product} variant="shop" addLabel="ADD" defer={deferCart} />
         </span>
       </div>
     </article>
   )
 }
 
-export default function ShopAllPage() {
+export default function ShopAllPage({ initialData }) {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { totalCount } = useCart()
@@ -115,13 +112,13 @@ export default function ShopAllPage() {
   const sectionRefs = useRef(new Map())
   const railRefs = useRef(new Map())
 
-  const [categories, setCategories] = useState([])
+  const [categories, setCategories] = useState(initialData?.categories || [])
   // One entry per category pulled into the feed, in catalog order. On desktop this
   // always holds exactly one entry.
-  const [sections, setSections] = useState([])
-  const [activeSlug, setActiveSlug] = useState('')
-  const [loadingCategories, setLoadingCategories] = useState(true)
-  const [loadingFeed, setLoadingFeed] = useState(true)
+  const [sections, setSections] = useState(initialData?.sections || [])
+  const [activeSlug, setActiveSlug] = useState(initialData?.activeSlug || '')
+  const [loadingCategories, setLoadingCategories] = useState(!initialData)
+  const [loadingFeed, setLoadingFeed] = useState(!initialData)
   const [appending, setAppending] = useState(false)
   const [prepending, setPrepending] = useState(false)
   const [reachedEnd, setReachedEnd] = useState(false)
@@ -135,9 +132,9 @@ export default function ShopAllPage() {
   // scroller that is as tall as the whole feed.
   const [railHeight, setRailHeight] = useState(0)
 
-  const categoriesRef = useRef([])
-  const sectionsRef = useRef([])
-  const activeSlugRef = useRef('')
+  const categoriesRef = useRef(categories)
+  const sectionsRef = useRef(sections)
+  const activeSlugRef = useRef(activeSlug)
   const isMobileRef = useRef(isMobile)
   const appendingRef = useRef(false)
   const prependingRef = useRef(false)
@@ -841,6 +838,7 @@ export default function ShopAllPage() {
                             <ProductCard
                               key={`${section.slug}-${product.id}`}
                               product={product}
+                              deferCart={Boolean(initialData)}
                               onNavigate={(target) => navigate(target)}
                             />
                           ))}

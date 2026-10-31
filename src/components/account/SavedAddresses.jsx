@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useAddress } from '../../context/AddressContext'
 import AddressFormModal from './AddressFormModal'
 import ConfirmModal from '../ConfirmModal'
-import { addressLabelIcon } from './AccountSidebar'
+import { addressLabelIcon } from './addressLabelIcon'
 
 export default function SavedAddresses() {
   const { user } = useAuth()

@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from '../lib/navigation'
 import { useAuth } from '../context/AuthContext'
 import AccountSidebar from '../components/account/AccountSidebar'
 import SavedAddresses from '../components/account/SavedAddresses'

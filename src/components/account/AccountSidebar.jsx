@@ -1,9 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from '../../lib/navigation'
 import {
-  Building2,
-  Home,
   LogOut,
-  MapPin,
   MapPinned,
   Package,
   UserRound,
@@ -39,12 +36,13 @@ export default function AccountSidebar({ activeSection }) {
       </div>
 
       <nav className="py-2">
-        {navItems.map(({ key, label, icon: Icon, href }) => {
-          const active = activeSection === key
+        {navItems.map((item) => {
+          const Icon = item.icon
+          const active = activeSection === item.key
           return (
             <Link
-              key={key}
-              to={href}
+              key={item.key}
+              to={item.href}
               className={`flex items-center gap-3 px-5 py-3 text-sm transition ${
                 active
                   ? 'border-l-4 border-brand bg-panel font-semibold text-white'
@@ -52,7 +50,7 @@ export default function AccountSidebar({ activeSection }) {
               }`}
             >
               <Icon size={18} className={active ? 'text-brand' : 'text-muted'} />
-              {label}
+              {item.label}
             </Link>
           )
         })}
@@ -68,10 +66,4 @@ export default function AccountSidebar({ activeSection }) {
       </nav>
     </aside>
   )
-}
-
-export function addressLabelIcon(label) {
-  if (label === 'Work') return Building2
-  if (label === 'Home') return Home
-  return MapPin
 }
