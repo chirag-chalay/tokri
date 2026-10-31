@@ -27,6 +27,10 @@ const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map((origin) => stripTrailingSlash(origin.trim())).filter(Boolean)
   : [clientUrl, appUrl].filter((value, index, list) => value && list.indexOf(value) === index)
 
+// When set (e.g. http://127.0.0.1:3000), Express keeps /api + admin on this
+// host/port and proxies the public storefront to a local Next.js process.
+const nextOrigin = stripTrailingSlash(process.env.TOKRIII_NEXT_ORIGIN || '')
+
 export const env = {
   port,
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -34,6 +38,7 @@ export const env = {
   appUrl,
   apiUrl,
   publicAssetUrl,
+  nextOrigin,
   corsOrigins,
   trustProxy: process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production',
   adminPath: adminPath.startsWith('/') ? adminPath : `/${adminPath}`,
