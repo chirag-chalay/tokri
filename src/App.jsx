@@ -23,6 +23,7 @@ import { AuthProvider } from './context/AuthContext'
 import { AddressProvider } from './context/AddressContext'
 import Footer from './components/Footer'
 import { trackPageView } from './lib/telemetry'
+import MarketingConsent from './components/MarketingConsent'
 
 const CMS_PAGE_PATHS = [
   '/about',
@@ -137,6 +138,7 @@ function App({ migratedRoutes = false }) {
         <CartProvider>
           <div className="min-h-screen bg-canvas">
             <AppShell migratedRoutes={migratedRoutes} />
+            <MarketingConsent />
           </div>
         </CartProvider>
       </AddressProvider>

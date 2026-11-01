@@ -1,3 +1,5 @@
+import { installMetaPixel, trackMetaPageView } from './metaPixel'
+
 const MEASUREMENT_ID = String(import.meta.env.VITE_GA_MEASUREMENT_ID || '').trim()
 
 function measurementId() {
@@ -5,6 +7,7 @@ function measurementId() {
 }
 
 export function installAnalytics() {
+  installMetaPixel()
   const id = measurementId()
   if (!id || window.__tokriAnalytics) return
   window.__tokriAnalytics = true
@@ -22,6 +25,7 @@ export function installAnalytics() {
 }
 
 export function trackPageView(path) {
+  trackMetaPageView(path)
   if (!measurementId() || typeof window.gtag !== 'function') return
   window.gtag('event', 'page_view', {
     page_path: path,
