@@ -1,18 +1,110 @@
-/* Tokriii — Diwali 2026 Golden Glow Seasonal Atmosphere */
+/* Tokriii — Luxury Diwali 2026 Full-Viewport Experience */
 
-.diwaliAtmosphere {
-  position: relative;
+.atmosphereRoot {
+  position: static;
   width: 100%;
   pointer-events: none;
   user-select: none;
-  margin-bottom: 0.875rem;
-  animation: diwaliEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes diwaliEntrance {
+/* ==========================================================================
+   1. Full-Viewport Atmospheric Background (Fills Left & Right Negative Space)
+   ========================================================================== */
+
+.ambientBackdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Soft ambient lighting wash across the background */
+.ambientWash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 600px 380px at 0% 30%, rgba(242, 168, 74, 0.14) 0%, rgba(233, 199, 122, 0.04) 50%, transparent 80%),
+    radial-gradient(ellipse 600px 380px at 100% 35%, rgba(233, 199, 122, 0.12) 0%, rgba(242, 168, 74, 0.03) 50%, transparent 80%),
+    radial-gradient(ellipse 800px 200px at 50% 0%, rgba(233, 199, 122, 0.08) 0%, transparent 70%);
+  animation: ambientBreathe 6s ease-in-out infinite alternate;
+}
+
+@keyframes ambientBreathe {
+  0% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Left Negative-Space Wing (Hanging Traditional Diya + Rangoli Linework) */
+.leftWing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 440px;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%);
+}
+
+/* Right Negative-Space Wing (Lotus Pedestal Diya + Celestial Motif) */
+.rightWing {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 440px;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  mask-image: linear-gradient(to left, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%);
+}
+
+.wingSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ==========================================================================
+   2. Centered Luxury Festive Greeting Card (Integrated with Hero)
+   ========================================================================== */
+
+.greetingCard {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+  margin-bottom: 1.25rem;
+  border-radius: 1.125rem;
+  padding: 1rem 1.375rem;
+  background: linear-gradient(
+    135deg,
+    rgba(16, 24, 16, 0.88) 0%,
+    rgba(24, 34, 24, 0.94) 50%,
+    rgba(16, 24, 16, 0.88) 100%
+  );
+  border: 1px solid rgba(233, 199, 122, 0.32);
+  box-shadow:
+    0 10px 30px -4px rgba(10, 17, 10, 0.7),
+    0 0 32px -4px rgba(242, 168, 74, 0.16),
+    inset 0 1px 0 0 rgba(255, 245, 215, 0.22);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
+  animation: greetingEntrance 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes greetingEntrance {
   0% {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-6px);
   }
   100% {
     opacity: 1;
@@ -20,63 +112,47 @@
   }
 }
 
-.bannerWrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-radius: 0.875rem;
-  padding: 0.625rem 1rem;
-  background: linear-gradient(
-    90deg,
-    rgba(20, 26, 20, 0.88) 0%,
-    rgba(26, 33, 26, 0.94) 50%,
-    rgba(20, 26, 20, 0.88) 100%
-  );
-  border: 1px solid rgba(233, 199, 122, 0.28);
-  box-shadow:
-    0 4px 20px -2px rgba(10, 17, 10, 0.6),
-    0 0 24px -4px rgba(242, 168, 74, 0.12),
-    inset 0 1px 0 0 rgba(255, 243, 209, 0.15);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  overflow: hidden;
-}
-
-/* Fine hairline accent at top of the bar */
-.hairline {
+.cardHairline {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 1px;
+  height: 1.5px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(233, 199, 122, 0.1) 15%,
-    rgba(255, 243, 209, 0.5) 50%,
-    rgba(233, 199, 122, 0.1) 85%,
+    rgba(233, 199, 122, 0.15) 12%,
+    rgba(255, 245, 215, 0.7) 50%,
+    rgba(233, 199, 122, 0.15) 88%,
     transparent 100%
   );
 }
 
-.leftGroup {
+.cardInner {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.875rem;
-  min-width: 0;
+  justify-content: space-between;
+  gap: 1.25rem;
   z-index: 2;
 }
 
-/* Diya Container */
-.diyaContainer {
+.focalGroup {
+  display: flex;
+  align-items: center;
+  gap: 1.125rem;
+  min-width: 0;
+}
+
+/* Centerpiece Diya */
+.centerDiyaBox {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 40px;
-  height: 38px;
+  width: 50px;
+  height: 48px;
 }
 
 .diyaSvg {
@@ -86,255 +162,336 @@
   overflow: visible;
 }
 
-/* Flame animation */
+.flameFlicker,
 .flameElement {
-  transform-origin: 24px 23px;
-  animation: diwaliFlameFlicker 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 0 6px rgba(242, 168, 74, 0.75));
+  transform-origin: 25px 26px;
+  animation: diyaFlameMovement 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 7px rgba(242, 168, 74, 0.85));
 }
 
-@keyframes diwaliFlameFlicker {
+@keyframes diyaFlameMovement {
   0%, 100% {
     transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 7px rgba(242, 168, 74, 0.85));
+  }
+  22% {
+    transform: scale(1.05, 0.95) rotate(1.2deg);
+    filter: drop-shadow(0 0 10px rgba(242, 168, 74, 0.95));
+  }
+  48% {
+    transform: scale(0.96, 1.04) rotate(-0.9deg);
     filter: drop-shadow(0 0 6px rgba(242, 168, 74, 0.75));
   }
-  20% {
-    transform: scale(1.04, 0.96) rotate(1deg);
-    filter: drop-shadow(0 0 8px rgba(242, 168, 74, 0.88));
+  72% {
+    transform: scale(1.03, 0.98) rotate(0.6deg);
+    filter: drop-shadow(0 0 9px rgba(242, 168, 74, 0.88));
   }
-  45% {
-    transform: scale(0.97, 1.03) rotate(-0.8deg);
-    filter: drop-shadow(0 0 5px rgba(242, 168, 74, 0.65));
-  }
-  70% {
-    transform: scale(1.03, 0.98) rotate(0.5deg);
-    filter: drop-shadow(0 0 7px rgba(242, 168, 74, 0.8));
-  }
-  85% {
-    transform: scale(0.99, 1.01) rotate(-0.3deg);
-    filter: drop-shadow(0 0 6px rgba(242, 168, 74, 0.72));
+  88% {
+    transform: scale(0.98, 1.01) rotate(-0.3deg);
+    filter: drop-shadow(0 0 7px rgba(242, 168, 74, 0.82));
   }
 }
 
-/* Ambient glow around the diya flame */
-.haloGlow {
+.flameHalo {
   position: absolute;
-  top: -8px;
-  left: 6px;
-  width: 28px;
-  height: 28px;
+  top: -12px;
+  left: 7px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(242, 168, 74, 0.38) 0%,
-    rgba(233, 199, 122, 0.16) 45%,
+    rgba(242, 168, 74, 0.42) 0%,
+    rgba(233, 199, 122, 0.18) 45%,
     transparent 75%
   );
-  filter: blur(4px);
+  filter: blur(5px);
   pointer-events: none;
-  animation: diwaliHaloBreathe 3.2s ease-in-out infinite;
+  animation: haloBreathe 3.4s ease-in-out infinite;
 }
 
-@keyframes diwaliHaloBreathe {
+@keyframes haloBreathe {
   0%, 100% {
-    opacity: 0.6;
-    transform: scale(0.95);
+    opacity: 0.65;
+    transform: scale(0.94);
   }
   50% {
-    opacity: 0.95;
-    transform: scale(1.1);
+    opacity: 1;
+    transform: scale(1.12);
   }
 }
 
-/* Text block */
-.textGroup {
+/* Typography Hierarchy */
+.textColumn {
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-width: 0;
 }
 
-.headingRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.greetingText {
-  font-family: var(--font-sans);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  background: linear-gradient(135deg, #ffffff 0%, #ffe9b8 40%, #e9c77a 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  line-height: 1.25;
-}
-
-.festiveTag {
+.eyebrowBadge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.4375rem;
-  border-radius: 9999px;
-  background: rgba(233, 199, 122, 0.12);
-  border: 1px solid rgba(233, 199, 122, 0.25);
+  gap: 0.35rem;
+  font-family: var(--font-sans);
   font-size: 0.6875rem;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   color: #e9c77a;
-  letter-spacing: 0.02em;
   line-height: 1;
+  margin-bottom: 0.25rem;
 }
 
-.supportingText {
+.eyebrowBadge span {
+  font-size: 0.5625rem;
+  color: #f2a84a;
+}
+
+.primaryGreeting {
   font-family: var(--font-sans);
-  font-size: 0.8125rem;
-  color: rgba(233, 199, 122, 0.82);
-  margin-top: 0.15rem;
+  font-size: 1.1875rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #ffffff 0%, #fff0cc 35%, #e9c77a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.supportingTagline {
+  font-family: var(--font-sans);
+  font-size: 0.84375rem;
+  font-weight: 400;
+  color: rgba(233, 199, 122, 0.88);
+  margin-top: 0.25rem;
   line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Twinkle stars */
-.twinkleField {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 1;
+/* Right-side decorative flourish */
+.cardFlourish {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
 }
 
-.star {
-  position: absolute;
+.flourishSvg {
+  width: 58px;
+  height: 38px;
   display: block;
-  filter: drop-shadow(0 0 3px rgba(233, 199, 122, 0.8));
 }
 
-.star1 {
-  top: 22%;
-  right: 18%;
-  width: 9px;
-  height: 9px;
-  animation: diwaliTwinkle 3.2s ease-in-out infinite;
+/* Twinkle stars inside the card */
+.cardTwinkle1 {
+  animation: cardStarPulse 3.1s ease-in-out infinite;
 }
 
-.star2 {
-  bottom: 24%;
-  right: 8%;
-  width: 11px;
-  height: 11px;
-  animation: diwaliTwinkle 4.1s ease-in-out infinite 1.2s;
+.cardTwinkle2 {
+  animation: cardStarPulse 3.8s ease-in-out infinite 1.4s;
 }
 
-.star3 {
-  top: 28%;
-  right: 32%;
-  width: 7px;
-  height: 7px;
-  animation: diwaliTwinkle 2.9s ease-in-out infinite 0.6s;
-}
-
-.star4 {
-  bottom: 26%;
-  left: 48%;
-  width: 8px;
-  height: 8px;
-  animation: diwaliTwinkle 3.6s ease-in-out infinite 2s;
-}
-
-@keyframes diwaliTwinkle {
+@keyframes cardStarPulse {
   0%, 100% {
-    opacity: 0.25;
+    opacity: 0.3;
     transform: scale(0.85);
   }
   50% {
-    opacity: 0.95;
+    opacity: 1;
     transform: scale(1.15);
   }
 }
 
-/* Mobile optimizations */
-@media (max-width: 639px) {
-  .bannerWrapper {
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.75rem;
+/* Wing-specific animations */
+.hangingDiyaFlame {
+  transform-origin: 80px 105px;
+  animation: diyaFlameMovement 2.6s ease-in-out infinite 0.4s;
+  filter: drop-shadow(0 0 8px rgba(242, 168, 74, 0.85));
+}
+
+.hangingHalo {
+  animation: haloBreathe 3.6s ease-in-out infinite 0.5s;
+}
+
+.rightDiyaFlame {
+  transform-origin: 240px 145px;
+  animation: diyaFlameMovement 2.2s ease-in-out infinite 0.8s;
+  filter: drop-shadow(0 0 8px rgba(242, 168, 74, 0.85));
+}
+
+.rightHalo {
+  animation: haloBreathe 3.2s ease-in-out infinite 0.9s;
+}
+
+.wingStar {
+  animation: cardStarPulse 3.5s ease-in-out infinite;
+}
+
+.wingStarDelay1 {
+  animation: cardStarPulse 4.2s ease-in-out infinite 1.1s;
+}
+
+.wingStarDelay2 {
+  animation: cardStarPulse 2.9s ease-in-out infinite 0.6s;
+}
+
+.wingStarDelay3 {
+  animation: cardStarPulse 3.8s ease-in-out infinite 1.8s;
+}
+
+/* ==========================================================================
+   3. Responsive Breakpoints
+   ========================================================================== */
+
+/* Large Desktop (>= 1920px): Full panoramic side wings revealed */
+@media (min-width: 1920px) {
+  .leftWing,
+  .rightWing {
+    width: 480px;
   }
 
-  .diyaContainer {
-    width: 32px;
-    height: 30px;
+  .primaryGreeting {
+    font-size: 1.375rem;
+  }
+}
+
+/* Standard Desktop (1440px - 1919px) */
+@media (min-width: 1440px) and (max-width: 1919px) {
+  .leftWing,
+  .rightWing {
+    width: 420px;
+  }
+}
+
+/* Small Laptop / Tablet Landscape (1024px - 1439px) */
+@media (max-width: 1439px) {
+  .leftWing,
+  .rightWing {
+    width: 320px;
+    opacity: 0.85;
+  }
+}
+
+/* Tablet Portrait (768px - 1023px) */
+@media (max-width: 1023px) {
+  .leftWing,
+  .rightWing {
+    width: 220px;
+    opacity: 0.6;
   }
 
-  .haloGlow {
-    top: -6px;
-    left: 4px;
-    width: 22px;
-    height: 22px;
-  }
-
-  .greetingText {
-    font-size: 0.84375rem;
-  }
-
-  .supportingText {
-    display: none; /* Hide secondary line on small mobile to keep single-line pristine clarity */
-  }
-
-  .festiveTag {
-    font-size: 0.625rem;
-    padding: 0.1rem 0.35rem;
-  }
-
-  .star3,
-  .star4 {
+  .cardFlourish {
     display: none;
   }
 }
 
-/* Very small mobile (<= 360px) */
-@media (max-width: 360px) {
-  .bannerWrapper {
-    padding: 0.4rem 0.625rem;
+/* Mobile Screens (<= 767px) */
+@media (max-width: 767px) {
+  .leftWing,
+  .rightWing {
+    display: none; /* Hide wide decorative wings on mobile to prevent clutter */
   }
 
-  .diyaContainer {
+  .ambientBackdrop {
+    top: 0;
+    bottom: 0;
+  }
+
+  .greetingCard {
+    padding: 0.75rem 1rem;
+    border-radius: 0.875rem;
+    margin-bottom: 0.875rem;
+  }
+
+  .centerDiyaBox {
+    width: 38px;
+    height: 36px;
+  }
+
+  .flameHalo {
+    top: -8px;
+    left: 4px;
     width: 28px;
-    height: 26px;
+    height: 28px;
   }
 
-  .festiveTag {
+  .primaryGreeting {
+    font-size: 0.9375rem;
+  }
+
+  .eyebrowBadge {
+    font-size: 0.59375rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .supportingTagline {
+    font-size: 0.75rem;
+    white-space: normal; /* Allow clean wrap on mobile */
+  }
+
+  .cardFlourish {
     display: none;
   }
+}
 
-  .greetingText {
-    font-size: 0.78125rem;
+/* Very Small Mobile (<= 360px) */
+@media (max-width: 360px) {
+  .greetingCard {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .focalGroup {
+    gap: 0.75rem;
+  }
+
+  .centerDiyaBox {
+    width: 32px;
+    height: 30px;
+  }
+
+  .primaryGreeting {
+    font-size: 0.84375rem;
+  }
+
+  .supportingTagline {
+    display: none; /* Keep super clean single-line greeting on 320px-360px */
   }
 }
 
 /* Accessibility: Respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
-  .diwaliAtmosphere {
-    animation: none !important;
-  }
-
-  .flameElement {
+  .ambientWash,
+  .greetingCard,
+  .flameFlicker,
+  .flameElement,
+  .flameHalo,
+  .hangingDiyaFlame,
+  .hangingHalo,
+  .rightDiyaFlame,
+  .rightHalo,
+  .cardTwinkle1,
+  .cardTwinkle2,
+  .wingStar,
+  .wingStarDelay1,
+  .wingStarDelay2,
+  .wingStarDelay3 {
     animation: none !important;
     transform: none !important;
-    filter: drop-shadow(0 0 5px rgba(242, 168, 74, 0.7)) !important;
   }
 
-  .haloGlow {
-    animation: none !important;
+  .flameFlicker,
+  .flameElement,
+  .hangingDiyaFlame,
+  .rightDiyaFlame {
+    filter: drop-shadow(0 0 6px rgba(242, 168, 74, 0.75)) !important;
+  }
+
+  .flameHalo,
+  .hangingHalo,
+  .rightHalo {
     opacity: 0.75 !important;
-    transform: none !important;
-  }
-
-  .star {
-    animation: none !important;
-    opacity: 0.7 !important;
-    transform: none !important;
   }
 }

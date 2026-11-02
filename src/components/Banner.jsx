@@ -36,16 +36,16 @@ export default function Banner({ image, mobileImage, rawUrls = false, isDiwaliAc
   if (!src && !festiveActive) return null
 
   return (
-    <section className="mt-4 sm:mt-6">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <DiwaliAtmosphere active={festiveActive} />
+    <section className="relative w-full overflow-hidden mt-4 sm:mt-6 pb-2">
+      <DiwaliAtmosphere active={festiveActive} />
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6">
         {src && (
           <Link
             to="/shop"
             aria-label="Shop all"
             className={`group block cursor-pointer overflow-hidden rounded-xl transition duration-300 ${
               festiveActive
-                ? 'ring-1 ring-[#E9C77A]/25 shadow-[0_8px_32px_-8px_rgba(242,168,74,0.14)]'
+                ? 'ring-1 ring-[#E9C77A]/35 shadow-[0_12px_44px_-8px_rgba(242,168,74,0.18)]'
                 : ''
             }`}
           >

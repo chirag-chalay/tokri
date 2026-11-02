@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
+import { execSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright-core'
 
@@ -128,6 +129,40 @@ async function run() {
   await a11yPage.screenshot({ path: path.join(outputDir, 'reduced-motion-preview.png') })
   await a11yPage.close()
   console.log('✓ Accessibility reduced-motion rule verified (PASS)')
+
+  // 7. Capture Festive OFF comparison screenshots (at 1920px and 1440px)
+  console.log('\n--- 7. Capturing Festive OFF Comparison Screenshots ---')
+  for (const w of [1920, 1440]) {
+    const p = await browser.newPage({ viewport: { width: w, height: w === 1920 ? 1080 : 900 } })
+    await p.goto('http://127.0.0.1:3000/?diwali=0', { waitUntil: 'networkidle' })
+    const prefix = w === 1920 ? '1920-large-desktop' : '1440-desktop'
+    await p.screenshot({ path: path.join(outputDir, `${prefix}-festive-off.png`), fullPage: false })
+    const offHeroSection = p.locator('section.mt-4, section.mt-6').first()
+    if (await offHeroSection.count()) {
+      await offHeroSection.screenshot({ path: path.join(outputDir, `${prefix}-hero-off.png`) })
+    }
+    await p.close()
+  }
+  console.log('✓ Captured 1920px and 1440px OFF comparison screenshots')
+
+  // 8. Capture sequential frames of the flame animation and compile GIF
+  console.log('\n--- 8. Capturing Living Diya Flame Animation Frames ---')
+  const animPage = await browser.newPage({ viewport: { width: 600, height: 260 } })
+  await animPage.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle' })
+  const diyaElem = animPage.locator('[class*="centerDiyaBox"]').first()
+  for (let i = 0; i < 8; i++) {
+    await diyaElem.screenshot({ path: path.join(animationDir, `flame-frame-${i + 1}.png`) })
+    await new Promise((r) => setTimeout(r, 200))
+  }
+  await animPage.close()
+  console.log('✓ Captured 8 animation demonstration frames in docs/diwali-2026/animation/')
+
+  try {
+    execSync(`convert -delay 20 -loop 0 ${path.join(animationDir, 'flame-frame-*.png')} ${path.join(animationDir, 'diwali-flame-animation.gif')}`)
+    console.log('✓ Generated diwali-flame-animation.gif via ImageMagick')
+  } catch (err) {
+    console.warn('Could not compile gif via convert:', err.message)
+  }
 
   await browser.close()
   console.log('\n============================================================')
