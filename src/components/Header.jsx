@@ -66,9 +66,15 @@ export default function Header({ onLoginClick, className = '' }) {
 
       {/* Mobile header */}
       <div className="relative z-10 lg:hidden">
-        <div className="px-3 py-2.5 sm:px-4 sm:py-3">
+        <div
+          className={`py-2.5 sm:py-3 transition-all ${
+            festiveActive ? 'px-3 sm:px-14' : 'px-3 sm:px-4'
+          }`}
+        >
           <div
             className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center ${
+              festiveActive ? 'pl-8 sm:pl-0' : ''
+            } ${
               showMobileBack
                 ? 'mobile-header-inner gap-2 sm:gap-2.5'
                 : 'mobile-header-home gap-2.5 sm:gap-3.5'

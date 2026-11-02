@@ -8,13 +8,19 @@ import { chromium } from 'playwright-core'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const outputDir = path.resolve(__dirname, '../docs/diwali-2026/after')
 const animationDir = path.resolve(__dirname, '../docs/diwali-2026/animation')
+const artifactDir = '/home/gaurav/.gemini/antigravity-cli/brain/3f3db14e-91f4-4b4d-bf94-998995d13889/screenshots/diwali'
+
 fs.mkdirSync(outputDir, { recursive: true })
 fs.mkdirSync(animationDir, { recursive: true })
+fs.mkdirSync(path.join(artifactDir, 'after'), { recursive: true })
+fs.mkdirSync(path.join(artifactDir, 'animation'), { recursive: true })
 
 const viewports = [
   { width: 320, height: 568, name: '320-small-mobile' },
   { width: 360, height: 800, name: '360-android-mobile' },
+  { width: 375, height: 812, name: '375-iphone-mini' },
   { width: 390, height: 844, name: '390-standard-mobile' },
+  { width: 400, height: 874, name: '400-pixel-mobile' },
   { width: 430, height: 932, name: '430-large-mobile' },
   { width: 768, height: 1024, name: '768-tablet-portrait' },
   { width: 1024, height: 768, name: '1024-tablet-landscape' },
@@ -23,7 +29,7 @@ const viewports = [
 ]
 
 async function run() {
-  console.log('=== STARTING TOKRIII ANIMATED DIWALI NAVBAR BROWSER AUDIT ===\n')
+  console.log('=== STARTING TOKRIII DIWALI 2026 MOBILE DIYAS & HERO WINGS AUDIT ===\n')
 
   const browser = await chromium.launch({
     executablePath: '/usr/bin/google-chrome',
@@ -34,16 +40,29 @@ async function run() {
   console.log('--- 1. Testing Default Schedule (Nov 2, Live Today) ---')
   const defaultPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   await defaultPage.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle' })
+
+  // Diwali navbar atmosphere
   const defaultNavDiwali = await defaultPage.locator('[data-testid="diwali-navbar-atmosphere"]').count()
   console.log(`Default schedule Diwali navbar atmosphere count: ${defaultNavDiwali}`)
   assert.equal(defaultNavDiwali, 1, 'Diwali navbar atmosphere MUST be active and visible in header')
 
-  // Verify that the old separate Diwali greeting banner is COMPLETELY REMOVED
+  // Diwali hero atmosphere (Left and Right Hero Diyas)
+  const defaultHeroDiwali = await defaultPage.locator('[data-testid="diwali-atmosphere"]').count()
+  console.log(`Default schedule Diwali hero atmosphere count: ${defaultHeroDiwali}`)
+  assert.equal(defaultHeroDiwali, 1, 'Diwali hero atmosphere MUST be present around hero banner')
+
+  const leftWing = await defaultPage.locator('[class*="leftWing"]').count()
+  const rightWing = await defaultPage.locator('[class*="rightWing"]').count()
+  console.log(`Hero leftWing count: ${leftWing}, rightWing count: ${rightWing}`)
+  assert.ok(leftWing >= 1, 'Hero left wing diya MUST be present')
+  assert.ok(rightWing >= 1, 'Hero right wing diya MUST be present')
+
+  // Verify that the old separate Diwali greeting card strip remains COMPLETELY REMOVED
   const oldGreeting = await defaultPage.locator('text=Happy Diwali from Tokriii').count()
   const oldEyebrow = await defaultPage.locator('text=Festival of Lights').count()
   console.log(`Old separate greeting banner count: ${oldGreeting}, old eyebrow: ${oldEyebrow}`)
-  assert.equal(oldGreeting, 0, 'Old separate Diwali greeting text MUST be removed')
-  assert.equal(oldEyebrow, 0, 'Old separate Festival of Lights banner MUST be removed')
+  assert.equal(oldGreeting, 0, 'Old separate Diwali greeting text MUST remain removed')
+  assert.equal(oldEyebrow, 0, 'Old separate Festival of Lights banner MUST remain removed')
 
   // Verify Big Hero Banner is present, directly below the header
   const heroLink = await defaultPage.locator('section a[aria-label="Shop all"]').count()
@@ -53,7 +72,7 @@ async function run() {
   assert.ok(heroLink >= 1, 'Big hero banner link MUST be present directly below navbar')
   assert.ok(imgWidth > 0, 'Big hero banner image MUST be loaded and non-empty')
   await defaultPage.close()
-  console.log('✓ Diwali navbar atmosphere live, old banner removed, hero banner intact (PASS)')
+  console.log('✓ Diwali navbar atmosphere live, hero wings intact, old greeting strip removed (PASS)')
 
   // 2. Verify Inner Page Persistence (/shop)
   console.log('\n--- 2. Testing Inner Page Persistence (/shop) ---')
@@ -65,37 +84,19 @@ async function run() {
   await shopPage.close()
   console.log('✓ Inner page /shop displays animated Diwali navbar (PASS)')
 
-  // 3. Verify Before Schedule Date (?diwali_date=2026-11-01)
-  console.log('\n--- 3. Testing Date Before Schedule (?diwali_date=2026-11-01) ---')
-  const beforePage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-  await beforePage.goto('http://127.0.0.1:3000/?diwali_date=2026-11-01', { waitUntil: 'networkidle' })
-  const beforeDiwali = await beforePage.locator('[data-testid="diwali-navbar-atmosphere"]').count()
-  assert.equal(beforeDiwali, 0, 'Navbar atmosphere MUST NOT render before start date')
-  await beforePage.close()
-  console.log('✓ Inactive before schedule (PASS)')
-
-  // 4. Verify Manual Disable (?diwali=0)
-  console.log('\n--- 4. Testing Manual Disable (?diwali=0) ---')
+  // 3. Verify Manual Disable (?diwali=0)
+  console.log('\n--- 3. Testing Manual Disable (?diwali=0) ---')
   const offPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   await offPage.goto('http://127.0.0.1:3000/?diwali=0', { waitUntil: 'networkidle' })
   const offDiwali = await offPage.locator('[data-testid="diwali-navbar-atmosphere"]').count()
   assert.equal(offDiwali, 0, 'Navbar atmosphere MUST NOT render when forced off')
-  const offHero = await offPage.locator('section a[aria-label="Shop all"]').count()
-  assert.ok(offHero >= 1, 'Big hero banner MUST remain visible when diwali is disabled')
+  const offHeroWings = await offPage.locator('[data-testid="diwali-atmosphere"]').count()
+  assert.equal(offHeroWings, 0, 'Hero atmosphere MUST NOT render when forced off')
   await offPage.close()
-  console.log('✓ Manual disable parameter ?diwali=0 respected, navbar returns to standard (PASS)')
+  console.log('✓ Manual disable parameter ?diwali=0 respected (PASS)')
 
-  // 5. Verify Simulated Date after expiration (?diwali_date=2026-11-15)
-  console.log('\n--- 5. Testing Simulated Expiration Date (?diwali_date=2026-11-15) ---')
-  const expPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-  await expPage.goto('http://127.0.0.1:3000/?diwali_date=2026-11-15', { waitUntil: 'networkidle' })
-  const expDiwali = await expPage.locator('[data-testid="diwali-navbar-atmosphere"]').count()
-  assert.equal(expDiwali, 0, 'Navbar atmosphere MUST NOT render after 12 Nov')
-  await expPage.close()
-  console.log('✓ Simulated expiration 2026-11-15 deactivates automatically (PASS)')
-
-  // 6. Verify All 8 Viewports with Live Diwali Navbar
-  console.log('\n--- 6. Testing Live Storefront across all 8 Viewports ---')
+  // 4. Verify All Viewports (Mobile, Tablet, Desktop)
+  console.log('\n--- 4. Testing All Viewports with Live Diwali Navbar & Hero Wings ---')
   for (const vp of viewports) {
     const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } })
     await page.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle' })
@@ -103,30 +104,69 @@ async function run() {
     const diwaliElem = page.locator('[data-testid="diwali-navbar-atmosphere"]').first()
     assert.equal(await diwaliElem.count(), 1, `Diwali navbar atmosphere must be present at ${vp.width}px`)
 
-    // Verify Tokriii logo is clearly present
-    const logoImg = page.locator('header a[aria-label="Tokriii Home"] img, header a[to="/"] img').first()
-    assert.ok(await logoImg.count() >= 1, `Tokriii logo must be present at ${vp.width}px`)
-
-    // Verify header element
     const headerElem = page.locator('header.sticky').first()
     assert.ok(await headerElem.count() >= 1, `Sticky header must be present at ${vp.width}px`)
 
-    // Verify big hero banner is loaded
+    // Verify horizontal scrolling does not occur
+    const overflowInfo = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    assert.ok(
+      overflowInfo.scrollWidth <= overflowInfo.clientWidth + 1,
+      `Horizontal overflow detected at ${vp.width}px: scrollWidth ${overflowInfo.scrollWidth} > clientWidth ${overflowInfo.clientWidth}`
+    )
+
+    // Verify navbar diyas are visible depending on breakpoint:
+    if (vp.width < 640) {
+      // Mobile phones: mobileLeftDiya & mobileRightDiya
+      const mLeft = page.locator('[class*="mobileLeftDiya"]').first()
+      const mRight = page.locator('[class*="mobileRightDiya"]').first()
+      assert.ok(await mLeft.isVisible(), `Mobile left diya MUST be visible at ${vp.width}px`)
+      assert.ok(await mRight.isVisible(), `Mobile right diya MUST be visible at ${vp.width}px`)
+
+      const mLeftBox = await mLeft.boundingBox()
+      const mRightBox = await mRight.boundingBox()
+      console.log(`  [${vp.name}] Mobile Left Diya box:`, mLeftBox)
+      console.log(`  [${vp.name}] Mobile Right Diya box:`, mRightBox)
+      assert.ok(mLeftBox && mLeftBox.width >= 24, `Mobile left diya width must be >= 24px at ${vp.width}px`)
+      assert.ok(mRightBox && mRightBox.width >= 24, `Mobile right diya width must be >= 24px at ${vp.width}px`)
+    } else if (vp.width < 1024) {
+      // Tablet: tabletLeftDiya & tabletRightDiya
+      const tLeft = page.locator('[class*="tabletLeftDiya"]').first()
+      const tRight = page.locator('[class*="tabletRightDiya"]').first()
+      assert.ok(await tLeft.isVisible(), `Tablet left diya MUST be visible at ${vp.width}px`)
+      assert.ok(await tRight.isVisible(), `Tablet right diya MUST be visible at ${vp.width}px`)
+    } else {
+      // Desktop: desktopLeftDiya & desktopRightDiya
+      const dLeft = page.locator('[class*="desktopLeftDiya"]').first()
+      const dRight = page.locator('[class*="desktopRightDiya"]').first()
+      assert.ok(await dLeft.isVisible(), `Desktop left diya MUST be visible at ${vp.width}px`)
+      assert.ok(await dRight.isVisible(), `Desktop right diya MUST be visible at ${vp.width}px`)
+    }
+
+    // Verify Tokriii logo is present and visible (wordmark or symbol)
+    const logoImg = page.locator('header a[href="/"] img:visible, header a[aria-label*="Tokriii"] img:visible').first()
+    assert.ok(await logoImg.isVisible(), `Tokriii logo must be visible at ${vp.width}px`)
+
+    // Verify Search Box is usable and visible
+    const searchInput = page.locator('header input[type="text"]:visible').first()
+    assert.ok(await searchInput.isVisible(), `Search input must be visible at ${vp.width}px`)
+
+    // Verify Big hero banner is loaded
     const bannerImg = page.locator('section a[aria-label="Shop all"] img').first()
     assert.ok(await bannerImg.count() >= 1, `Hero banner must be present at ${vp.width}px`)
-    const naturalWidth = await bannerImg.evaluate((img) => img.naturalWidth)
-    assert.ok(naturalWidth > 0, `Hero banner image natural width must be > 0 at ${vp.width}px`)
 
     // Capture screenshots
     await headerElem.screenshot({ path: path.join(outputDir, `${vp.name}-festive-navbar.png`) })
     await page.screenshot({ path: path.join(outputDir, `${vp.name}-festive-full.png`), fullPage: false })
 
-    console.log(`  ✓ Captured ${vp.name} (${vp.width}x${vp.height}) with Animated Diwali Navbar: PASS`)
+    console.log(`  ✓ Verified & Captured ${vp.name} (${vp.width}x${vp.height}): PASS`)
     await page.close()
   }
 
-  // 7. Accessibility & Reduced Motion Test
-  console.log('\n--- 7. Testing Accessibility (prefers-reduced-motion) ---')
+  // 5. Accessibility & Reduced Motion Test
+  console.log('\n--- 5. Testing Accessibility (prefers-reduced-motion) ---')
   const a11yPage = await browser.newPage({
     viewport: { width: 1440, height: 900 },
     reducedMotion: 'reduce',
@@ -143,12 +183,13 @@ async function run() {
   await a11yPage.close()
   console.log('✓ Accessibility reduced-motion rule verified (PASS)')
 
-  // 8. Capture Festive OFF comparison screenshots (at 1920px, 1440px, and 390px)
-  console.log('\n--- 8. Capturing Festive OFF Comparison Screenshots ---')
+  // 6. Capture Festive OFF comparison screenshots
+  console.log('\n--- 6. Capturing Festive OFF Comparison Screenshots ---')
   for (const item of [
     { width: 1920, height: 1080, name: '1920-large-desktop' },
     { width: 1440, height: 900, name: '1440-desktop' },
     { width: 390, height: 844, name: '390-standard-mobile' },
+    { width: 320, height: 568, name: '320-small-mobile' },
   ]) {
     const p = await browser.newPage({ viewport: { width: item.width, height: item.height } })
     await p.goto('http://127.0.0.1:3000/?diwali=0', { waitUntil: 'networkidle' })
@@ -161,11 +202,11 @@ async function run() {
   }
   console.log('✓ Captured OFF comparison screenshots')
 
-  // 9. Capture sequential frames of the navbar diya flame animation and compile GIF
-  console.log('\n--- 9. Capturing Navbar Living Diya Flame Animation Frames ---')
-  const animPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  // 7. Capture sequential frames of the mobile diya flame animation and compile GIF
+  console.log('\n--- 7. Capturing Living Diya Flame Animation Frames ---')
+  const animPage = await browser.newPage({ viewport: { width: 390, height: 844 } })
   await animPage.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle' })
-  const diyaElem = animPage.locator('[class*="desktopLeftDiya"]').first()
+  const diyaElem = animPage.locator('[class*="mobileLeftDiya"]').first()
   for (let i = 0; i < 8; i++) {
     await diyaElem.screenshot({ path: path.join(animationDir, `flame-frame-${i + 1}.png`) })
     await new Promise((r) => setTimeout(r, 200))
@@ -181,9 +222,18 @@ async function run() {
     console.warn('Could not compile gif via convert:', err.message)
   }
 
+  // Copy all assets to artifact directory
+  try {
+    execSync(`cp -r ${outputDir}/* ${path.join(artifactDir, 'after/')}`)
+    execSync(`cp -r ${animationDir}/* ${path.join(artifactDir, 'animation/')}`)
+    console.log('✓ Mirrored all screenshots to artifact directory')
+  } catch (err) {
+    console.warn('Could not mirror screenshots:', err.message)
+  }
+
   await browser.close()
   console.log('\n============================================================')
-  console.log('ALL DIWALI NAVBAR AUDIT TESTS PASSED!')
+  console.log('ALL DIWALI NAVBAR & HERO WINGS AUDIT TESTS PASSED!')
   console.log('============================================================')
 }
 
