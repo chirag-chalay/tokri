@@ -352,11 +352,13 @@ export function CartProvider({ children }) {
     pinDelivery && !pinDelivery[deliveryOption]?.enabled
       ? defaultOptionForAddress(selectedAddress)
       : deliveryOption
-  const discount = coupon?.discount ? Number(coupon.discount) : 0
+  const couponCode = coupon?.code || null
   const quoteKey = JSON.stringify({
     items: cartItems.map((item) => [item.id, item.quantity]),
     option: activeOption,
-    discount,
+    couponCode,
+    addressId: selectedAddress?.id,
+    address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
     customer: isLoggedIn ? user?.id : null,
   })
   const quote = quoteState?.key === quoteKey ? quoteState.data : null
@@ -369,7 +371,9 @@ export function CartProvider({ children }) {
     const payload = {
       items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
       deliveryOption: activeOption,
-      discount,
+      couponCode,
+      addressId: selectedAddress?.id,
+      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
     }
     const request = isLoggedIn && user?.token
       ? authPost('/checkout/quote', user, payload)
@@ -382,14 +386,16 @@ export function CartProvider({ children }) {
       if (!ignore) setQuoteError(error.message || 'Could not calculate delivery charges.')
     })
     return () => { ignore = true }
-  }, [quoteKey, user?.token])
+  }, [quoteKey, user, activeOption, cartItems, couponCode, hasItems, isLoggedIn, selectedAddress])
 
   const refreshDeliveryQuote = useCallback(async () => {
     if (!hasItems) return null
     const payload = {
       items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
       deliveryOption: activeOption,
-      discount,
+      couponCode,
+      addressId: selectedAddress?.id,
+      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
     }
     try {
       const data = isLoggedIn && user?.token
@@ -402,8 +408,18 @@ export function CartProvider({ children }) {
       setQuoteError(error.message || 'Could not calculate delivery charges.')
       throw error
     }
-  }, [activeOption, cartItems, discount, hasItems, isLoggedIn, quoteKey, user])
+  }, [activeOption, cartItems, couponCode, hasItems, isLoggedIn, quoteKey, selectedAddress, user])
 
+  // Revalidate live admin changes for an open cart, on tab focus and periodically.
+  useEffect(() => {
+    if (!hasItems) return undefined
+    const refresh = () => { refreshDeliveryQuote().catch(() => {}) }
+    window.addEventListener('focus', refresh)
+    const interval = window.setInterval(refresh, 30000)
+    return () => { window.removeEventListener('focus', refresh); window.clearInterval(interval) }
+  }, [hasItems, refreshDeliveryQuote])
+
+  const discount = quote?.totals?.discount ?? 0
   const activeFreeDelivery = freeDelivery || user?.freeDelivery
   const deliveryCharge = quote?.totals?.deliveryCharge ?? 0
   const handlingCharge = quote?.totals?.handlingCharge ?? 0
@@ -413,10 +429,12 @@ export function CartProvider({ children }) {
   const previewPayload = useCallback(
     () => ({
       code: coupon?.code,
+      addressId: selectedAddress?.id,
+      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
       items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
       deliveryOption: activeOption,
     }),
-    [activeOption, cartItems, coupon?.code],
+    [activeOption, cartItems, coupon?.code, selectedAddress],
   )
 
   const applyCoupon = useCallback(
@@ -436,6 +454,8 @@ export function CartProvider({ children }) {
       try {
         const body = {
           code,
+          addressId: selectedAddress?.id,
+      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
           items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
           deliveryOption: activeOption,
         }
@@ -452,7 +472,7 @@ export function CartProvider({ children }) {
         setCouponLoading(false)
       }
     },
-    [activeOption, cartItems, isLoggedIn, user],
+    [activeOption, cartItems, isLoggedIn, selectedAddress, user],
   )
 
   const removeCoupon = useCallback(() => {

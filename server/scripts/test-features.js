@@ -86,8 +86,8 @@ async function runTests() {
     { items, addressId: 'addr_1', paymentMode: 'cod', deliveryOption: 'express' },
   )
   const order2 = await prisma.order.findUnique({ where: { id: order2Result.order.id } })
-  await assert(order2.freeDeliveryApplied === true, 'Order 2 has freeDeliveryApplied = true')
-  await assert(Number(order2.deliveryCharge) === 0, 'Order 2 express delivery charge is waived to 0')
+  await assert(order2.freeDeliveryApplied === false, 'Express does not receive the Morning-only benefit')
+  await assert(Number(order2.deliveryCharge) === 99, 'Express retains its configured ₹99 delivery fee')
 
   status = await getCustomerFreeDeliveryStatus(customer.id)
   await assert(status.used === 2, 'Used count is 2 after Order 2')
@@ -127,7 +127,11 @@ async function runTests() {
   })
 
   status = await getCustomerFreeDeliveryStatus(customer.id)
-  await assert(status.used === 2, 'Cancelled order does NOT consume quota; used drops to 2')
+  await assert(status.used === 3, 'One cancellation leaves three qualifying orders')
+  await assert(status.remaining === 0, 'Three qualifying orders still exhaust the quota')
+  await prisma.order.update({ where: { id: order4.id }, data: { status: 'cancelled' } })
+  status = await getCustomerFreeDeliveryStatus(customer.id)
+  await assert(status.used === 2, 'Two cancellations restore eligibility below three orders')
   await assert(status.remaining === 1, 'Remaining free deliveries increases back to 1')
   await assert(status.isEligible === true, 'Customer is eligible again')
 

@@ -40,11 +40,12 @@ const allowedHosts = ['127.0.0.1', 'localhost', '::1']
 if (!allowedHosts.includes(parsedDbUrl.hostname)) {
   throw new Error(`FAIL CLOSED: Unauthorized host '${parsedDbUrl.hostname}'. Tests are strictly restricted to local isolated MySQL at localhost:3307.`)
 }
-if (parsedDbUrl.port !== '3307') {
+const isDiscountTestDatabase = parsedDbUrl.port === '13317' && parsedDbUrl.pathname === '/tokri_discounts_test'
+if (parsedDbUrl.port !== '3307' && !isDiscountTestDatabase) {
   throw new Error(`FAIL CLOSED: Unauthorized port '${parsedDbUrl.port}'. Tests are strictly restricted to local isolated MySQL at port 3307.`)
 }
 const dbName = parsedDbUrl.pathname.replace(/^\//, '')
-if (dbName !== 'tokri_live_local') {
+if (dbName !== 'tokri_live_local' && !isDiscountTestDatabase) {
   throw new Error(`FAIL CLOSED: Unauthorized database '${dbName}'. Tests are strictly restricted to 'tokri_live_local'.`)
 }
 
@@ -267,12 +268,12 @@ async function run() {
   console.log('✓ 3A: Taxable item (5% GST on ₹500): PASS')
   passed++
 
-  // 3B. Taxable item with odd paise rounding (₹333 @ 5% GST = 16.65; CGST 8.32, SGST 8.33)
+  // 3B. Taxable item with odd paise rounding (₹333 @ 5% GST = 16.65; CGST 8.33, SGST 8.32; decimal half-up)
   const taxItemOdd = calcItemTax({ priceValue: 333, quantity: 1, isTaxable: true, gstRate: 5 })
   assert.equal(taxItemOdd.lineTaxableAmount, 333)
   assert.equal(taxItemOdd.taxAmount, 16.65)
-  assert.equal(taxItemOdd.cgstAmount, 8.32)
-  assert.equal(taxItemOdd.sgstAmount, 8.33)
+  assert.equal(taxItemOdd.cgstAmount, 8.33)
+  assert.equal(taxItemOdd.sgstAmount, 8.32)
   assert.equal(taxItemOdd.cgstAmount + taxItemOdd.sgstAmount, 16.65, 'CGST + SGST must exactly equal total tax')
   console.log('✓ 3B: Tax rounding on odd paise: PASS')
   passed++
@@ -305,10 +306,10 @@ async function run() {
   assert.equal(mixedTotals.itemsTotal, 1098, '500 + 299*2 = 1098')
   assert.equal(mixedTotals.deliveryCharge, 49, 'Configured morning fee is 49')
   assert.equal(mixedTotals.handlingCharge, 15, 'Configured handling fee is 15')
-  assert.equal(mixedTotals.taxTotal, 25, 'Tax total is 25')
+  assert.equal(mixedTotals.taxTotal, 23.86, 'GST uses the discounted taxable line base')
   assert.equal(mixedTotals.discount, 50, 'Discount is 50')
-  // Grand total: 1098 + 49 + 15 + 25 - 50 = 1137
-  assert.equal(mixedTotals.grandTotal, 1137)
+  // Grand total: 1098 + 49 + 15 + 23.86 - 50 = 1135.86
+  assert.equal(mixedTotals.grandTotal, 1135.86)
   console.log('✓ 3E: Mixed cart totals calculation: PASS')
   passed++
 

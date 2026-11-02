@@ -1,3 +1,4 @@
+import { getAutomaticDiscountResource } from './automatic-discounts.js'
 import AdminJS from 'adminjs'
 import AdminJSExpress from '@adminjs/express'
 import * as AdminJSPrisma from '@adminjs/prisma'
@@ -744,6 +745,7 @@ export async function buildAdminRouter() {
         },
       },
       getSettingResource(Components.SettingsEdit),
+      getAutomaticDiscountResource(Components.AutomaticDiscounts),
       {
         resource: { model: AdminJSPrisma.getModelByName('AppReleasePolicy'), client: prisma },
         options: {

@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis
-const CLIENT_GEN = 4
+const CLIENT_GEN = 5
 
 function createPrisma() {
   const client = new PrismaClient({

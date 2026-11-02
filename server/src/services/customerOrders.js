@@ -41,7 +41,12 @@ export function formatCustomerOrder(order) {
     expectedDeliveryDate: order.expectedDeliveryDate || null,
     handlingCharge: Number(order.handlingCharge),
     smallCartCharge: Number(order.smallCartCharge),
+    taxTotal: Number(order.taxTotal || 0),
+    cgstTotal: Number(order.cgstTotal || 0),
+    sgstTotal: Number(order.sgstTotal || 0),
+    igstTotal: Number(order.igstTotal || 0),
     discount: Number(order.discount),
+    automaticDiscount: order.automaticDiscount || null,
     couponCode: order.couponCode || null,
     grandTotal: Number(order.grandTotal),
     itemCount: order.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
@@ -63,6 +68,8 @@ export function formatCustomerOrder(order) {
       weight: item.weight || item.product?.weight || '',
       image: toPublicAssetUrl(item.image || item.product?.image) || '',
       lineTotal: Number(item.priceValue) * item.quantity,
+      discount: Number(item.discount || 0),
+      taxAmount: Number(item.taxAmount || 0),
     })),
   }
 }

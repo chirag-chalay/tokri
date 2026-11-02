@@ -1,5 +1,7 @@
+import { subtotal } from '../utils/money.js'
+import { calculateCheckoutPricing } from './pricing.js'
 import { prisma } from '../lib/prisma.js'
-import { calcCartTotals, deliveryChargeFor, ratesFromSettings } from '../config/charges.js'
+import { deliveryChargeFor, ratesFromSettings } from '../config/charges.js'
 import { applyFreeDeliveryRates, getCustomerFreeDeliveryStatus } from './freeDelivery.js'
 
 export function deliveryDecision(settings, freeDelivery, option, itemsTotal) {
@@ -35,16 +37,19 @@ export async function getDeliveryDecision(customerId, option, itemsTotal) {
   return deliveryDecision(settings, freeDelivery, option, itemsTotal)
 }
 
-export async function quoteCheckoutDelivery(items, customerId, selectedOption, discount = 0) {
+export async function quoteCheckoutDelivery(items, customerId, selectedOption, pricingOptions = {}) {
   const [settings, freeDelivery] = await Promise.all([
     prisma.setting.findUnique({ where: { id: 1 } }),
     customerId ? getCustomerFreeDeliveryStatus(customerId) : null,
   ])
-  const itemsTotal = Math.round(items.reduce((sum, item) => sum + Number(item.priceValue) * Number(item.quantity), 0) * 100) / 100
+  const itemsTotal = subtotal(items)
+  const config = await prisma.automaticDiscount.findUnique({ where: { id: 1 } })
   const options = {}
   for (const option of ['morning', 'express']) {
     const decision = deliveryDecision(settings, freeDelivery, option, itemsTotal)
-    const totals = calcCartTotals(items, decision.rates, discount)
+    const { totals } = await calculateCheckoutPricing(items, decision.rates, {
+      ...(typeof pricingOptions === 'object' ? pricingOptions : {}), customerId, config,
+    })
     options[option] = {
       title: decision.rates[option].title,
       subtitle: decision.rates[option].subtitle,

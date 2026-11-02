@@ -1,9 +1,10 @@
-import { Bike, Receipt, ShoppingBag, Tag } from 'lucide-react'
+import DiscountDetails from './DiscountDetails'
+import { Bike, Receipt, ShoppingBag } from 'lucide-react'
 import { formatDeliveryCharge } from '../lib/delivery'
 import { useCart } from '../context/CartContext'
 
 const formatPrice = (value) =>
-  `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+  `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 
 function itemCutoff(item) {
   const oldPrice = Number(item.oldPriceValue) || Number(String(item.oldPrice || '').replace(/[^0-9.]/g, ''))
@@ -81,9 +82,7 @@ export default function BillDetails({
             {selectedQuote.deliveryMessage}
           </p>
         ) : null}
-        {discount > 0 ? (
-          <BillRow icon={Tag} label="Coupon" value={`-${formatPrice(discount)}`} free />
-        ) : null}
+        <DiscountDetails />
       </div>
 
       <div className="mt-1 flex items-center justify-between border-t border-dashed border-line pt-3">

@@ -1,3 +1,5 @@
+import { subtotal } from '../utils/money.js'
+import { calculateCheckoutPricing } from './pricing.js'
 import { prisma } from '../lib/prisma.js'
 import {
   captureRazorpayPayment,
@@ -10,9 +12,9 @@ import {
   verifyRazorpayPayment,
 } from './razorpay.js'
 import { listAddresses, snapshotCurrentAddress } from './addresses.js'
-import { calcCartTotals, calcItemTax, publicDeliveryConfig } from '../config/charges.js'
+import { publicDeliveryConfig } from '../config/charges.js'
 import { clearCart, getCartCheckoutItems } from './cart.js'
-import { applyCouponToItems, findActiveCoupon, redeemCoupon } from './coupons.js'
+import { redeemCoupon } from './coupons.js'
 import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
 import { notifyOrderStatus } from './push.js'
 import { notifyConfirmedOrder } from './msg91.js'
@@ -45,12 +47,13 @@ function buildOrderNo() {
 
 function normalizeCartItem(raw) {
   const slug = String(raw?.id || raw?.slug || '').trim()
-  const quantity = Math.max(1, Number(raw?.quantity) || 1)
+  const quantity = Number(raw?.quantity ?? 1)
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 10000) throw Object.assign(new Error('Invalid product quantity.'), { status: 400 })
   if (!slug) throw Object.assign(new Error('Invalid cart item.'), { status: 400 })
   return { slug, quantity }
 }
 
-async function resolveCartItems(rawItems) {
+export async function resolveCartItems(rawItems) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     throw Object.assign(new Error('Your cart is empty.'), { status: 400 })
   }
@@ -111,7 +114,7 @@ export async function getCheckoutConfig(customer) {
   }
 }
 
-export async function createCheckoutOrder(user, { items: rawItems, addressId, address: addressSnapshot, paymentMode = 'online', couponCode, upiApp, deliveryOption }, meta = {}) {
+export async function createCheckoutOrder(user, { items: rawItems, addressId, address: addressSnapshot, paymentMode = 'online', couponCode, upiApp, deliveryOption, expectedGrandTotal }, meta = {}) {
   const sourceItems =
     Array.isArray(rawItems) && rawItems.length > 0
       ? rawItems
@@ -119,7 +122,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
   const cartItems = await resolveCartItems(sourceItems)
   const address = await resolveAddress(user, addressId, addressSnapshot)
   const { option } = await assertDeliveryOptionEnabled(address.pincode, deliveryOption || address.delivery?.defaultOption)
-  const itemsTotal = cartItems.reduce((sum, item) => sum + item.priceValue * item.quantity, 0)
+  const itemsTotal = subtotal(cartItems)
   const decision = await getDeliveryDecision(user.id, option, itemsTotal)
   if (!decision.minimumMet) {
     throw Object.assign(new Error(decision.minimumMessage), { status: 400 })
@@ -128,16 +131,13 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
   const isFreeDelivery = decision.freeDeliveryApplied
 
   const isInterState = !isStoreIntraState(address.state)
-  let totals = calcCartTotals(cartItems, rates, 0, isInterState)
-  let appliedCoupon = null
+  const { totals, coupon: appliedCoupon } = await calculateCheckoutPricing(cartItems, rates, {
+    customerId: user.id, couponCode, isInterState,
+  })
 
-  if (String(couponCode || '').trim()) {
-    const coupon = await findActiveCoupon(couponCode)
-    const applied = await applyCouponToItems(coupon, cartItems, user.id, option, isInterState)
-    totals = applied.totals
-    appliedCoupon = applied.coupon
+  if (expectedGrandTotal != null && Number(expectedGrandTotal) !== totals.grandTotal) {
+    throw Object.assign(new Error('Your order total changed. Please review the updated total before paying.'), { status: 409, code: 'QUOTE_CHANGED', totals })
   }
-
   const paymentConfig = await getPublicPaymentConfig()
   const requestedMode = String(paymentMode || '').toLowerCase() === 'cod' ? 'cod' : 'online'
   const razorpayOn = Boolean(paymentConfig.razorpay?.enabled)
@@ -173,8 +173,8 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     razorpayOrderId = razorpayOrder.id
   }
 
-  const orderItemsData = cartItems.map((entry) => {
-    const itemTax = calcItemTax(entry, isInterState)
+  const orderItemsData = cartItems.map((entry, index) => {
+    const itemTax = totals.lineItems[index]
     return {
       productId: entry.product.id,
       name: entry.product.name,
@@ -185,6 +185,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
       hsnCode: entry.hsnCode || '0808',
       isTaxable: Boolean(entry.isTaxable),
       gstRate: entry.gstRate || 0,
+      discount: itemTax.discount,
       taxAmount: itemTax.taxAmount,
       cgstAmount: itemTax.cgstAmount,
       sgstAmount: itemTax.sgstAmount,
@@ -205,6 +206,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
       deliveryCharge: totals.deliveryCharge,
       handlingCharge: totals.handlingCharge,
       smallCartCharge: totals.smallCartCharge,
+      automaticDiscount: totals.automaticDiscount || undefined,
       discount: totals.discount,
       taxTotal: totals.taxTotal,
       cgstTotal: totals.cgstTotal,
@@ -265,6 +267,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
   }
 
   return {
+    totals,
     order: {
       id: order.id,
       orderNo: order.orderNo,

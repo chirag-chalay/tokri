@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { formatDeliveryCharge, formatExpectedDeliveryDate } from '../../lib/delivery'
 
 const formatPrice = (value) =>
-  `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+  `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 
 const formatDate = (value) =>
   new Date(value).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
@@ -155,9 +155,10 @@ function OrderCard({ order, defaultOpen = false }) {
               <span>Delivery charges</span>
               <span>{formatDeliveryCharge(order.deliveryCharge)}</span>
             </div>
+            {order.taxTotal > 0 && <div className="flex justify-between"><span>Taxes & GST</span><span>{formatPrice(order.taxTotal)}</span></div>}
             {order.discount > 0 && (
               <div className="flex justify-between text-mint">
-                <span>{order.couponCode ? `Coupon (${order.couponCode})` : 'Discount'}</span>
+                <span>{order.automaticDiscount ? `Automatic discount (${order.automaticDiscount.percentage}%)${order.couponCode ? ' + shipping coupon' : ''}` : order.couponCode ? `Coupon (${order.couponCode})` : 'Discount'}</span>
                 <span>-{formatPrice(order.discount)}</span>
               </div>
             )}

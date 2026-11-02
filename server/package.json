@@ -25,7 +25,8 @@
     "db:apply-expected-delivery": "node scripts/apply-expected-delivery.js",
     "db:apply-blog": "node scripts/apply-blog.js",
     "db:apply-app-release": "node scripts/apply-app-release.js",
-    "db:apply-social": "node scripts/apply-social-links.js"
+    "db:apply-social": "node scripts/apply-social-links.js",
+    "test:automatic-discounts": "node --test tests/automatic-discounts.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

@@ -21,6 +21,7 @@ server/node_modules
 server/uploads/**
 !server/uploads/.gitkeep
 *.sql
+!server/prisma/migrations/**/migration.sql
 tokri.sql
 
 # Editor directories and files

@@ -47,6 +47,7 @@ export default function CartScreen({ navigation }) {
     deliveryCharge,
     handlingCharge,
     discount,
+    taxTotal,
     coupon,
     hydrated,
     updateQuantity,
@@ -195,6 +196,7 @@ export default function CartScreen({ navigation }) {
     setPaying(true)
     try {
       const currentQuote = await refreshDeliveryQuote()
+      if (currentQuote?.totals?.grandTotal !== quote.totals.grandTotal) throw new Error('Your order total changed. Please review the updated total before paying.')
       const currentOption = currentQuote?.options?.[deliveryOption]
       if (!currentOption?.minimumMet) {
         throw new Error(currentOption?.minimumMessage || 'This delivery option is not available for this order.')
@@ -202,6 +204,7 @@ export default function CartScreen({ navigation }) {
       const isUpi = Boolean(upiAppById(payChoice))
       const checkout = await authPost('/checkout/create-order', token, {
         addressId: selectedId,
+        expectedGrandTotal: currentQuote.totals.grandTotal,
         paymentMode: payChoice === 'cod' ? 'cod' : 'online',
         upiApp: isUpi ? payChoice : undefined,
         items: items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
@@ -440,9 +443,10 @@ export default function CartScreen({ navigation }) {
               ) : selectedQuote?.freeDeliveryApplied && selectedQuote.offerMessage ? (
                 <Text style={styles.freeNudge}>{selectedQuote.offerMessage}</Text>
               ) : null}
-              {couponSavings > 0 ? (
-                <BillRow icon="pricetag-outline" label="Coupon" value={`-${formatPrice(couponSavings)}`} free />
-              ) : null}
+              {taxTotal > 0 && <BillRow icon="receipt-outline" label="Taxes & GST" value={formatPrice(taxTotal)} />}
+              {quote?.totals?.automaticDiscount && <BillRow icon="pricetag-outline" label={`Automatic discount (${quote.totals.automaticDiscount.percentage}%)`} value={`-${formatPrice(quote.totals.automaticDiscount.discount)}`} free />}
+              {quote?.totals?.couponDiscount > 0 && <BillRow icon="pricetag-outline" label="Coupon" value={`-${formatPrice(quote.totals.couponDiscount)}`} free />}
+              {quote?.totals?.discountMessage && <Text style={styles.freeNudge}>{quote.totals.discountMessage}</Text>}
 
               <View style={styles.grandRow}>
                 <Text style={styles.grandLabel}>Grand total</Text>

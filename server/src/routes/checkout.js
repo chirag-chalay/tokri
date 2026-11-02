@@ -1,7 +1,8 @@
 import { Router } from 'express'
-import { prisma } from '../lib/prisma.js'
 import { optionalCustomer, requireCustomer } from '../middleware/customerAuth.js'
 import {
+  resolveCartItems,
+  isStoreIntraState,
   completeRazorpayCallback,
   confirmCheckoutPayment,
   confirmCodOrder,
@@ -13,7 +14,6 @@ import {
   syncOnlineOrderPayment,
 } from '../services/checkout.js'
 import { previewCoupon } from '../services/coupons.js'
-import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
 import { env } from '../config/env.js'
 import { assertAppReleaseAllowed } from '../services/appRelease.js'
 import { quoteCheckoutDelivery } from '../services/deliveryQuote.js'
@@ -21,42 +21,21 @@ import { quoteCheckoutDelivery } from '../services/deliveryQuote.js'
 const router = Router()
 
 async function resolvePreviewItems(rawItems) {
-  const list = Array.isArray(rawItems) ? rawItems : []
-  const slugs = list
-    .map((item) => String(item?.slug || item?.id || '').trim())
-    .filter(Boolean)
-  if (!slugs.length) {
-    throw Object.assign(new Error('Add items to your cart before applying a coupon.'), { status: 400 })
+  if (Array.isArray(rawItems) && rawItems.length === 0) return []
+  return resolveCartItems(rawItems)
+}
+
+// Quote tax jurisdiction follows the same saved address resolution as checkout.
+async function quoteIsInterState(req) {
+  if (req.customer && req.body?.addressId) {
+    const { listAddresses, snapshotCurrentAddress } = await import('../services/addresses.js')
+    const address = req.body.addressId === 'current'
+      ? await snapshotCurrentAddress(req.customer, req.body.address)
+      : (await listAddresses(req.customer.id)).find((row) => row.id === req.body.addressId)
+    if (!address) throw Object.assign(new Error('Please select a valid delivery address.'), { status: 400 })
+    return !isStoreIntraState(address.state)
   }
-
-  const products = await prisma.product.findMany({
-    where: { slug: { in: slugs }, isActive: true },
-    include: PRODUCT_CATEGORY_INCLUDE,
-  })
-  const productMap = new Map(products.map((product) => [product.slug, product]))
-  const items = []
-
-  for (const raw of list) {
-    const slug = String(raw?.slug || raw?.id || '').trim()
-    const product = productMap.get(slug)
-    if (!product) continue
-    items.push({
-      slug: product.slug,
-      quantity: Math.max(1, Number(raw?.quantity) || 1),
-      priceValue: Number(product.priceValue),
-      isTaxable: Boolean(product.isTaxable),
-      gstRate: Number(product.gstRate ?? 0),
-      hsnCode: product.hsnCode || '0808',
-      category: product.category,
-      categories: (product.categoryLinks || []).map((row) => row.category).filter(Boolean),
-    })
-  }
-
-  if (!items.length) {
-    throw Object.assign(new Error('Your cart items are no longer available.'), { status: 400 })
-  }
-
-  return items
+  return false
 }
 
 router.get('/config', optionalCustomer, async (req, res, next) => {
@@ -72,8 +51,9 @@ router.post('/quote', optionalCustomer, async (req, res, next) => {
   try {
     const items = await resolvePreviewItems(req.body?.items)
     const option = req.body?.deliveryOption === 'express' ? 'express' : 'morning'
-    const discount = Number(req.body?.discount) || 0
-    const quote = await quoteCheckoutDelivery(items, req.customer?.id || null, option, Math.max(0, discount))
+    const quote = await quoteCheckoutDelivery(items, req.customer?.id || null, option, {
+      couponCode: req.body?.couponCode, isInterState: await quoteIsInterState(req),
+    })
     res.json(quote)
   } catch (error) {
     next(error)
@@ -85,6 +65,7 @@ router.post('/preview-coupon', optionalCustomer, async (req, res, next) => {
     const items = await resolvePreviewItems(req.body?.items)
     const result = await previewCoupon({
       code: req.body?.code,
+      taxOptions: { isInterState: await quoteIsInterState(req) },
       items,
       customerId: req.customer?.id || null,
       deliveryOption: req.body?.deliveryOption,

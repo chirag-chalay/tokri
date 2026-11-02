@@ -440,7 +440,7 @@ const OrderDetail = (props) => {
                 <div><dt>Small cart</dt><dd /><dd>{formatMoney(params.smallCartCharge)}</dd></div>
               ) : null}
               {Number(params.discount) > 0 ? (
-                <div><dt>Discount{params.couponCode ? ` · ${params.couponCode}` : ''}</dt><dd /><dd>-{formatMoney(params.discount)}</dd></div>
+                <div><dt>{params.automaticDiscountPercentage ? `Automatic discount (${params.automaticDiscountPercentage}%)` : 'Discount'}{params.couponCode ? ` · ${params.couponCode}` : ''}</dt><dd /><dd>-{formatMoney(params.discount)}</dd></div>
               ) : null}
               <div className="is-total"><dt>Total</dt><dd /><dd>{formatMoney(params.grandTotal)}</dd></div>
             </dl>

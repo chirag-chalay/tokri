@@ -1,0 +1,5 @@
+[
+  { "id": "initial-1", "minimum": 700, "percentage": 5, "active": true },
+  { "id": "initial-2", "minimum": 1100, "percentage": 10, "active": true },
+  { "id": "initial-3", "minimum": 1500, "percentage": 15, "active": true }
+]
