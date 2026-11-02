@@ -20,10 +20,10 @@ export const DIWALI_SCHEDULE = Object.freeze({
   year: 2026,
   timezone: 'Asia/Kolkata',
   utcOffset: '+05:30',
-  startDateIso: '2026-11-03T00:00:00+05:30',
+  startDateIso: '2026-11-02T00:00:00+05:30',
   endDateIso: '2026-11-12T00:00:00+05:30',
   festivalDateIso: '2026-11-08T00:00:00+05:30',
-  startMs: 1793644200000,
+  startMs: 1793557800000,
   endMs: 1794421800000,
 })
 

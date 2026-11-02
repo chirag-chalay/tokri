@@ -22,40 +22,51 @@ const viewports = [
 ]
 
 async function run() {
-  console.log('=== STARTING TOKRIII DIWALI 2026 BROWSER AUDIT & CAPTURE ===\n')
+  console.log('=== STARTING TOKRIII DIWALI 2026 & HERO BANNER BROWSER AUDIT ===\n')
 
   const browser = await chromium.launch({
     executablePath: '/usr/bin/google-chrome',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   })
 
-  // 1. Verify Default state (before schedule start date Nov 3)
-  console.log('--- 1. Testing Default Schedule (Nov 2, before festival window) ---')
+  // 1. Verify Default state (Now active starting Nov 2)
+  console.log('--- 1. Testing Default Schedule (Nov 2, Live Today) ---')
   const defaultPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   await defaultPage.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle' })
   const defaultDiwali = await defaultPage.locator('[data-testid="diwali-atmosphere"]').count()
   console.log(`Default schedule Diwali element count: ${defaultDiwali}`)
-  assert.equal(defaultDiwali, 0, 'Diwali element MUST NOT render before 3 Nov 00:00 IST')
-  await defaultPage.close()
-  console.log('✓ Default schedule is clean and unpolluted before Nov 3 (PASS)')
+  assert.equal(defaultDiwali, 1, 'Diwali element MUST be active and visible today on Nov 2')
 
-  // 2. Verify Manual Disable (?diwali=0)
-  console.log('\n--- 2. Testing Manual Disable (?diwali=0) ---')
+  // Verify Big Hero Banner is present and sharp
+  const heroLink = await defaultPage.locator('section a[aria-label="Shop all"]').count()
+  const heroImg = await defaultPage.locator('section a[aria-label="Shop all"] img').first()
+  const imgWidth = await heroImg.evaluate((img) => img.naturalWidth)
+  console.log(`Big hero banner image naturalWidth: ${imgWidth}px`)
+  assert.ok(heroLink >= 1, 'Big hero banner link MUST be present')
+  assert.ok(imgWidth > 0, 'Big hero banner image MUST be loaded and non-empty')
+  await defaultPage.close()
+  console.log('✓ Default schedule is live today AND big hero banner is crisp and present (PASS)')
+
+  // 2. Verify Before Schedule Date (?diwali_date=2026-11-01)
+  console.log('\n--- 2. Testing Date Before Schedule (?diwali_date=2026-11-01) ---')
+  const beforePage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  await beforePage.goto('http://127.0.0.1:3000/?diwali_date=2026-11-01', { waitUntil: 'networkidle' })
+  const beforeDiwali = await beforePage.locator('[data-testid="diwali-atmosphere"]').count()
+  assert.equal(beforeDiwali, 0, 'Diwali element MUST NOT render before start date')
+  await beforePage.close()
+  console.log('✓ Inactive before schedule (PASS)')
+
+  // 3. Verify Manual Disable (?diwali=0)
+  console.log('\n--- 3. Testing Manual Disable (?diwali=0) ---')
   const offPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   await offPage.goto('http://127.0.0.1:3000/?diwali=0', { waitUntil: 'networkidle' })
   const offDiwali = await offPage.locator('[data-testid="diwali-atmosphere"]').count()
   assert.equal(offDiwali, 0, 'Diwali element MUST NOT render when forced off')
+  // Ensure big banner remains visible even when diwali is forced off
+  const offHero = await offPage.locator('section a[aria-label="Shop all"]').count()
+  assert.ok(offHero >= 1, 'Big hero banner MUST remain visible when diwali is disabled')
   await offPage.close()
-  console.log('✓ Manual disable parameter ?diwali=0 respected (PASS)')
-
-  // 3. Verify Simulated Date within schedule (?diwali_date=2026-11-08)
-  console.log('\n--- 3. Testing Simulated Festival Date (?diwali_date=2026-11-08) ---')
-  const datePage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-  await datePage.goto('http://127.0.0.1:3000/?diwali_date=2026-11-08', { waitUntil: 'networkidle' })
-  const dateDiwali = await datePage.locator('[data-testid="diwali-atmosphere"]').count()
-  assert.equal(dateDiwali, 1, 'Diwali element MUST render on simulated festival date 2026-11-08')
-  await datePage.close()
-  console.log('✓ Simulated date 2026-11-08 activates Diwali atmosphere (PASS)')
+  console.log('✓ Manual disable parameter ?diwali=0 respected, banner intact (PASS)')
 
   // 4. Verify Simulated Date after expiration (?diwali_date=2026-11-15)
   console.log('\n--- 4. Testing Simulated Expiration Date (?diwali_date=2026-11-15) ---')
@@ -66,11 +77,11 @@ async function run() {
   await expPage.close()
   console.log('✓ Simulated expiration 2026-11-15 deactivates automatically (PASS)')
 
-  // 5. Verify Preview Mode across all 8 Viewports
-  console.log('\n--- 5. Testing Preview Mode (?diwali=preview) across all 8 Viewports ---')
+  // 5. Verify All 8 Viewports with Live Diwali + Big Banner
+  console.log('\n--- 5. Testing Live Storefront across all 8 Viewports ---')
   for (const vp of viewports) {
     const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } })
-    await page.goto('http://127.0.0.1:3000/?diwali=preview', { waitUntil: 'networkidle' })
+    await page.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle' })
 
     const diwaliElem = page.locator('[data-testid="diwali-atmosphere"]').first()
     assert.equal(await diwaliElem.count(), 1, `Diwali element must be present at ${vp.width}px`)
@@ -83,14 +94,20 @@ async function run() {
     const diya = await page.locator('svg[aria-label="Golden Diya"]').count()
     assert.ok(diya >= 1, `Diya SVG must be present at ${vp.width}px`)
 
-    // Verify hero section captures
+    // Verify big hero banner is loaded
+    const bannerImg = page.locator('section a[aria-label="Shop all"] img').first()
+    assert.ok(await bannerImg.count() >= 1, `Hero banner must be present at ${vp.width}px`)
+    const naturalWidth = await bannerImg.evaluate((img) => img.naturalWidth)
+    assert.ok(naturalWidth > 0, `Hero banner image natural width must be > 0 at ${vp.width}px`)
+
+    // Capture screenshots
     const heroSection = page.locator('section.mt-4, section.mt-6').first()
     if (await heroSection.count()) {
       await heroSection.screenshot({ path: path.join(outputDir, `${vp.name}-festive-hero.png`) })
     }
     await page.screenshot({ path: path.join(outputDir, `${vp.name}-festive-full.png`), fullPage: false })
 
-    console.log(`  ✓ Captured ${vp.name} (${vp.width}x${vp.height}): PASS`)
+    console.log(`  ✓ Captured ${vp.name} (${vp.width}x${vp.height}) with Diwali + Big Banner: PASS`)
     await page.close()
   }
 
@@ -100,7 +117,7 @@ async function run() {
     viewport: { width: 1440, height: 900 },
     reducedMotion: 'reduce',
   })
-  await a11yPage.goto('http://127.0.0.1:3000/?diwali=preview', { waitUntil: 'networkidle' })
+  await a11yPage.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle' })
   const flameAnim = await a11yPage.evaluate(() => {
     const el = document.querySelector('[class*="flameElement"]')
     if (!el) return null
@@ -112,21 +129,9 @@ async function run() {
   await a11yPage.close()
   console.log('✓ Accessibility reduced-motion rule verified (PASS)')
 
-  // 7. Capture sequential frames of the flame animation for demonstration
-  console.log('\n--- 7. Capturing Flame Flicker Animation Frames ---')
-  const animPage = await browser.newPage({ viewport: { width: 800, height: 350 } })
-  await animPage.goto('http://127.0.0.1:3000/?diwali=preview', { waitUntil: 'networkidle' })
-  const diwaliHero = animPage.locator('[data-testid="diwali-atmosphere"]').first()
-  for (let i = 0; i < 8; i++) {
-    await diwaliHero.screenshot({ path: path.join(animationDir, `flame-frame-${i + 1}.png`) })
-    await new Promise((r) => setTimeout(r, 200))
-  }
-  await animPage.close()
-  console.log('✓ 8 animation demonstration frames captured in docs/diwali-2026/animation/')
-
   await browser.close()
   console.log('\n============================================================')
-  console.log('ALL DIWALI BROWSER & AUDIT TESTS PASSED!')
+  console.log('ALL DIWALI & BIG HERO BANNER AUDIT TESTS PASSED!')
   console.log('============================================================')
 }
 

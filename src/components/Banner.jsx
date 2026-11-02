@@ -5,14 +5,15 @@ import { Link } from '../lib/navigation'
 import { resolveAssetUrl } from '../lib/api'
 import DiwaliAtmosphere from './DiwaliAtmosphere'
 import { getDiwaliStatus } from '../lib/diwaliConfig'
+import defaultBanner from '../assets/hero-banner.png'
 
 const emptySubscribe = () => () => {}
 const getClientSearch = () => (typeof window !== 'undefined' ? window.location.search || '' : '')
 
 export default function Banner({ image, mobileImage, rawUrls = false, isDiwaliActive = null }) {
-  const desktopSrc = image ? (rawUrls ? image : resolveAssetUrl(image)) : null
+  const desktopSrc = image ? (rawUrls ? image : resolveAssetUrl(image)) : defaultBanner
   const mobileSrc = mobileImage ? (rawUrls ? mobileImage : resolveAssetUrl(mobileImage)) : null
-  const src = mobileSrc || desktopSrc
+  const src = mobileSrc || desktopSrc || defaultBanner
 
   const search = useSyncExternalStore(emptySubscribe, getClientSearch, () => '')
 

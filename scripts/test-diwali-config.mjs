@@ -10,19 +10,19 @@ console.log('--- Testing Diwali 2026 Schedule & Configuration ---')
 
 // 1. Verify schedule constants
 assert.equal(DIWALI_SCHEDULE.year, 2026)
-assert.equal(new Date(DIWALI_SCHEDULE.startMs).toISOString(), '2026-11-02T18:30:00.000Z') // 3 Nov 00:00 IST
+assert.equal(new Date(DIWALI_SCHEDULE.startMs).toISOString(), '2026-11-01T18:30:00.000Z') // 2 Nov 00:00 IST
 assert.equal(new Date(DIWALI_SCHEDULE.endMs).toISOString(), '2026-11-11T18:30:00.000Z')   // 12 Nov 00:00 IST
 
 // 2. Automated schedule tests across dates
-const beforeWindow = new Date('2026-11-02T12:00:00+05:30').getTime()
-const exactStart = new Date('2026-11-03T00:00:00+05:30').getTime()
+const beforeWindow = new Date('2026-11-01T12:00:00+05:30').getTime()
+const exactStart = new Date('2026-11-02T00:00:00+05:30').getTime()
 const diwaliDay = new Date('2026-11-08T18:00:00+05:30').getTime()
 const lastSecond = new Date('2026-11-11T23:59:59.999+05:30').getTime()
 const exactEnd = new Date('2026-11-12T00:00:00+05:30').getTime()
 const afterWindow = new Date('2026-11-15T10:00:00+05:30').getTime()
 
-assert.equal(isDiwaliScheduled(beforeWindow), false, 'Must be inactive before 3 Nov 00:00 IST')
-assert.equal(isDiwaliScheduled(exactStart), true, 'Must be active at exact start 3 Nov 00:00 IST')
+assert.equal(isDiwaliScheduled(beforeWindow), false, 'Must be inactive before 2 Nov 00:00 IST')
+assert.equal(isDiwaliScheduled(exactStart), true, 'Must be active at exact start 2 Nov 00:00 IST')
 assert.equal(isDiwaliScheduled(diwaliDay), true, 'Must be active on Diwali Day 8 Nov')
 assert.equal(isDiwaliScheduled(lastSecond), true, 'Must be active on 11 Nov 23:59:59 IST')
 assert.equal(isDiwaliScheduled(exactEnd), false, 'Must be inactive at exact end 12 Nov 00:00 IST')

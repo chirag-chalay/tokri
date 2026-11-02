@@ -10,9 +10,6 @@ function stripTrailingSlash(value) {
 }
 
 function resolveApiBaseUrl() {
-  const configured = stripTrailingSlash(import.meta.env.VITE_API_BASE_URL)
-  if (configured) return configured
-
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location
 
@@ -21,12 +18,11 @@ function resolveApiBaseUrl() {
     }
 
     // Staging and any other deployed host share API on the same origin.
-    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      return `${origin}/api/v1`
-    }
-
     return `${origin}/api/v1`
   }
+
+  const configured = stripTrailingSlash(import.meta.env.VITE_API_BASE_URL)
+  if (configured) return configured
 
   return 'http://localhost:5223/api/v1'
 }
