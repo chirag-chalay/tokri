@@ -1,0 +1,94 @@
+name: Protected staging deployment
+on:
+  push:
+    branches: [staging]
+# No pull_request, pull_request_target, main, schedule or fork deployment triggers.
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: tokriii-staging-deployment
+  cancel-in-progress: false
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    if: github.repository == 'chirag-chalay/tokri' && github.ref == 'refs/heads/staging'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Test deployment guards and rollback
+        run: node --test ops/staging/*.test.mjs
+      - name: Verify configured GitHub environment protections
+        if: vars.STAGING_CICD_ENABLED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          STAGING_CICD_ENABLED: ${{ vars.STAGING_CICD_ENABLED }}
+          STAGING_ADMIN_BYPASS_DISABLED: ${{ vars.STAGING_ADMIN_BYPASS_DISABLED }}
+        run: node ops/staging/verify-github-policy.mjs
+      - name: Setup status
+        if: vars.STAGING_CICD_ENABLED != 'true'
+        run: echo 'CI/CD is not enabled. No deployment was attempted. Complete ops/staging/README.md first.' >> "$GITHUB_STEP_SUMMARY"
+  preflight:
+    name: staging-preflight
+    needs: policy
+    if: vars.STAGING_CICD_ENABLED == 'true'
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: [self-hosted, linux, x64, tokriii-staging]
+    timeout-minutes: 10
+    outputs:
+      schema: ${{ steps.schema.outputs.schema }}
+    steps:
+      # This root-owned controller is installed once through the hosting terminal.
+      # No Actions workspace checkout or PR execution on the staging runner.
+      - id: schema
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: node /opt/tokri-staging/request-deploy.mjs preflight "$EXPECTED_SHA" >> "$GITHUB_OUTPUT"
+      - name: Block unapproved schema changes
+        if: steps.schema.outputs.schema == 'pending' && vars.STAGING_ALLOW_DISCOUNT_MIGRATION != 'true'
+        run: |
+          echo '::error::Discount migration is pending. An administrator must explicitly authorize its separate protected approval job.'
+          exit 1
+  discount-migration:
+    name: staging-discount-migration
+    needs: [policy, preflight]
+    if: needs.preflight.outputs.schema == 'pending' && vars.STAGING_ALLOW_DISCOUNT_MIGRATION == 'true'
+    environment: staging-discount-migration
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: [self-hosted, linux, x64, tokriii-staging]
+    timeout-minutes: 15
+    steps:
+      - name: Separately approved, fixed-checksum, one-time discount migration
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: node /opt/tokri-staging/request-deploy.mjs migrate-discounts "$EXPECTED_SHA"
+  deploy:
+    name: staging-deploy
+    needs: [policy, preflight, discount-migration]
+    if: >-
+      always() && needs.policy.result == 'success' && needs.preflight.result == 'success' &&
+      (needs.preflight.outputs.schema == 'ready' || needs.discount-migration.result == 'success') &&
+      vars.STAGING_CICD_ENABLED == 'true'
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: [self-hosted, linux, x64, tokriii-staging]
+    timeout-minutes: 35
+    steps:
+      - name: Build, back up, deploy, verify public release and roll back on failure
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: node /opt/tokri-staging/request-deploy.mjs deploy "$EXPECTED_SHA"
+      - name: Verified release
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          echo "Public staging release verified: $EXPECTED_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo 'https://server.tokriii.com/__tokri_staging_release.json' >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,14 @@
+{
+  "site": "https://server.tokriii.com",
+  "root": "/srv/tokri-staging",
+  "pm2Home": "/srv/tokri-staging/shared/pm2",
+  "apiPort": 3020,
+  "nextPort": 3000,
+  "apiProcess": "tokri-staging-api",
+  "nextProcess": "tokri-staging-next",
+  "probeClientModule": "/REPLACE_WITH_EXISTING_STAGING_CHECKOUT/server/node_modules/@prisma/client",
+  "browserExecutable": "/usr/bin/google-chrome",
+  "minimumFreeBytes": 3221225472,
+  "stagingIdentity": { "serverUuid": "REPLACE_FROM_STAGING_SQL_QUERY", "database": "REPLACE_STAGING_DATABASE" },
+  "productionIdentities": [{ "serverUuid": "REPLACE_FROM_INDEPENDENT_PRODUCTION_INVENTORY", "database": "REPLACE_PRODUCTION_DATABASE" }]
+}
