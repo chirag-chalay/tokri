@@ -1,0 +1,340 @@
+/* Tokriii — Diwali 2026 Golden Glow Seasonal Atmosphere */
+
+.diwaliAtmosphere {
+  position: relative;
+  width: 100%;
+  pointer-events: none;
+  user-select: none;
+  margin-bottom: 0.875rem;
+  animation: diwaliEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes diwaliEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bannerWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0.875rem;
+  padding: 0.625rem 1rem;
+  background: linear-gradient(
+    90deg,
+    rgba(20, 26, 20, 0.88) 0%,
+    rgba(26, 33, 26, 0.94) 50%,
+    rgba(20, 26, 20, 0.88) 100%
+  );
+  border: 1px solid rgba(233, 199, 122, 0.28);
+  box-shadow:
+    0 4px 20px -2px rgba(10, 17, 10, 0.6),
+    0 0 24px -4px rgba(242, 168, 74, 0.12),
+    inset 0 1px 0 0 rgba(255, 243, 209, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+/* Fine hairline accent at top of the bar */
+.hairline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(233, 199, 122, 0.1) 15%,
+    rgba(255, 243, 209, 0.5) 50%,
+    rgba(233, 199, 122, 0.1) 85%,
+    transparent 100%
+  );
+}
+
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-width: 0;
+  z-index: 2;
+}
+
+/* Diya Container */
+.diyaContainer {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 38px;
+}
+
+.diyaSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+/* Flame animation */
+.flameElement {
+  transform-origin: 24px 23px;
+  animation: diwaliFlameFlicker 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px rgba(242, 168, 74, 0.75));
+}
+
+@keyframes diwaliFlameFlicker {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 6px rgba(242, 168, 74, 0.75));
+  }
+  20% {
+    transform: scale(1.04, 0.96) rotate(1deg);
+    filter: drop-shadow(0 0 8px rgba(242, 168, 74, 0.88));
+  }
+  45% {
+    transform: scale(0.97, 1.03) rotate(-0.8deg);
+    filter: drop-shadow(0 0 5px rgba(242, 168, 74, 0.65));
+  }
+  70% {
+    transform: scale(1.03, 0.98) rotate(0.5deg);
+    filter: drop-shadow(0 0 7px rgba(242, 168, 74, 0.8));
+  }
+  85% {
+    transform: scale(0.99, 1.01) rotate(-0.3deg);
+    filter: drop-shadow(0 0 6px rgba(242, 168, 74, 0.72));
+  }
+}
+
+/* Ambient glow around the diya flame */
+.haloGlow {
+  position: absolute;
+  top: -8px;
+  left: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(242, 168, 74, 0.38) 0%,
+    rgba(233, 199, 122, 0.16) 45%,
+    transparent 75%
+  );
+  filter: blur(4px);
+  pointer-events: none;
+  animation: diwaliHaloBreathe 3.2s ease-in-out infinite;
+}
+
+@keyframes diwaliHaloBreathe {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.1);
+  }
+}
+
+/* Text block */
+.textGroup {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.headingRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.greetingText {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #ffffff 0%, #ffe9b8 40%, #e9c77a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.25;
+}
+
+.festiveTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.4375rem;
+  border-radius: 9999px;
+  background: rgba(233, 199, 122, 0.12);
+  border: 1px solid rgba(233, 199, 122, 0.25);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #e9c77a;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.supportingText {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: rgba(233, 199, 122, 0.82);
+  margin-top: 0.15rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Twinkle stars */
+.twinkleField {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.star {
+  position: absolute;
+  display: block;
+  filter: drop-shadow(0 0 3px rgba(233, 199, 122, 0.8));
+}
+
+.star1 {
+  top: 22%;
+  right: 18%;
+  width: 9px;
+  height: 9px;
+  animation: diwaliTwinkle 3.2s ease-in-out infinite;
+}
+
+.star2 {
+  bottom: 24%;
+  right: 8%;
+  width: 11px;
+  height: 11px;
+  animation: diwaliTwinkle 4.1s ease-in-out infinite 1.2s;
+}
+
+.star3 {
+  top: 28%;
+  right: 32%;
+  width: 7px;
+  height: 7px;
+  animation: diwaliTwinkle 2.9s ease-in-out infinite 0.6s;
+}
+
+.star4 {
+  bottom: 26%;
+  left: 48%;
+  width: 8px;
+  height: 8px;
+  animation: diwaliTwinkle 3.6s ease-in-out infinite 2s;
+}
+
+@keyframes diwaliTwinkle {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.15);
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 639px) {
+  .bannerWrapper {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+  }
+
+  .diyaContainer {
+    width: 32px;
+    height: 30px;
+  }
+
+  .haloGlow {
+    top: -6px;
+    left: 4px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .greetingText {
+    font-size: 0.84375rem;
+  }
+
+  .supportingText {
+    display: none; /* Hide secondary line on small mobile to keep single-line pristine clarity */
+  }
+
+  .festiveTag {
+    font-size: 0.625rem;
+    padding: 0.1rem 0.35rem;
+  }
+
+  .star3,
+  .star4 {
+    display: none;
+  }
+}
+
+/* Very small mobile (<= 360px) */
+@media (max-width: 360px) {
+  .bannerWrapper {
+    padding: 0.4rem 0.625rem;
+  }
+
+  .diyaContainer {
+    width: 28px;
+    height: 26px;
+  }
+
+  .festiveTag {
+    display: none;
+  }
+
+  .greetingText {
+    font-size: 0.78125rem;
+  }
+}
+
+/* Accessibility: Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .diwaliAtmosphere {
+    animation: none !important;
+  }
+
+  .flameElement {
+    animation: none !important;
+    transform: none !important;
+    filter: drop-shadow(0 0 5px rgba(242, 168, 74, 0.7)) !important;
+  }
+
+  .haloGlow {
+    animation: none !important;
+    opacity: 0.75 !important;
+    transform: none !important;
+  }
+
+  .star {
+    animation: none !important;
+    opacity: 0.7 !important;
+    transform: none !important;
+  }
+}

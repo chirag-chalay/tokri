@@ -2,6 +2,7 @@ import Home from '../../pages/Home'
 import { publicGet } from '../../lib/server/public-api'
 import { assetUrl } from '../../lib/server/content'
 import { canonicalOrigin } from '../../lib/server/indexing'
+import { getDiwaliStatus } from '../../lib/diwaliConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,17 @@ export const metadata = {
   openGraph: { title: 'Tokriii — Premium & Exotic Fruits', url: `${canonicalOrigin}/`, type: 'website' },
 }
 
-export default async function HomePage() {
+export default async function HomePage(props) {
+  const resolvedSearchParams = props?.searchParams ? await props.searchParams : null
+  const searchString = resolvedSearchParams
+    ? new URLSearchParams(
+        Object.entries(resolvedSearchParams).flatMap(([k, v]) =>
+          Array.isArray(v) ? v.map((item) => [k, item]) : [[k, v]]
+        )
+      ).toString()
+    : ''
+  const diwaliStatus = getDiwaliStatus({ searchParams: searchString })
+
   const [settings, categoryResponse, bestsellerResponse, featuredResponse, reviewResponse] = await Promise.all([
     publicGet('/settings/public'),
     publicGet('/categories'),
@@ -38,5 +49,17 @@ export default async function HomePage() {
     const products = await publicGet(`/products?category=${encodeURIComponent(slug)}&limit=12`)
     return { slug, title: category?.title || category?.label || slug.replace(/-/g, ' '), products: normalizeProducts(Array.isArray(products) ? products : products?.products) || [] }
   }))
-  return <Home initialData={{ home, categories, categorySections, bestSellers: normalizeProducts(bestsellerResponse), featured: normalizeProducts(featuredResponse), reviews: Array.isArray(reviewResponse) ? reviewResponse : undefined }} />
+  return (
+    <Home
+      initialData={{
+        home,
+        categories,
+        categorySections,
+        bestSellers: normalizeProducts(bestsellerResponse),
+        featured: normalizeProducts(featuredResponse),
+        reviews: Array.isArray(reviewResponse) ? reviewResponse : undefined,
+        diwaliStatus,
+      }}
+    />
+  )
 }

@@ -43,7 +43,12 @@ export default function Home({ initialData }) {
 
   return (
     <main>
-      <Banner image={home.bannerImage} mobileImage={home.mobileBannerImage} rawUrls={Boolean(initialData)} />
+      <Banner
+        image={home.bannerImage}
+        mobileImage={home.mobileBannerImage}
+        rawUrls={Boolean(initialData)}
+        isDiwaliActive={initialData?.diwaliStatus?.isActive}
+      />
       <Categories initialCategories={initialData?.categories} />
       <BestSellers initialProducts={initialData?.bestSellers} deferCart={Boolean(initialData)} />
       <SeasonalFruits initialProducts={initialData?.featured} deferCart={Boolean(initialData)} />
