@@ -228,14 +228,15 @@ const Footer = () => {
           <div>
             <h4 className="mb-4 text-base font-bold text-white">Download App</h4>
             <div className="flex flex-col gap-2.5">
-              <button
-                type="button"
-                onClick={() => setAppNotice('Coming soon')}
+              <a
+                href="https://play.google.com/store/apps/details?id=com.tokriii.app&hl=en_IN"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex w-[70%] max-w-[200px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-slate-900 shadow-sm transition hover:bg-slate-50"
               >
                 <img src={playStoreIcon} alt="" className="h-6 w-6 shrink-0 object-contain" aria-hidden="true" />
                 <span className="text-xs font-medium leading-tight">Get it on play store</span>
-              </button>
+              </a>
               <button
                 type="button"
                 onClick={() => setAppNotice('Coming soon')}
