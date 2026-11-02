@@ -36,7 +36,7 @@ export default function Banner({ image, mobileImage, rawUrls = false, isDiwaliAc
   if (!src && !festiveActive) return null
 
   return (
-    <section className="relative w-full overflow-hidden mt-4 sm:mt-6 pb-2">
+    <section className="relative w-full overflow-hidden pt-4 sm:pt-6 pb-2">
       <DiwaliAtmosphere active={festiveActive} />
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6">
         {src && (
