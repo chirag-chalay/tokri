@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 import { prisma } from '../lib/prisma.js'
-import { calcCartTotals, getChargeRates } from '../config/charges.js'
+import { quoteCheckoutDelivery } from './deliveryQuote.js'
 import { formatProduct } from '../utils/formatters.js'
 import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
 
@@ -77,6 +77,7 @@ async function loadCartRecord(customerId) {
 
   return {
     id: cartId,
+    customerId,
     items: itemRows
       .map((row) => ({
         id: row.id,
@@ -105,7 +106,7 @@ export async function formatCart(cart) {
     ...formatCartItem(item),
     priceValue: Number(item.product.priceValue),
   }))
-  const totals = calcCartTotals(items, await getChargeRates())
+  const { totals } = await quoteCheckoutDelivery(items, cart?.customerId, 'morning')
 
   return {
     items: items.map(({ id, slug, name, price, priceValue, oldPrice, oldPriceValue, image, weight, quantity, lineTotal, category, stock, isTaxable, gstRate, hsnCode }) => ({

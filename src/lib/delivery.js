@@ -32,7 +32,7 @@ export function defaultOptionForAddress(address) {
 export function formatDeliveryCharge(amount) {
   const value = Number(amount)
   if (!Number.isFinite(value) || value <= 0) return 'Free'
-  return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+  return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 }
 
 export function formatExpectedDeliveryDate(value) {

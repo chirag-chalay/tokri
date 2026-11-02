@@ -40,6 +40,7 @@ export function flattenOrder(order) {
     deliveryCharge: String(order.deliveryCharge),
     handlingCharge: String(order.handlingCharge),
     smallCartCharge: String(order.smallCartCharge),
+    automaticDiscountPercentage: order.automaticDiscount?.percentage || null,
     discount: String(order.discount),
     taxTotal: String(order.taxTotal || 0),
     cgstTotal: String(order.cgstTotal || 0),

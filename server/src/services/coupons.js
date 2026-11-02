@@ -1,3 +1,4 @@
+import { decimal, money, subtotal } from '../utils/money.js'
 import { prisma } from '../lib/prisma.js'
 import { calcCartTotals, deliveryChargeFor, getChargeRates } from '../config/charges.js'
 import { applyFreeDeliveryRates, getCustomerFreeDeliveryStatus } from './freeDelivery.js'
@@ -56,7 +57,7 @@ function isItemEligible(item, coupon) {
 }
 
 function roundMoney(value) {
-  return Math.round(Number(value || 0) * 100) / 100
+  return money(value || 0)
 }
 
 export function formatCouponPreview(coupon, totals) {
@@ -100,7 +101,7 @@ export async function findActiveCoupon(code) {
   return coupon
 }
 
-export async function applyCouponToItems(coupon, items, customerId, deliveryOption = 'morning') {
+export async function applyCouponToItems(coupon, items, customerId, deliveryOption = 'morning', taxOptions = {}, configuredRates = null) {
   if (!items.length) throw httpError('Add items to your cart before applying a coupon.')
 
   if ((coupon.usageType || 'unlimited') === 'single' && customerId) {
@@ -113,19 +114,16 @@ export async function applyCouponToItems(coupon, items, customerId, deliveryOpti
     throw httpError('Please log in to use this coupon.')
   }
 
-  let rates = await getChargeRates(deliveryOption)
-  if (customerId) {
+  let rates = configuredRates || await getChargeRates(deliveryOption)
+  if (customerId && !configuredRates) {
     const freeDelivery = await getCustomerFreeDeliveryStatus(customerId)
-    if (freeDelivery?.isEligible) {
+    if (rates.firstThreeMorningEnabled && freeDelivery?.isEligible) {
       rates = applyFreeDeliveryRates(rates)
     }
   }
   const eligibleItems = items.filter((item) => isItemEligible(item, coupon))
-  const eligibleTotal = eligibleItems.reduce(
-    (sum, item) => sum + Number(item.priceValue) * Number(item.quantity),
-    0,
-  )
-  const itemsTotal = items.reduce((sum, item) => sum + Number(item.priceValue) * Number(item.quantity), 0)
+  const eligibleTotal = subtotal(eligibleItems)
+  const itemsTotal = subtotal(items)
   const minCart = Number(coupon.minCart || 0)
 
   if (minCart > 0 && itemsTotal < minCart) {
@@ -148,22 +146,34 @@ export async function applyCouponToItems(coupon, items, customerId, deliveryOpti
   }
 
   let discount =
-    coupon.type === 'percent' ? (base * Number(coupon.value)) / 100 : Number(coupon.value)
+    coupon.type === 'percent' ? money(decimal(base).times(coupon.value).div(100)) : money(coupon.value)
   if (coupon.maxDiscount != null) discount = Math.min(discount, Number(coupon.maxDiscount))
   discount = Math.min(roundMoney(discount), base)
   if (discount <= 0) throw httpError('This coupon does not give a discount on your cart.')
 
-  const totals = calcCartTotals(items, rates, discount, taxOptions)
+  const eligibleIndexes = items.map((item, i) => isItemEligible(item, coupon) ? i : -1).filter((i) => i >= 0)
+  const totals = calcCartTotals(items, rates, applyOn === 'shipping' ? 0 : discount, {
+    ...(typeof taxOptions === 'boolean' ? { isInterState: taxOptions } : taxOptions),
+    eligibleIndexes, shippingDiscount: applyOn === 'shipping' ? discount : 0,
+  })
   return {
     coupon,
+    benefit: discount,
+    eligibleIndexes,
     totals,
     preview: formatCouponPreview(coupon, totals),
   }
 }
 
-export async function previewCoupon({ code, items, customerId, deliveryOption, taxOptions }) {
-  const coupon = await findActiveCoupon(code)
-  return applyCouponToItems(coupon, items, customerId, deliveryOption, taxOptions)
+export async function previewCoupon({ code, items, customerId, deliveryOption = 'morning', taxOptions }) {
+  const { getDeliveryDecision } = await import('./deliveryQuote.js')
+  const { calculateCheckoutPricing } = await import('./pricing.js')
+  const decision = await getDeliveryDecision(customerId, deliveryOption, subtotal(items))
+  const result = await calculateCheckoutPricing(items, decision.rates, { customerId, couponCode: code,
+    isInterState: typeof taxOptions === 'boolean' ? taxOptions : Boolean(taxOptions?.isInterState) })
+  const requested = await findActiveCoupon(code)
+  return { ...result, preview: { ...formatCouponPreview(requested, result.totals),
+    discount: result.totals.couponDiscount, message: result.totals.discountMessage } }
 }
 
 export async function redeemCoupon({ coupon, customerId, orderId }) {

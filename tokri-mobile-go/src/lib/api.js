@@ -128,5 +128,5 @@ export function normalizeOrder(order) {
 }
 
 export function formatPrice(value) {
-  return `₹${Number(value).toLocaleString('en-IN')}`
+  return `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 }

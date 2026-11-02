@@ -140,7 +140,7 @@ export default function OrderDetailScreen({ navigation, route }) {
           value={Number(order.deliveryCharge) ? formatPrice(order.deliveryCharge) : 'FREE'}
         />
         {Number(order.discount) ? (
-          <BillRow label="Coupon discount" value={`-${formatPrice(order.discount)}`} discount />
+          <BillRow label={order.automaticDiscount ? `Automatic discount (${order.automaticDiscount.percentage}%)${order.couponCode ? " + shipping coupon" : ""}` : "Coupon discount"} value={`-${formatPrice(order.discount)}`} discount />
         ) : null}
         <BillRow label="Bill total" value={formatPrice(order.grandTotal)} bold />
 

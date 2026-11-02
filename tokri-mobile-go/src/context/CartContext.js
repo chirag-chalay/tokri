@@ -102,9 +102,12 @@ export function CartProvider({ children }) {
   const quoteKey = JSON.stringify({
     items: cart.items.map((item) => [item.slug, item.quantity]),
     option: rates.option || deliveryOption,
-    discount: coupon?.discount || 0,
+    couponCode: coupon?.code || null,
+    addressId: selectedAddress?.id,
+    address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
     customer: isLoggedIn ? token : null,
   })
+  const couponCartKey = JSON.stringify(cart.items.map((item) => [item.slug, item.quantity]))
   const quote = quoteState?.key === quoteKey ? quoteState.data : null
   const quoteLoading = cart.items.length > 0 && !quote
 
@@ -114,7 +117,9 @@ export function CartProvider({ children }) {
     const body = {
       items: cart.items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
       deliveryOption: rates.option || deliveryOption,
-      discount: coupon?.discount || 0,
+      couponCode: coupon?.code || null,
+      addressId: selectedAddress?.id,
+      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
     }
     const request = isLoggedIn && token
       ? authPost('/checkout/quote', token, body)
@@ -134,7 +139,9 @@ export function CartProvider({ children }) {
     const body = {
       items: cart.items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
       deliveryOption: rates.option || deliveryOption,
-      discount: coupon?.discount || 0,
+      couponCode: coupon?.code || null,
+      addressId: selectedAddress?.id,
+      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
     }
     try {
       const data = isLoggedIn && token
@@ -147,7 +154,13 @@ export function CartProvider({ children }) {
       setQuoteError(error.message || 'Could not calculate delivery charges.')
       throw error
     }
-  }, [cart.items, coupon?.discount, deliveryOption, isLoggedIn, quoteKey, rates.option, token])
+  }, [cart.items, coupon?.code, deliveryOption, isLoggedIn, quoteKey, rates.option, selectedAddress, token])
+
+  useEffect(() => {
+    if (!cart.items.length) return undefined
+    const interval = setInterval(() => { refreshDeliveryQuote().catch(() => {}) }, 30000)
+    return () => clearInterval(interval)
+  }, [cart.items.length, refreshDeliveryQuote])
 
   const persist = useCallback(async (nextCart) => {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextCart))
@@ -448,6 +461,8 @@ export function CartProvider({ children }) {
       try {
         const body = {
           code,
+          addressId: selectedAddress?.id,
+          address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
           items: cart.items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
           deliveryOption: rates.option || deliveryOption,
         }
@@ -465,7 +480,7 @@ export function CartProvider({ children }) {
         setCouponLoading(false)
       }
     },
-    [cart.items, token, rates, deliveryOption],
+    [cart.items, token, rates, deliveryOption, selectedAddress],
   )
 
   const removeCoupon = useCallback(() => {
@@ -480,6 +495,8 @@ export function CartProvider({ children }) {
     let ignore = false
     const body = {
       code: coupon.code,
+      addressId: selectedAddress?.id,
+      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
       items: items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
       deliveryOption: rates.option || deliveryOption,
     }
@@ -501,7 +518,7 @@ export function CartProvider({ children }) {
     return () => {
       ignore = true
     }
-  }, [deliveryOption, rates.option, coupon?.code, token])
+  }, [deliveryOption, rates.option, coupon?.code, couponCartKey, selectedAddress, token])
 
   const assignCart = useCallback(
     (next) => {
@@ -535,7 +552,8 @@ export function CartProvider({ children }) {
       quoteError,
       refreshDeliveryQuote,
       smallCartCharge: cart.smallCartCharge,
-      discount: cart.discount,
+      discount: quote?.totals?.discount ?? 0,
+      taxTotal: quote?.totals?.taxTotal ?? 0,
       deliveryOption: rates.option || deliveryOption,
       setDeliveryOption: (next) => {
         setDeliveryOption(next)

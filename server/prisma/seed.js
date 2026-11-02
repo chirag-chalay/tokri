@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import dotenv from 'dotenv'
 import path from 'path'
+import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'url'
 
 dotenv.config()
@@ -346,6 +347,12 @@ async function main() {
       razorpayEnabled: false,
       msg91Enabled: false,
     },
+  })
+
+  // Initialize only: reseeding must never overwrite administrator-approved rules.
+  await prisma.automaticDiscount.upsert({
+    where: { id: 1 }, update: {},
+    create: { id: 1, enabled: false, tiers: JSON.parse(await readFile(new URL('./data/automatic-discounts.json', import.meta.url), 'utf8')) },
   })
 
   console.log('Seed complete.')

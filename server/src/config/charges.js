@@ -1,3 +1,4 @@
+import { allocateDiscount, decimal, money, subtotal } from '../utils/money.js'
 import { prisma } from '../lib/prisma.js'
 
 export const DELIVERY_CHARGE = 25
@@ -99,10 +100,9 @@ export async function getChargeRates(option = 'morning') {
 export function calcItemTax(item, isInterState = false) {
   const isTaxable = Boolean(item.isTaxable ?? item.product?.isTaxable)
   const gstRate = Number(item.gstRate ?? item.product?.gstRate ?? 0)
-  const lineTaxableAmount = Math.round(Number(item.priceValue) * Number(item.quantity) * 100) / 100
+  const lineTaxableAmount = money(decimal(item.priceValue).times(item.quantity).minus(item.discount || 0))
   const taxAmount = isTaxable && gstRate > 0
-    ? Math.round(lineTaxableAmount * (gstRate / 100) * 100) / 100
-    : 0
+    ? money(decimal(lineTaxableAmount).times(gstRate).div(100)) : 0
 
   let cgstAmount = 0
   let sgstAmount = 0
@@ -110,8 +110,8 @@ export function calcItemTax(item, isInterState = false) {
 
   if (taxAmount > 0) {
     if (!isInterState) {
-      cgstAmount = Math.round((taxAmount / 2) * 100) / 100
-      sgstAmount = Math.round((taxAmount - cgstAmount) * 100) / 100
+      cgstAmount = money(decimal(taxAmount).div(2))
+      sgstAmount = money(decimal(taxAmount).minus(cgstAmount))
     } else {
       igstAmount = taxAmount
     }
@@ -130,55 +130,23 @@ export function calcItemTax(item, isInterState = false) {
 
 export function calcCartTotals(items, rates = defaultChargeRates(), discount = 0, taxOptions = {}) {
   const isInterState = typeof taxOptions === 'boolean' ? taxOptions : Boolean(taxOptions?.isInterState)
-  const itemsTotal = Math.round(items.reduce((sum, item) => sum + Number(item.priceValue) * Number(item.quantity), 0) * 100) / 100
+  const itemsTotal = subtotal(items)
   const hasItems = items.length > 0
   const deliveryCharge = hasItems ? deliveryChargeFor(rates.option || 'morning', itemsTotal, rates) : 0
   const handlingCharge = hasItems ? toMoney(rates.handlingCharge, HANDLING_CHARGE) : 0
-  const smallCartCharge = 0
-  const safeDiscount = Math.max(0, toMoney(discount, 0))
-
-  let taxTotal = 0
-  let cgstTotal = 0
-  let sgstTotal = 0
-  let igstTotal = 0
-
-  if (typeof taxOptions?.taxTotal === 'number') {
-    taxTotal = Math.round(taxOptions.taxTotal * 100) / 100
-    if (!isInterState) {
-      cgstTotal = Math.round((taxTotal / 2) * 100) / 100
-      sgstTotal = Math.round((taxTotal - cgstTotal) * 100) / 100
-    } else {
-      igstTotal = taxTotal
-    }
-  } else {
-    for (const item of items) {
-      const tax = calcItemTax(item, isInterState)
-      taxTotal += tax.taxAmount
-      cgstTotal += tax.cgstAmount
-      sgstTotal += tax.sgstAmount
-      igstTotal += tax.igstAmount
-    }
-    taxTotal = Math.round(taxTotal * 100) / 100
-    cgstTotal = Math.round(cgstTotal * 100) / 100
-    sgstTotal = Math.round(sgstTotal * 100) / 100
-    igstTotal = Math.round(igstTotal * 100) / 100
-  }
-
-  const grandTotal = Math.max(0, Math.round((itemsTotal + deliveryCharge + handlingCharge + taxTotal - safeDiscount) * 100) / 100)
-
+  const shippingDiscount = Math.min(deliveryCharge, money(taxOptions?.shippingDiscount || 0))
+  const merchandiseDiscount = Math.min(itemsTotal, Math.max(0, money(discount)))
+  const allocations = allocateDiscount(items, merchandiseDiscount, taxOptions?.eligibleIndexes)
+  const lineItems = items.map((item, i) => ({ discount: allocations[i], ...calcItemTax({ ...item, discount: allocations[i] }, isInterState) }))
+  const sum = (key) => money(lineItems.reduce((total, item) => total.plus(item[key]), decimal(0)))
+  const taxTotal = sum('taxAmount')
+  const totalDiscount = money(decimal(merchandiseDiscount).plus(shippingDiscount))
   return {
-    itemsTotal,
-    deliveryCharge,
-    handlingCharge,
-    smallCartCharge,
-    discount: safeDiscount,
-    taxTotal,
-    cgstTotal,
-    sgstTotal,
-    igstTotal,
-    isInterState,
-    grandTotal,
+    itemsTotal, deliveryCharge, handlingCharge, smallCartCharge: 0,
+    discount: totalDiscount, merchandiseDiscount, shippingDiscount,
+    taxTotal, cgstTotal: sum('cgstAmount'), sgstTotal: sum('sgstAmount'), igstTotal: sum('igstAmount'),
+    isInterState, lineItems,
+    grandTotal: Math.max(0, money(decimal(itemsTotal).plus(deliveryCharge).plus(handlingCharge).plus(taxTotal).minus(totalDiscount))),
     totalCount: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
   }
 }
-

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { calcCartTotals } from '../server/src/config/charges.js'
 import { chromium } from 'playwright-core'
 
 const SITE = process.env.TOKRIII_TEST_SITE || 'http://127.0.0.1:3000'
@@ -140,6 +141,11 @@ await page.route('**/*', async (route) => {
   // Ensure absolutely no outbound external network requests
   if (!['127.0.0.1', 'localhost', '::1'].includes(url.hostname)) {
     return route.abort()
+  }
+
+  // Local catalog fixture: avoid dependence on a pre-existing staging catalog.
+  if (url.pathname.includes('/api/v1/products/blueberry-tube')) {
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...mockServerCart[0], slug: 'blueberry-tube', stock: 100, isActive: true }) })
   }
 
   // Intercept authentication OTP send
@@ -334,19 +340,11 @@ await page.route('**/*', async (route) => {
       postData = {}
     }
 
-    const discount = Number(postData.discount) || 0
+    const discount = postData.couponCode === 'FRESH50' ? 50 : 0
     const option = String(postData.deliveryOption || 'morning').toLowerCase()
 
     // 1. Items subtotal
     const itemsTotal = mockServerCart.reduce((sum, it) => sum + Number(it.priceValue) * Number(it.quantity), 0)
-
-    // 2. Tax calculation: dry fruits (5% on ₹500) vs fresh fruit (0%)
-    let taxTotal = 0
-    for (const item of mockServerCart) {
-      if (item.isTaxable && Number(item.gstRate) > 0) {
-        taxTotal += Math.round(Number(item.priceValue) * Number(item.quantity) * (Number(item.gstRate) / 100) * 100) / 100
-      }
-    }
 
     // 3. First 3 orders promotional offer
     const freeDeliveryApplied = Boolean(freeDeliveryEligible && option === 'morning')
@@ -361,21 +359,18 @@ await page.route('**/*', async (route) => {
     const minimumMet = itemsTotal >= minimumOrderValue
     const handlingCharge = activeHandlingFee
 
-    // 5. Grand total
-    const grandTotal = Math.max(0, Math.round((itemsTotal + deliveryFee + handlingCharge + taxTotal - discount) * 100) / 100)
+    // Exercise the real discounted-line GST calculation in the regression fixture.
+    const totals = calcCartTotals(mockServerCart, {
+      option, morning: { fee: freeDeliveryApplied ? 0 : activeDeliveryFeeMorning },
+      express: { fee: activeDeliveryFeeExpress }, handlingCharge,
+    }, discount)
+    totals.couponDiscount = discount
 
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        totals: {
-          itemsTotal,
-          taxTotal,
-          deliveryCharge: deliveryFee,
-          handlingCharge,
-          discount,
-          grandTotal,
-        },
+        totals,
         options: {
           morning: {
             id: 'morning',
@@ -660,9 +655,9 @@ await applyCouponBtn.click()
 await page.waitForTimeout(600)
 
 const afterCouponAside = await page.locator('aside').textContent()
-assert.ok(afterCouponAside.includes('-₹50'), 'Coupon discount must display -₹50 in order summary')
-// Expected total after coupon: 875 - 50 = ₹825
-assert.ok(afterCouponAside.includes('₹825'), 'Grand total after ₹50 discount must recalculate to ₹825')
+assert.ok(afterCouponAside.includes('−₹50.00'), 'Coupon discount must display -₹50 in order summary')
+// Expected total after coupon: 799 + 23.44 GST + 49 delivery + 2 handling - 50 = ₹823.44
+assert.ok(afterCouponAside.includes('₹823.44'), 'Grand total after ₹50 discount must recalculate with discounted GST to ₹823.44')
 console.log('  -> Valid coupon discount & total recalculation: PASS')
 
 // --- 5C: First-Order Promotional Offer Eligibility ---
@@ -679,13 +674,13 @@ assert.ok(
 // With free morning delivery (₹0) and no coupon: 799 (items) + 25 (tax) + 2 (handling) + 0 = ₹826
 assert.ok(promotionalAside.includes('₹826'), 'Total must recalculate to ₹826 with free morning delivery applied')
 
-// Re-apply coupon to verify cumulative calculation: 826 - 50 = ₹776
+// Re-apply coupon to verify cumulative calculation: 799 + 23.44 GST + 2 handling - 50 = ₹774.44
 const promoCouponInput = page.locator('input[placeholder="Enter code"]').first()
 await promoCouponInput.fill('FRESH50')
 await page.locator('button:has-text("Apply")').first().click()
 await page.waitForTimeout(600)
 const promoAfterCoupon = await page.locator('aside').textContent()
-assert.ok(promoAfterCoupon.includes('₹776'), 'Total must recalculate to ₹776 with free delivery and coupon combined')
+assert.ok(promoAfterCoupon.includes('₹774.44'), 'Total must recalculate to ₹774.44 with free delivery and coupon combined')
 freeDeliveryEligible = false
 console.log('  -> First-order free delivery promotional calculation: PASS')
 

@@ -1,3 +1,4 @@
+import DiscountDetails from '../components/DiscountDetails'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from '../lib/navigation'
 import { Plus } from 'lucide-react'
@@ -230,6 +231,9 @@ export default function CheckoutPage() {
     setPaying(true)
     try {
       const currentQuote = await refreshDeliveryQuote()
+      if (currentQuote?.totals?.grandTotal !== quote.totals.grandTotal) {
+        throw new Error('Your order total changed. Please review the updated total before paying.')
+      }
       const currentOption = currentQuote?.options?.[deliveryOption]
       if (!currentOption?.minimumMet) {
         throw new Error(currentOption?.minimumMessage || 'This delivery option is not available for this order.')
@@ -238,6 +242,7 @@ export default function CheckoutPage() {
         items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
         addressId: selectedAddressId,
         paymentMode,
+        expectedGrandTotal: currentQuote.totals.grandTotal,
         couponCode: coupon?.code || undefined,
         deliveryOption,
       })
@@ -501,12 +506,7 @@ export default function CheckoutPage() {
                   {selectedQuote.freeAboveMessage}
                 </p>
               ) : null}
-              {discount > 0 && (
-                <div className="flex justify-between text-mint">
-                  <span>Coupon discount</span>
-                  <span>-{formatPrice(discount)}</span>
-                </div>
-              )}
+              <DiscountDetails />
             </div>
 
             <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-lg font-bold text-white">

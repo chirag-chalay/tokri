@@ -289,16 +289,17 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
       // ==========================================
       // 3. ITEMS TABLE
       // ==========================================
-      const colProductW = 115
-      const colHsnW = 42
-      const colQtyW = 26
-      const colRateW = 46
-      const colTaxableW = 56
-      const colGstRateW = 40
-      const colCgstW = 48
-      const colSgstW = 48
-      const colIgstW = 48
-      const colTotalW = 54
+      const tableScale = pageWidth / 623
+      const colProductW = 115 * tableScale
+      const colHsnW = 42 * tableScale
+      const colQtyW = 26 * tableScale
+      const colRateW = 46 * tableScale
+      const colTaxableW = 56 * tableScale
+      const colGstRateW = 40 * tableScale
+      const colCgstW = 48 * tableScale
+      const colSgstW = 48 * tableScale
+      const colIgstW = 48 * tableScale
+      const colTotalW = 54 * tableScale
 
       const colProductX = left
       const colHsnX = colProductX + colProductW
@@ -345,7 +346,7 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         doc.rect(left, y, pageWidth, 22).fill(rowBg)
         doc.rect(left, y, pageWidth, 22).strokeColor(borderColor).lineWidth(0.5).stroke()
 
-        const itemTaxableAmount = Math.round(Number(item.priceValue) * item.quantity * 100) / 100
+        const itemTaxableAmount = Math.round((Number(item.priceValue) * item.quantity - Number(item.discount || 0)) * 100) / 100
         const itemTaxAmount = Number(item.taxAmount || 0)
         const isTax = Boolean(item.isTaxable)
         const gstRateNum = Number(item.gstRate || 0)
@@ -420,13 +421,18 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
       renderTotalLine('Subtotal:', formatMoney(order.itemsTotal))
 
       if (Number(order.discount) > 0) {
-        const discountLabel = `Discount (${order.couponCode || 'Promo'}):`
-        renderTotalLine(discountLabel, `-${formatMoney(order.discount)}`, false, '#dc2626')
+        if (order.automaticDiscount) {
+          renderTotalLine(`Automatic (${order.automaticDiscount.percentage}%):`, `-${formatMoney(order.automaticDiscount.discount)}`, false, '#dc2626')
+          const shippingDiscount = Number(order.discount) - Number(order.automaticDiscount.discount)
+          if (shippingDiscount > 0) renderTotalLine('Shipping coupon:', `-${formatMoney(shippingDiscount)}`, false, '#dc2626')
+        } else {
+          renderTotalLine(`Discount (${order.couponCode || 'Promo'}):`, `-${formatMoney(order.discount)}`, false, '#dc2626')
+        }
       } else {
         renderTotalLine('Discount:', 'Rs. 0.00', false, mutedColor)
       }
 
-      renderTotalLine('Taxable Amount:', formatMoney(order.itemsTotal))
+      renderTotalLine('Product base:', formatMoney(order.items.reduce((sum, item) => sum + Number(item.priceValue) * item.quantity - Number(item.discount || 0), 0)))
 
       const cgstTotalVal = Number(order.cgstTotal || 0)
       const sgstTotalVal = Number(order.sgstTotal || 0)
@@ -461,7 +467,7 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
       // ==========================================
       // 5. FOOTER
       // ==========================================
-      const footerY = doc.page.height - 45
+      const footerY = doc.page.height - 66
       doc.strokeColor(borderColor).lineWidth(0.5).moveTo(left, footerY).lineTo(right, footerY).stroke()
 
       doc

@@ -1,3 +1,4 @@
+import DiscountDetails from './DiscountDetails'
 import { useNavigate } from '../lib/navigation'
 import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'
@@ -17,7 +18,6 @@ export default function CartDrawer() {
     taxTotal,
     deliveryCharge,
     handlingCharge,
-    discount,
     grandTotal,
     quoteLoading,
     showDrawer,
@@ -127,12 +127,7 @@ export default function CartDrawer() {
                 <span>Delivery charges</span>
                 <span className={deliveryCharge > 0 ? '' : 'text-mint'}>{quoteLoading ? 'Calculating…' : formatDeliveryCharge(deliveryCharge)}</span>
               </div>
-              {discount > 0 && (
-                <div className="flex items-center justify-between text-sm text-mint">
-                  <span>Coupon discount</span>
-                  <span>-{formatPrice(discount)}</span>
-                </div>
-              )}
+              <DiscountDetails />
               <div className="flex items-center justify-between border-t border-line pt-4 text-base font-semibold text-white">
                 <span>Total</span>
                 <span>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</span>
