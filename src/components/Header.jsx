@@ -6,6 +6,8 @@ import { useCart } from '../context/CartContext'
 import SearchBox from './SearchBox'
 import AccountMenu from './AccountMenu'
 import DeliveryAddressBar from './DeliveryAddressBar'
+import DiwaliNavbarAtmosphere from './DiwaliNavbarAtmosphere'
+import { getDiwaliStatus } from '../lib/diwaliConfig'
 import tokriLogo from '../assets/tokri-logo.png'
 import tokriMark from '../assets/tokri-mark.png'
 
@@ -19,6 +21,10 @@ export default function Header({ onLoginClick, className = '' }) {
   const { totalCount, openDrawer } = useCart()
   const { isLoggedIn } = useAuth()
   const ready = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot)
+  const getClientSearch = () => (typeof window !== 'undefined' ? window.location.search || '' : '')
+  const search = useSyncExternalStore(subscribe, getClientSearch, () => '')
+  const diwaliStatus = getDiwaliStatus({ searchParams: search })
+  const festiveActive = ready ? diwaliStatus.isActive : diwaliStatus.isActive
   const activeLoggedIn = ready && isLoggedIn
   const activeCount = ready ? totalCount : 0
   const showMobileBack = location.pathname !== '/'
@@ -50,10 +56,16 @@ export default function Header({ onLoginClick, className = '' }) {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full border-b border-line bg-panel shadow-sm shadow-black/20 ${className}`}
+      className={`sticky top-0 z-50 w-full overflow-hidden bg-panel transition-colors duration-300 ${
+        festiveActive
+          ? 'border-b border-[#E9C77A]/35 shadow-[0_4px_24px_rgba(242,168,74,0.12)]'
+          : 'border-b border-line shadow-sm shadow-black/20'
+      } ${className}`}
     >
+      <DiwaliNavbarAtmosphere active={festiveActive} />
+
       {/* Mobile header */}
-      <div className="lg:hidden">
+      <div className="relative z-10 lg:hidden">
         <div className="px-3 py-2.5 sm:px-4 sm:py-3">
           <div
             className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center ${
@@ -114,8 +126,14 @@ export default function Header({ onLoginClick, className = '' }) {
       </div>
 
       {/* Desktop header */}
-      <div className="hidden bg-panel lg:block">
-        <div className="mx-auto flex flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+      <div className="relative z-10 hidden lg:block">
+        <div
+          className={`mx-auto flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between ${
+            festiveActive
+              ? 'px-4 sm:px-6 lg:px-14 xl:px-16 2xl:px-20'
+              : 'px-4 sm:px-6 lg:px-8'
+          }`}
+        >
           <div className="flex items-center justify-between lg:flex-col lg:items-start lg:gap-4">
             <Link to="/" className="block shrink-0">
               <img
