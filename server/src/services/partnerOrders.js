@@ -97,6 +97,7 @@ function assertCodCollectable(order) {
 
 function sortPartnerOrders(orders) {
   const rank = (order) => {
+    if (order.status === 'cancelled') return 2
     if (order.status === 'delivered' || order.paymentStatus === 'paid') return 1
     return 0
   }
@@ -108,10 +109,10 @@ function sortPartnerOrders(orders) {
 }
 
 export async function listPartnerOrders(partnerId) {
+  // Include cancelled so partners see the order was cancelled (not “vanished”).
   const orders = await prisma.order.findMany({
     where: {
       deliveryPartnerId: partnerId,
-      status: { not: 'cancelled' },
     },
     orderBy: { createdAt: 'desc' },
     take: 100,

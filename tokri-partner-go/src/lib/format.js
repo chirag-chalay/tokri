@@ -16,11 +16,12 @@ export function formatExpectedDeliveryDate(value) {
   return formatOrderDate(value)
 }
 
+/** Match Admin fulfillment labels so partners aren’t confused with payment “Paid”. */
 export function formatOrderStatus(status) {
   const key = String(status || '').toLowerCase()
   const labels = {
-    pending: 'Pending',
-    paid: 'Paid',
+    pending: 'Waiting',
+    paid: 'Processing',
     packed: 'Packed',
     shipped: 'Out for delivery',
     delivered: 'Delivered',
@@ -54,12 +55,19 @@ export function formatDeliveryOption(option) {
   return key ? key.replace(/_/g, ' ') : ''
 }
 
-export function statusTone(status, paymentStatus) {
+export function statusTone(status) {
   const key = String(status || '').toLowerCase()
   if (key === 'cancelled') return 'danger'
-  if (key === 'delivered' || paymentStatus === 'paid') return 'success'
-  if (key === 'shipped' || key === 'packed') return 'warning'
+  if (key === 'delivered') return 'success'
+  if (key === 'shipped' || key === 'packed' || key === 'paid') return 'warning'
   return 'muted'
+}
+
+export function canCollectPayment(order) {
+  if (!order) return false
+  if (String(order.status || '').toLowerCase() === 'cancelled') return false
+  if (String(order.paymentStatus || '').toLowerCase() === 'paid') return false
+  return true
 }
 
 /** Keep orders from the last `days` calendar days in IST (inclusive of today). */

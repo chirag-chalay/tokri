@@ -24,6 +24,7 @@ import {
   formatExpectedDeliveryDate,
   formatOrderDate,
   formatOrderStatus,
+  canCollectPayment,
   formatPaymentStatus,
   paymentTone,
   statusTone,
@@ -143,10 +144,12 @@ export default function OrderDetailScreen({ route, navigation }) {
     )
   }
 
-  const paid = order.paymentStatus === 'paid' || order.status === 'delivered'
+  const cancelled = String(order.status || '').toLowerCase() === 'cancelled'
+  const collectable = canCollectPayment(order)
+  const paid = String(order.paymentStatus || '').toLowerCase() === 'paid'
   const phone = order.customerPhone || order.address?.phone
   const map = mapsUrl(order)
-  const tone = statusTone(order.status, order.paymentStatus)
+  const tone = statusTone(order.status)
   const payTone = paymentTone(order.paymentStatus)
   const orderedOn = formatOrderDate(order.createdAt)
   const deliverOn = formatExpectedDeliveryDate(order.expectedDeliveryDate)
@@ -155,17 +158,27 @@ export default function OrderDetailScreen({ route, navigation }) {
   return (
     <>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.statusRow}>
-          <Text style={[styles.badge, styles[`badge_${tone}`]]}>{formatOrderStatus(order.status)}</Text>
-          <Text style={[styles.badge, styles[`badge_${payTone}`]]}>
-            {formatPaymentStatus(order.paymentStatus)}
-          </Text>
+        <View style={styles.statusBlock}>
+          <View style={styles.statusItem}>
+            <Text style={styles.statusLabel}>Order status</Text>
+            <Text style={[styles.badge, styles[`badge_${tone}`]]}>{formatOrderStatus(order.status)}</Text>
+          </View>
+          <View style={styles.statusItem}>
+            <Text style={styles.statusLabel}>Payment status</Text>
+            <Text style={[styles.badge, styles[`badge_${payTone}`]]}>
+              {formatPaymentStatus(order.paymentStatus)}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.status}>
-          {paid
-            ? `Collected as ${order.paymentCollectedAs || 'paid'}`
-            : 'COD · waiting for payment'}
-        </Text>
+        {cancelled ? (
+          <Text style={styles.cancelledNote}>This order was cancelled. Do not collect payment or deliver.</Text>
+        ) : (
+          <Text style={styles.status}>
+            {paid
+              ? `Collected as ${order.paymentCollectedAs || 'paid'}`
+              : 'COD · waiting for payment'}
+          </Text>
+        )}
         <Text style={styles.total}>{money(order.grandTotal)}</Text>
         <Text style={styles.meta}>Ordered {orderedOn || '—'}</Text>
         {deliverOn ? <Text style={styles.meta}>Expected delivery {deliverOn}</Text> : null}
@@ -213,7 +226,11 @@ export default function OrderDetailScreen({ route, navigation }) {
           </View>
         ))}
 
-        {!paid ? (
+        {cancelled ? (
+          <View style={styles.cancelledBox}>
+            <Text style={styles.cancelledBoxText}>Order cancelled — payment collection is closed.</Text>
+          </View>
+        ) : collectable ? (
           <View style={styles.payBox}>
             <Pressable style={[styles.primary, busy && styles.disabled]} disabled={busy} onPress={onCollectCash}>
               <Text style={styles.primaryText}>Cash received</Text>
@@ -224,7 +241,9 @@ export default function OrderDetailScreen({ route, navigation }) {
           </View>
         ) : (
           <View style={styles.doneBox}>
-            <Text style={styles.doneText}>Payment complete. Order delivered.</Text>
+            <Text style={styles.doneText}>
+              {paid ? 'Payment complete. Order delivered.' : 'Payment collection not available.'}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -252,9 +271,11 @@ export default function OrderDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   content: { padding: 16, paddingBottom: 48 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  status: { color: COLORS.muted, fontWeight: '600' },
-  badge: { fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3 },
+  statusBlock: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  statusItem: { gap: 6 },
+  statusLabel: { fontSize: 12, fontWeight: '700', color: COLORS.muted, letterSpacing: 0.2 },
+  status: { color: COLORS.muted, fontWeight: '600', marginTop: 10 },
+  badge: { fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   badge_muted: { backgroundColor: '#e2e8f0', color: COLORS.muted },
   badge_warning: { backgroundColor: '#fef3c7', color: COLORS.warning },
   badge_success: { backgroundColor: '#dcfce7', color: COLORS.success },
@@ -285,6 +306,9 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   doneBox: { marginTop: 28, backgroundColor: '#dcfce7', padding: 16 },
   doneText: { color: COLORS.success, fontWeight: '700' },
+  cancelledNote: { marginTop: 10, color: COLORS.danger, fontWeight: '700' },
+  cancelledBox: { marginTop: 28, backgroundColor: '#fee2e2', padding: 16 },
+  cancelledBoxText: { color: COLORS.danger, fontWeight: '700' },
   error: { color: COLORS.danger },
   modalBg: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
   modalCard: { backgroundColor: COLORS.panel, padding: 20, paddingBottom: 36 },

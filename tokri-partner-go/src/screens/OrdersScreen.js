@@ -122,23 +122,30 @@ export default function OrdersScreen({ navigation }) {
             ) : null
           }
           renderItem={({ item }) => {
-            const orderTone = statusTone(item.status, item.paymentStatus)
+            const orderTone = statusTone(item.status)
             const payTone = paymentTone(item.paymentStatus)
             const deliveryLabel = formatDeliveryOption(item.deliveryOption)
+            const cancelled = String(item.status || '').toLowerCase() === 'cancelled'
             return (
               <Pressable
-                style={styles.card}
+                style={[styles.card, cancelled && styles.cardCancelled]}
                 onPress={() => navigation.navigate('OrderDetail', { orderId: item.id, order: item })}
               >
                 <View style={styles.row}>
                   <Text style={styles.orderNo}>{item.orderNo}</Text>
                   <View style={styles.badges}>
-                    <Text style={[styles.badge, styles[`badge_${orderTone}`]]}>
-                      {formatOrderStatus(item.status)}
-                    </Text>
-                    <Text style={[styles.badge, styles[`badge_${payTone}`]]}>
-                      {formatPaymentStatus(item.paymentStatus)}
-                    </Text>
+                    <View style={styles.badgeBlock}>
+                      <Text style={styles.badgeLabel}>Order</Text>
+                      <Text style={[styles.badge, styles[`badge_${orderTone}`]]}>
+                        {formatOrderStatus(item.status)}
+                      </Text>
+                    </View>
+                    <View style={styles.badgeBlock}>
+                      <Text style={styles.badgeLabel}>Payment</Text>
+                      <Text style={[styles.badge, styles[`badge_${payTone}`]]}>
+                        {formatPaymentStatus(item.paymentStatus)}
+                      </Text>
+                    </View>
                   </View>
                 </View>
                 <Text style={styles.name}>{item.customerName}</Text>
@@ -186,9 +193,12 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  cardCancelled: { opacity: 0.78, borderColor: '#fecaca' },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
   orderNo: { fontWeight: '800', color: COLORS.ink, fontSize: 16, flexShrink: 1 },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', maxWidth: '58%' },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', maxWidth: '62%' },
+  badgeBlock: { alignItems: 'flex-end', gap: 2 },
+  badgeLabel: { fontSize: 10, fontWeight: '700', color: COLORS.muted },
   badge: { fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3 },
   badge_muted: { backgroundColor: '#e2e8f0', color: COLORS.muted },
   badge_warning: { backgroundColor: '#fef3c7', color: COLORS.warning },
