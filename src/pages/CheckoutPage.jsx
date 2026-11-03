@@ -37,7 +37,6 @@ export default function CheckoutPage() {
     pinDelivery,
     quote,
     quoteLoading,
-    quoteError,
     refreshDeliveryQuote,
     refreshFreeDelivery,
   } = useCart()
@@ -495,7 +494,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between">
                 <span>Delivery charges</span>
                 <span className={deliveryCharge > 0 ? '' : 'text-mint'}>
-                  {quoteLoading ? 'Calculating…' : formatDeliveryCharge(deliveryCharge)}
+                  {quote ? formatDeliveryCharge(deliveryCharge) : 'Calculating…'}
                 </span>
               </div>
               {selectedQuote?.freeDeliveryApplied && selectedQuote.offerMessage ? (
@@ -512,13 +511,11 @@ export default function CheckoutPage() {
 
             <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-lg font-bold text-white">
               <span>Total</span>
-              <span>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</span>
+              <span>{quote ? formatPrice(grandTotal) : 'Calculating…'}</span>
             </div>
-            {totalSavings > 0 && (
-              <div className="mt-3 rounded-xl bg-emerald-950/60 px-3 py-2 text-sm font-semibold text-mint">
-                You saved {formatPrice(totalSavings)}
-              </div>
-            )}
+            <div className={`mt-3 h-9 rounded-xl bg-emerald-950/60 px-3 py-2 text-sm font-semibold text-mint ${totalSavings > 0 ? '' : 'invisible'}`}>
+              You saved {formatPrice(totalSavings)}
+            </div>
 
             {(razorpayEnabled || codEnabled) && (
               <fieldset className="mt-4 space-y-2">
@@ -584,10 +581,9 @@ export default function CheckoutPage() {
               {paying
                 ? 'Processing...'
                 : paymentMode === 'online'
-                  ? `Pay ${quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}`
+                  ? `Pay ${quote ? formatPrice(grandTotal) : 'Calculating…'}`
                   : 'Place order (Cash on delivery)'}
             </button>
-            {quoteError ? <p className="mt-2 text-sm text-rose-400">{quoteError}</p> : null}
           </aside>
         </div>
       </div>

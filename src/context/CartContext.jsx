@@ -98,6 +98,12 @@ export function CartProvider({ children }) {
   const [freeDelivery, setFreeDelivery] = useState(null)
   const [quoteState, setQuoteState] = useState(null)
   const [quoteError, setQuoteError] = useState('')
+  const [quotePending, setQuotePending] = useState(false)
+  const [couponAction, setCouponAction] = useState(null)
+  const quoteStateRef = useRef(null)
+  const quoteInputRef = useRef(null)
+  const inFlightQuotes = useRef(new Map())
+  const inFlightCoupons = useRef(new Map())
   const [coupon, setCoupon] = useState(() => { try { const code = sessionStorage.getItem('tokri_selected_coupon'); return code ? { code } : null } catch { return null } })
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
@@ -369,90 +375,94 @@ export function CartProvider({ children }) {
     customer: isLoggedIn ? user?.token : null,
   })
   if (currentQuoteKey.current !== quoteKey) { currentQuoteKey.current = quoteKey; cartRevision.current += 1 }
-  const quote = quoteState?.key === quoteKey ? quoteState.data : null
-  const quoteLoading = hasItems && !quote
+  // Retain the last server result for display only. A stale or failed quote must
+  // never authorize payment, including a refresh with the same input key.
+  const quote = hasItems ? quoteState?.data || null : null
+  const quoteLoading = hasItems && (quotePending || quoteState?.key !== quoteKey || quoteState?.revision !== cartRevision.current || Boolean(quoteError))
   const itemsTotal = quote?.totals?.itemsTotal ?? localItemsTotal
+  quoteInputRef.current = {
+    key: quoteKey,
+    revision: cartRevision.current,
+    hasItems,
+    user: isLoggedIn ? user : null,
+    payload: {
+      items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
+      deliveryOption: activeOption,
+      couponCode,
+      addressId: selectedAddress?.id,
+      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
+    },
+  }
+
+  // One request path for automatic revalidation, focus refresh and payment checks.
+  // Equivalent in-flight requests share a promise; cart revisions also distinguish
+  // A -> B -> A changes so an old A response cannot become current again.
+  const refreshDeliveryQuote = useCallback(() => {
+    const input = quoteInputRef.current
+    if (!input?.hasItems) return Promise.resolve(null)
+    const requestKey = JSON.stringify([input.key, input.revision])
+    const existing = inFlightQuotes.current.get(requestKey)
+    if (existing) return existing
+    const quoteId = ++quoteRequest.current
+    const isCurrent = () => quoteRequest.current === quoteId &&
+      currentQuoteKey.current === input.key && cartRevision.current === input.revision
+    setQuotePending(true)
+    setQuoteError('')
+    const request = (async () => {
+      try {
+        const data = input.user?.token
+          ? await authPost('/checkout/quote', input.user, input.payload)
+          : await postJson('/checkout/quote', input.payload)
+        if (!isCurrent()) return null
+        // The server already priced the cart without an invalid coupon. Accept
+        // that result under the cleared selection key without a second request.
+        const removed = data.couponStatus?.status === 'removed'
+        const key = removed ? JSON.stringify({ ...JSON.parse(input.key), couponCode: null }) : input.key
+        quoteStateRef.current = { key, data, revision: input.revision + (removed ? 1 : 0) }
+        setQuoteState(quoteStateRef.current)
+        if (data.items) setCartItems((current) => {
+          let changed = false
+          const next = current.map((item) => {
+            const priced = data.items.find((row) => row.slug === item.id)
+            if (!priced || priced.priceValue === item.priceValue) return item
+            changed = true
+            return { ...item, priceValue: priced.priceValue, price: `₹${priced.priceValue}` }
+          })
+          return changed ? next : current
+        })
+        if (removed) {
+          couponRequest.current += 1
+          setCouponLoading(false)
+          setCoupon(null)
+          setCouponError(data.couponStatus.message)
+        }
+        setCouponAction(null)
+        return data
+      } catch (error) {
+        if (!isCurrent()) return null
+        setQuoteError(error.message || 'Could not calculate delivery charges.')
+        throw error
+      } finally {
+        inFlightQuotes.current.delete(requestKey)
+        if (quoteRequest.current === quoteId) setQuotePending(false)
+      }
+    })()
+    inFlightQuotes.current.set(requestKey, request)
+    return request
+  }, [])
 
   useEffect(() => {
-    if (!hasItems) { setCoupon(null); return undefined }
-    let ignore = false
-    const quoteId = ++quoteRequest.current
-    const payload = {
-      items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
-      deliveryOption: activeOption,
-      couponCode,
-      addressId: selectedAddress?.id,
-      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
+    if (!hasItems) {
+      quoteRequest.current += 1
+      quoteStateRef.current = null
+      setQuoteState(null)
+      setQuotePending(false)
+      setCoupon(null)
+      setCouponAction(null)
+      return
     }
-    const request = isLoggedIn && user?.token
-      ? authPost('/checkout/quote', user, payload)
-      : postJson('/checkout/quote', payload)
-    request.then((data) => {
-      if (ignore) return
-      if (currentQuoteKey.current !== quoteKey || quoteId !== quoteRequest.current) return null
-      setQuoteState({ key: quoteKey, data })
-      if (data.items) setCartItems((current) => {
-        let changed = false
-        const next = current.map((item) => {
-          const priced = data.items.find((row) => row.slug === item.id)
-          if (!priced || priced.priceValue === item.priceValue) return item
-          changed = true
-          return { ...item, priceValue: priced.priceValue, price: `₹${priced.priceValue}` }
-        })
-        return changed ? next : current
-      })
-      if (data.couponStatus?.status === 'removed') {
-        couponRequest.current += 1
-        setCouponLoading(false)
-        setCoupon(null)
-        setCouponError(data.couponStatus.message)
-      }
-      setQuoteError('')
-    }).catch((error) => {
-      if (!ignore) setQuoteError(error.message || 'Could not calculate delivery charges.')
-    })
-    return () => { ignore = true }
-  }, [quoteKey, user, activeOption, cartItems, couponCode, hasItems, isLoggedIn, selectedAddress])
-
-  const refreshDeliveryQuote = useCallback(async () => {
-    if (!hasItems) return null
-    const quoteId = ++quoteRequest.current
-    const payload = {
-      items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
-      deliveryOption: activeOption,
-      couponCode,
-      addressId: selectedAddress?.id,
-      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
-    }
-    try {
-      const data = isLoggedIn && user?.token
-        ? await authPost('/checkout/quote', user, payload)
-        : await postJson('/checkout/quote', payload)
-      if (currentQuoteKey.current !== quoteKey || quoteId !== quoteRequest.current) return null
-      setQuoteState({ key: quoteKey, data })
-      if (data.items) setCartItems((current) => {
-        let changed = false
-        const next = current.map((item) => {
-          const priced = data.items.find((row) => row.slug === item.id)
-          if (!priced || priced.priceValue === item.priceValue) return item
-          changed = true
-          return { ...item, priceValue: priced.priceValue, price: `₹${priced.priceValue}` }
-        })
-        return changed ? next : current
-      })
-      if (data.couponStatus?.status === 'removed') {
-        couponRequest.current += 1
-        setCouponLoading(false)
-        setCoupon(null)
-        setCouponError(data.couponStatus.message)
-      }
-      setQuoteError('')
-      return data
-    } catch (error) {
-      setQuoteError(error.message || 'Could not calculate delivery charges.')
-      throw error
-    }
-  }, [activeOption, cartItems, couponCode, hasItems, isLoggedIn, quoteKey, selectedAddress, user])
+    if (quoteStateRef.current?.key !== quoteKey || quoteStateRef.current?.revision !== cartRevision.current) refreshDeliveryQuote().catch(() => {})
+  }, [hasItems, quoteKey, refreshDeliveryQuote])
 
   // Revalidate live admin changes for an open cart, on tab focus and periodically.
   useEffect(() => {
@@ -470,50 +480,49 @@ export function CartProvider({ children }) {
   const taxTotal = quote?.totals?.taxTotal ?? 0
   const grandTotal = quote?.totals?.grandTotal ?? 0
 
-  const applyCoupon = useCallback(
-    async (rawCode) => {
-      const code = String(rawCode || '').trim().toUpperCase()
-      if (!code) {
-        setCouponError('Enter a coupon code')
-        return null
-      }
-      if (!cartItems.length) {
-        setCouponError('Add items to your cart first')
-        return null
-      }
-
-      const requestId = ++couponRequest.current
-      const requestedKey = currentQuoteKey.current
-      const requestedRevision = cartRevision.current
-      setCouponLoading(true)
-      setCouponError('')
+  const applyCoupon = useCallback((rawCode) => {
+    const code = String(rawCode || '').trim().toUpperCase()
+    const input = quoteInputRef.current
+    if (!code || !input?.hasItems) {
+      setCouponError(code ? 'Add items to your cart first' : 'Enter a coupon code')
+      return Promise.resolve(null)
+    }
+    const requestKey = JSON.stringify([code, input.key, input.revision])
+    const existing = inFlightCoupons.current.get(requestKey)
+    if (existing) return existing
+    const requestId = ++couponRequest.current
+    const isCurrent = () => requestId === couponRequest.current &&
+      input.key === currentQuoteKey.current && input.revision === cartRevision.current
+    setCouponLoading(true)
+    setCouponAction(code)
+    setCouponError('')
+    const request = (async () => {
       try {
-        const body = {
-          code,
-          addressId: selectedAddress?.id,
-      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
-          items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
-          deliveryOption: activeOption,
-        }
-        const data = isLoggedIn
-          ? await authPost('/checkout/preview-coupon', user, body)
+        const body = { ...input.payload, code }
+        const data = input.user?.token
+          ? await authPost('/checkout/preview-coupon', input.user, body)
           : await postJson('/checkout/preview-coupon', body)
-        if (requestId !== couponRequest.current || requestedKey !== currentQuoteKey.current || requestedRevision !== cartRevision.current) return null
+        if (!isCurrent()) return null
         setCoupon(data.coupon)
+        if (data.coupon?.code === input.payload.couponCode) refreshDeliveryQuote().catch(() => {})
         return data.coupon
       } catch (error) {
-        if (requestId !== couponRequest.current || requestedKey !== currentQuoteKey.current || requestedRevision !== cartRevision.current) return null
+        if (!isCurrent()) return null
+        setCouponAction(null)
         setCouponError(error.message || 'This coupon could not be applied')
         throw error
       } finally {
+        inFlightCoupons.current.delete(requestKey)
         if (requestId === couponRequest.current) setCouponLoading(false)
       }
-    },
-    [activeOption, cartItems, isLoggedIn, selectedAddress, user],
-  )
+    })()
+    inFlightCoupons.current.set(requestKey, request)
+    return request
+  }, [refreshDeliveryQuote])
 
   const removeCoupon = useCallback(() => {
     couponRequest.current += 1
+    setCouponAction(quoteInputRef.current?.payload.couponCode || null)
     setCouponLoading(false)
     setCoupon(null)
     setCouponError('')
@@ -547,6 +556,7 @@ export function CartProvider({ children }) {
         coupon,
         couponError,
         couponLoading,
+        couponAction,
         applyCoupon,
         removeCoupon,
         showDrawer,

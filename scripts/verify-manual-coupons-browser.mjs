@@ -8,8 +8,13 @@ assert.equal(url.pathname, '/tokri_manual_coupons_test')
 const { prisma } = await import('../server/src/lib/prisma.js')
 const { replaceCart } = await import('../server/src/services/cart.js')
 const { signCustomerToken } = await import('../server/src/services/jwt.js')
-const web = 'http://localhost:5241',
-  shots = 'docs/manual-coupons/screenshots'
+const web = process.env.TOKRIII_TEST_SITE || 'http://localhost:5241',
+  shots =
+    process.env.TOKRIII_TEST_SCREENSHOTS || 'docs/manual-coupons/screenshots'
+assert.ok(
+  ['localhost', '127.0.0.1'].includes(new URL(web).hostname),
+  'Browser regression must target a local test server',
+)
 await mkdir(shots, { recursive: true })
 const browser = await chromium.launch({
   executablePath: '/usr/bin/google-chrome',
@@ -57,7 +62,11 @@ try {
       .first()
       .waitFor()
     await page.waitForFunction(
-      () => !document.body.innerText.includes('Checking available coupons…'),
+      () =>
+        !document.body.innerText.includes('Checking available coupons…') &&
+        document
+          .querySelector('section[aria-label="Available Coupons"]')
+          ?.parentElement.getAttribute('aria-busy') !== 'true',
     )
   }
   const apply = async (percent) => {
@@ -66,7 +75,11 @@ try {
       .click()
     await card(percent).getByText('Applied', { exact: true }).waitFor()
     await page.waitForFunction(
-      () => !document.body.innerText.includes('Checking available coupons…'),
+      () =>
+        !document.body.innerText.includes('Checking available coupons…') &&
+        document
+          .querySelector('section[aria-label="Available Coupons"]')
+          ?.parentElement.getAttribute('aria-busy') !== 'true',
     )
   }
   await page.goto(`${web}/checkout`)
@@ -199,17 +212,11 @@ try {
   await apply(15)
   assert.equal(latest.totals.discount, 240)
   await page.goto(`${web}/cart`)
-  const row = page
-    .locator('li')
-    .filter({ has: page.getByText('Coupon addon', { exact: true }) })
-  console.log('cart remove matches', await row.count())
-  if (await row.count())
-    await row.getByRole('button', { name: 'Remove', exact: true }).click()
-  else
-    await page
-      .getByRole('button', { name: 'Remove', exact: true })
-      .last()
-      .click()
+  // Scope Remove to the product row, not the selected coupon's Remove action.
+  const productRow = page
+    .getByRole('heading', { name: 'Coupon addon', exact: true })
+    .locator('xpath=ancestor::div[.//button[normalize-space(.)="Remove"]][1]')
+  await productRow.getByRole('button', { name: 'Remove', exact: true }).click()
   await page
     .getByText(
       'Your 15% coupon was removed because your cart is now below ₹1,500.',
@@ -279,7 +286,12 @@ try {
       ...document.querySelectorAll(
         'section[aria-label="Available Coupons"] button',
       ),
-    ].some((button) => button.textContent === 'Apply' && !button.disabled),
+    ].some(
+      (button) =>
+        button.textContent === 'Apply' &&
+        !button.disabled &&
+        button.getAttribute('aria-disabled') !== 'true',
+    ),
   )
   assert.equal(await section().getByText('Applied', { exact: true }).count(), 0)
   assert.equal(latest.totals.discount, 0)
