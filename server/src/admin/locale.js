@@ -25,7 +25,6 @@ const resourceLabels = {
   Orders: 'Orders',
   Coupons: 'Coupons',
   General: 'General',
-  AutomaticDiscount: 'Automatic Discounts',
   'Delivery partners': 'Delivery partners',
   'Serviceable pincodes': 'Serviceable pincodes',
   Team: 'Team',

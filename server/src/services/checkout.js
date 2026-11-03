@@ -195,45 +195,47 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
 
   const { deliveryPartnerId, ...deliveryFields } = delivery
 
-  const order = await prisma.order.create({
-    data: {
-      orderNo,
-      customer: { connect: { id: user.id } },
-      status: 'pending',
-      paymentStatus: 'pending',
-      paymentMode: requestedMode,
-      itemsTotal: totals.itemsTotal,
-      deliveryCharge: totals.deliveryCharge,
-      handlingCharge: totals.handlingCharge,
-      smallCartCharge: totals.smallCartCharge,
-      automaticDiscount: totals.automaticDiscount || undefined,
-      discount: totals.discount,
-      taxTotal: totals.taxTotal,
-      cgstTotal: totals.cgstTotal,
-      sgstTotal: totals.sgstTotal,
-      igstTotal: totals.igstTotal,
-      isInterState,
-      couponCode: appliedCoupon?.code || null,
-      deliveryOption: option,
-      expectedDeliveryDate: expectedDeliveryDate(option),
-      freeDeliveryApplied: isFreeDelivery,
-      grandTotal: totals.grandTotal,
-      address,
-      razorpayOrderId,
-      ...deliveryFields,
-      ...(deliveryPartnerId ? { deliveryPartner: { connect: { id: deliveryPartnerId } } } : {}),
-      items: {
-        create: orderItemsData,
+  const order = await prisma.$transaction(async (tx) => {
+    if (appliedCoupon) {
+      await tx.$queryRaw`SELECT id FROM Coupon WHERE id = ${appliedCoupon.id} FOR UPDATE`
+      const fresh = await calculateCheckoutPricing(cartItems, rates, { customerId: user.id, couponCode: appliedCoupon.code, isInterState, db: tx })
+      if (fresh.totals.grandTotal !== totals.grandTotal || JSON.stringify(fresh.totals.lineItems) !== JSON.stringify(totals.lineItems)) throw Object.assign(new Error('Your order total changed. Please review it before paying.'), { status: 409, code: 'QUOTE_CHANGED' })
+    }
+    const created = await tx.order.create({
+      data: {
+        orderNo,
+        customer: { connect: { id: user.id } },
+        status: 'pending',
+        paymentStatus: 'pending',
+        paymentMode: requestedMode,
+        itemsTotal: totals.itemsTotal,
+        deliveryCharge: totals.deliveryCharge,
+        handlingCharge: totals.handlingCharge,
+        smallCartCharge: totals.smallCartCharge,
+        discount: totals.discount,
+        taxTotal: totals.taxTotal,
+        cgstTotal: totals.cgstTotal,
+        sgstTotal: totals.sgstTotal,
+        igstTotal: totals.igstTotal,
+        isInterState,
+        couponCode: appliedCoupon?.code || null,
+        deliveryOption: option,
+        expectedDeliveryDate: expectedDeliveryDate(option),
+        freeDeliveryApplied: isFreeDelivery,
+        grandTotal: totals.grandTotal,
+        address,
+        razorpayOrderId,
+        ...deliveryFields,
+        ...(deliveryPartnerId ? { deliveryPartner: { connect: { id: deliveryPartnerId } } } : {}),
+        items: {
+          create: orderItemsData,
+        },
       },
-    },
-    include: { items: true },
-  })
-
-  if (appliedCoupon) {
-    await redeemCoupon({ coupon: appliedCoupon, customerId: user.id, orderId: order.id }).catch((error) => {
-      console.error('Failed to record coupon use:', error)
+      include: { items: true },
     })
-  }
+    if (appliedCoupon) await redeemCoupon({ coupon: appliedCoupon, customerId: user.id, orderId: created.id }, tx)
+    return created
+  })
 
   let intent = null
   let intentError = null

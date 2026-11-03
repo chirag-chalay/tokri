@@ -662,6 +662,8 @@ console.log('  -> Valid coupon discount & total recalculation: PASS')
 
 // --- 5C: First-Order Promotional Offer Eligibility ---
 console.log('  5C: Promotional First-Order Free Delivery Offer')
+// Explicit coupon selection now survives refresh. Remove it before the no-coupon delivery assertion.
+await page.getByRole('button', { name: 'Remove coupon', exact: true }).click()
 freeDeliveryEligible = true
 await page.reload({ waitUntil: 'networkidle' })
 await page.waitForTimeout(600)

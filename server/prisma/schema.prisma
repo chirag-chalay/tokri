@@ -160,6 +160,7 @@ model Media {
   createdAt    DateTime  @default(now())
 }
 
+// Retired configuration retained for historical audit only. No active resource or pricing reads.
 model AutomaticDiscount {
   id        Int      @id @default(1)
   enabled   Boolean  @default(false)
@@ -183,6 +184,7 @@ model Coupon {
   usageLimit   Int?
   usedCount    Int        @default(0)
   isActive     Boolean    @default(true)
+  showAtCheckout Boolean  @default(false)
   redemptions  CouponRedemption[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -221,6 +223,7 @@ model Order {
   igstTotal              Decimal          @db.Decimal(10, 2) @default(0)
   isInterState           Boolean          @default(false)
   grandTotal             Decimal          @db.Decimal(10, 2)
+  /// Historical snapshot only; new orders do not populate it.
   automaticDiscount      Json?
   couponCode             String?
   deliveryOption         String?

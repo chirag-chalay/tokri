@@ -39,6 +39,7 @@ export async function prepareCouponPayload(request) {
   payload.targetType = ['products', 'categories'].includes(payload.targetType) ? payload.targetType : 'all'
   payload.usageType = payload.usageType === 'single' ? 'single' : 'unlimited'
   payload.isActive = toBoolean(payload.isActive ?? true)
+  payload.showAtCheckout = toBoolean(payload.showAtCheckout)
   payload.targetSlugs = payload.targetType === 'all' ? [] : parseTargetSlugs(payload.targetSlugs)
   payload.minCart = emptyToNull(payload.minCart)
   payload.maxDiscount = emptyToNull(payload.maxDiscount)
@@ -54,6 +55,14 @@ export async function prepareCouponPayload(request) {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error('Enter a discount value greater than 0.')
   }
+
+  if (payload.type === 'percent' && value > 100) throw new Error('Percentage must not exceed 100.')
+  for (const key of ['minCart', 'maxDiscount', 'usageLimit']) {
+    if (payload[key] != null && (!Number.isFinite(Number(payload[key])) || Number(payload[key]) < 0)) throw new Error(`Invalid ${key}.`)
+  }
+  if (payload.usageLimit != null && (!Number.isSafeInteger(Number(payload.usageLimit)) || Number(payload.usageLimit) < 1)) throw new Error('Usage limit must be a positive integer.')
+  if (payload.startsAt && !Number.isFinite(Date.parse(payload.startsAt)) || payload.expiresAt && !Number.isFinite(Date.parse(payload.expiresAt))) throw new Error('Invalid validity date.')
+  if (payload.startsAt && payload.expiresAt && new Date(payload.startsAt) >= new Date(payload.expiresAt)) throw new Error('Expiry must be after the start date.')
 
   if (payload.targetType !== 'all' && !payload.targetSlugs.length) {
     throw new Error(

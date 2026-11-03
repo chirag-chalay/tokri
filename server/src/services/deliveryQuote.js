@@ -1,17 +1,26 @@
+import { checkoutCouponOffers } from './coupons.js'
 import { subtotal } from '../utils/money.js'
 import { calculateCheckoutPricing } from './pricing.js'
 import { prisma } from '../lib/prisma.js'
 import { deliveryChargeFor, ratesFromSettings } from '../config/charges.js'
-import { applyFreeDeliveryRates, getCustomerFreeDeliveryStatus } from './freeDelivery.js'
+import {
+  applyFreeDeliveryRates,
+  getCustomerFreeDeliveryStatus,
+} from './freeDelivery.js'
 
 export function deliveryDecision(settings, freeDelivery, option, itemsTotal) {
   const configuredRates = ratesFromSettings(settings, option)
-  const freeDeliveryApplied = option === 'morning' &&
-    configuredRates.firstThreeMorningEnabled && Boolean(freeDelivery?.isEligible)
-  const rates = freeDeliveryApplied ? applyFreeDeliveryRates(configuredRates) : configuredRates
-  const minimumOrderValue = option === 'express'
-    ? Number(settings?.expressMinimumOrderValue ?? 1251)
-    : 0
+  const freeDeliveryApplied =
+    option === 'morning' &&
+    configuredRates.firstThreeMorningEnabled &&
+    Boolean(freeDelivery?.isEligible)
+  const rates = freeDeliveryApplied
+    ? applyFreeDeliveryRates(configuredRates)
+    : configuredRates
+  const minimumOrderValue =
+    option === 'express'
+      ? Number(settings?.expressMinimumOrderValue ?? 1251)
+      : 0
   const minimumMet = itemsTotal >= minimumOrderValue
   const deliveryFee = deliveryChargeFor(option, itemsTotal, rates)
 
@@ -20,7 +29,9 @@ export function deliveryDecision(settings, freeDelivery, option, itemsTotal) {
     deliveryFee,
     minimumOrderValue,
     minimumMet,
-    minimumMessage: minimumMet ? null : `Same Day Delivery requires an order of at least ₹${minimumOrderValue}.`,
+    minimumMessage: minimumMet
+      ? null
+      : `Same Day Delivery requires an order of at least ₹${minimumOrderValue}.`,
     freeDeliveryApplied,
     offerRemaining: freeDelivery?.remaining ?? 0,
     offerMessage: freeDeliveryApplied
@@ -37,40 +48,74 @@ export async function getDeliveryDecision(customerId, option, itemsTotal) {
   return deliveryDecision(settings, freeDelivery, option, itemsTotal)
 }
 
-export async function quoteCheckoutDelivery(items, customerId, selectedOption, pricingOptions = {}) {
+export async function quoteCheckoutDelivery(
+  items,
+  customerId,
+  selectedOption,
+  pricingOptions = {},
+) {
   const [settings, freeDelivery] = await Promise.all([
     prisma.setting.findUnique({ where: { id: 1 } }),
     customerId ? getCustomerFreeDeliveryStatus(customerId) : null,
   ])
   const itemsTotal = subtotal(items)
-  const config = await prisma.automaticDiscount.findUnique({ where: { id: 1 } })
   const options = {}
+  let selectedPricing, selectedRates
   for (const option of ['morning', 'express']) {
-    const decision = deliveryDecision(settings, freeDelivery, option, itemsTotal)
-    const { totals } = await calculateCheckoutPricing(items, decision.rates, {
-      ...(typeof pricingOptions === 'object' ? pricingOptions : {}), customerId, config,
+    const decision = deliveryDecision(
+      settings,
+      freeDelivery,
+      option,
+      itemsTotal,
+    )
+    const pricing = await calculateCheckoutPricing(items, decision.rates, {
+      ...(typeof pricingOptions === 'object' ? pricingOptions : {}),
+      customerId,
+      allowCouponRemoval: true,
     })
+    const { totals } = pricing
+    if (option === selectedOption) {
+      selectedPricing = pricing
+      selectedRates = decision.rates
+    }
     options[option] = {
       title: decision.rates[option].title,
       subtitle: decision.rates[option].subtitle,
       deliveryFee: totals.deliveryCharge,
-      deliverySavings: Math.max(0, decision.rates[option].fee - totals.deliveryCharge),
+      deliverySavings: Math.max(
+        0,
+        decision.rates[option].fee - totals.deliveryCharge,
+      ),
       minimumOrderValue: decision.minimumOrderValue,
       minimumMet: decision.minimumMet,
       minimumMessage: decision.minimumMessage,
       freeDeliveryApplied: decision.freeDeliveryApplied,
       offerRemaining: decision.offerRemaining,
       offerMessage: decision.offerMessage,
-      deliveryMessage: decision.offerMessage || (totals.deliveryCharge === 0 ? '🎉 Free delivery applied' : null),
-      freeAboveMessage: !decision.freeDeliveryApplied &&
+      deliveryMessage:
+        decision.offerMessage ||
+        (totals.deliveryCharge === 0 ? '🎉 Free delivery applied' : null),
+      freeAboveMessage:
+        !decision.freeDeliveryApplied &&
         decision.rates[option].freeAbove > itemsTotal
-        ? `Add ₹${Math.round((decision.rates[option].freeAbove - itemsTotal) * 100) / 100} more for free delivery`
-        : null,
+          ? `Add ₹${Math.round((decision.rates[option].freeAbove - itemsTotal) * 100) / 100} more for free delivery`
+          : null,
       freeAbove: decision.rates[option].freeAbove,
     }
     if (option === selectedOption) options[option].totals = totals
   }
   return {
+    items: items.map(({ slug, priceValue, quantity }) => ({
+      slug,
+      priceValue,
+      quantity,
+    })),
+    couponStatus: selectedPricing.couponStatus,
+    availableCoupons: await checkoutCouponOffers(items, selectedRates, {
+      customerId,
+      selectedCode: selectedPricing.coupon?.code,
+      isInterState: Boolean(pricingOptions.isInterState),
+    }),
     deliveryType: selectedOption,
     options,
     totals: options[selectedOption].totals,

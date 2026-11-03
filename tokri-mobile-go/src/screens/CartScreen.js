@@ -49,6 +49,7 @@ export default function CartScreen({ navigation }) {
     discount,
     taxTotal,
     coupon,
+    couponLoading,
     hydrated,
     updateQuantity,
     clearCart,
@@ -166,7 +167,7 @@ export default function CartScreen({ navigation }) {
 
   const placeOrder = async () => {
     if (paying) return
-    if (quoteLoading || !quote) {
+    if (couponLoading || quoteLoading || !quote) {
       setNotice(quoteError || 'Calculating delivery charges. Please try again.')
       return
     }
@@ -444,7 +445,6 @@ export default function CartScreen({ navigation }) {
                 <Text style={styles.freeNudge}>{selectedQuote.offerMessage}</Text>
               ) : null}
               {taxTotal > 0 && <BillRow icon="receipt-outline" label="Taxes & GST" value={formatPrice(taxTotal)} />}
-              {quote?.totals?.automaticDiscount && <BillRow icon="pricetag-outline" label={`Automatic discount (${quote.totals.automaticDiscount.percentage}%)`} value={`-${formatPrice(quote.totals.automaticDiscount.discount)}`} free />}
               {quote?.totals?.couponDiscount > 0 && <BillRow icon="pricetag-outline" label="Coupon" value={`-${formatPrice(quote.totals.couponDiscount)}`} free />}
               {quote?.totals?.discountMessage && <Text style={styles.freeNudge}>{quote.totals.discountMessage}</Text>}
 
@@ -505,7 +505,7 @@ export default function CartScreen({ navigation }) {
               <Pressable
                 style={[styles.placeBtn, paying && styles.placeBtnBusy]}
                 onPress={placeOrder}
-                disabled={paying || quoteLoading || !quote || !selectedQuote?.minimumMet}
+                disabled={paying || couponLoading || quoteLoading || !quote || !selectedQuote?.minimumMet}
               >
                 <View>
                   <Text style={styles.placeAmount}>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</Text>

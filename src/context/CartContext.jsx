@@ -98,9 +98,14 @@ export function CartProvider({ children }) {
   const [freeDelivery, setFreeDelivery] = useState(null)
   const [quoteState, setQuoteState] = useState(null)
   const [quoteError, setQuoteError] = useState('')
-  const [coupon, setCoupon] = useState(null)
+  const [coupon, setCoupon] = useState(() => { try { const code = sessionStorage.getItem('tokri_selected_coupon'); return code ? { code } : null } catch { return null } })
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
+  const cartRevision = useRef(0)
+  const couponRequest = useRef(0)
+  const quoteRequest = useRef(0)
+  const currentQuoteKey = useRef(null)
+  useEffect(() => { try { if (coupon?.code) sessionStorage.setItem('tokri_selected_coupon', coupon.code); else sessionStorage.removeItem('tokri_selected_coupon') } catch { /* Storage may be unavailable. */ } }, [coupon?.code])
   const cartItemsRef = useRef(cartItems)
   cartItemsRef.current = cartItems
   const skipServerPush = useRef(true)
@@ -306,6 +311,8 @@ export function CartProvider({ children }) {
 
   const clearCart = useCallback(() => {
     skipServerPush.current = true
+    couponRequest.current += 1
+    setCouponLoading(false)
     setCartItems([])
     setCoupon(null)
     setCouponError('')
@@ -359,15 +366,17 @@ export function CartProvider({ children }) {
     couponCode,
     addressId: selectedAddress?.id,
     address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
-    customer: isLoggedIn ? user?.id : null,
+    customer: isLoggedIn ? user?.token : null,
   })
+  if (currentQuoteKey.current !== quoteKey) { currentQuoteKey.current = quoteKey; cartRevision.current += 1 }
   const quote = quoteState?.key === quoteKey ? quoteState.data : null
   const quoteLoading = hasItems && !quote
   const itemsTotal = quote?.totals?.itemsTotal ?? localItemsTotal
 
   useEffect(() => {
-    if (!hasItems) return undefined
+    if (!hasItems) { setCoupon(null); return undefined }
     let ignore = false
+    const quoteId = ++quoteRequest.current
     const payload = {
       items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
       deliveryOption: activeOption,
@@ -380,7 +389,24 @@ export function CartProvider({ children }) {
       : postJson('/checkout/quote', payload)
     request.then((data) => {
       if (ignore) return
+      if (currentQuoteKey.current !== quoteKey || quoteId !== quoteRequest.current) return null
       setQuoteState({ key: quoteKey, data })
+      if (data.items) setCartItems((current) => {
+        let changed = false
+        const next = current.map((item) => {
+          const priced = data.items.find((row) => row.slug === item.id)
+          if (!priced || priced.priceValue === item.priceValue) return item
+          changed = true
+          return { ...item, priceValue: priced.priceValue, price: `₹${priced.priceValue}` }
+        })
+        return changed ? next : current
+      })
+      if (data.couponStatus?.status === 'removed') {
+        couponRequest.current += 1
+        setCouponLoading(false)
+        setCoupon(null)
+        setCouponError(data.couponStatus.message)
+      }
       setQuoteError('')
     }).catch((error) => {
       if (!ignore) setQuoteError(error.message || 'Could not calculate delivery charges.')
@@ -390,6 +416,7 @@ export function CartProvider({ children }) {
 
   const refreshDeliveryQuote = useCallback(async () => {
     if (!hasItems) return null
+    const quoteId = ++quoteRequest.current
     const payload = {
       items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
       deliveryOption: activeOption,
@@ -401,7 +428,24 @@ export function CartProvider({ children }) {
       const data = isLoggedIn && user?.token
         ? await authPost('/checkout/quote', user, payload)
         : await postJson('/checkout/quote', payload)
+      if (currentQuoteKey.current !== quoteKey || quoteId !== quoteRequest.current) return null
       setQuoteState({ key: quoteKey, data })
+      if (data.items) setCartItems((current) => {
+        let changed = false
+        const next = current.map((item) => {
+          const priced = data.items.find((row) => row.slug === item.id)
+          if (!priced || priced.priceValue === item.priceValue) return item
+          changed = true
+          return { ...item, priceValue: priced.priceValue, price: `₹${priced.priceValue}` }
+        })
+        return changed ? next : current
+      })
+      if (data.couponStatus?.status === 'removed') {
+        couponRequest.current += 1
+        setCouponLoading(false)
+        setCoupon(null)
+        setCouponError(data.couponStatus.message)
+      }
       setQuoteError('')
       return data
     } catch (error) {
@@ -426,17 +470,6 @@ export function CartProvider({ children }) {
   const taxTotal = quote?.totals?.taxTotal ?? 0
   const grandTotal = quote?.totals?.grandTotal ?? 0
 
-  const previewPayload = useCallback(
-    () => ({
-      code: coupon?.code,
-      addressId: selectedAddress?.id,
-      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
-      items: cartItems.map((item) => ({ slug: item.id, quantity: item.quantity })),
-      deliveryOption: activeOption,
-    }),
-    [activeOption, cartItems, coupon?.code, selectedAddress],
-  )
-
   const applyCoupon = useCallback(
     async (rawCode) => {
       const code = String(rawCode || '').trim().toUpperCase()
@@ -449,6 +482,9 @@ export function CartProvider({ children }) {
         return null
       }
 
+      const requestId = ++couponRequest.current
+      const requestedKey = currentQuoteKey.current
+      const requestedRevision = cartRevision.current
       setCouponLoading(true)
       setCouponError('')
       try {
@@ -462,51 +498,26 @@ export function CartProvider({ children }) {
         const data = isLoggedIn
           ? await authPost('/checkout/preview-coupon', user, body)
           : await postJson('/checkout/preview-coupon', body)
+        if (requestId !== couponRequest.current || requestedKey !== currentQuoteKey.current || requestedRevision !== cartRevision.current) return null
         setCoupon(data.coupon)
         return data.coupon
       } catch (error) {
-        setCoupon(null)
+        if (requestId !== couponRequest.current || requestedKey !== currentQuoteKey.current || requestedRevision !== cartRevision.current) return null
         setCouponError(error.message || 'This coupon could not be applied')
         throw error
       } finally {
-        setCouponLoading(false)
+        if (requestId === couponRequest.current) setCouponLoading(false)
       }
     },
     [activeOption, cartItems, isLoggedIn, selectedAddress, user],
   )
 
   const removeCoupon = useCallback(() => {
+    couponRequest.current += 1
+    setCouponLoading(false)
     setCoupon(null)
     setCouponError('')
   }, [])
-
-  useEffect(() => {
-    if (!coupon?.code) return undefined
-    if (!cartItems.length) {
-      setCoupon(null)
-      return undefined
-    }
-
-    let ignore = false
-    const body = previewPayload()
-    const request = isLoggedIn
-      ? authPost('/checkout/preview-coupon', user, body)
-      : postJson('/checkout/preview-coupon', body)
-
-    request
-      .then((data) => {
-        if (!ignore) setCoupon(data.coupon)
-      })
-      .catch((error) => {
-        if (ignore) return
-        setCoupon(null)
-        setCouponError(error.message || 'Coupon is no longer valid for this cart')
-      })
-
-    return () => {
-      ignore = true
-    }
-  }, [activeOption, cartItems, coupon?.code, isLoggedIn, previewPayload, user])
 
   return (
     <CartContext.Provider

@@ -1,4 +1,3 @@
-import { getAutomaticDiscountResource } from './automatic-discounts.js'
 import AdminJS from 'adminjs'
 import AdminJSExpress from '@adminjs/express'
 import * as AdminJSPrisma from '@adminjs/prisma'
@@ -698,7 +697,7 @@ export async function buildAdminRouter() {
         options: {
           name: 'Coupons',
           navigation: { name: null, icon: 'Tag' },
-          listProperties: ['code', 'type', 'value', 'applyOn', 'targetType', 'usageType', 'isActive', 'usedCount'],
+          listProperties: ['code', 'type', 'value', 'applyOn', 'targetType', 'usageType', 'isActive', 'showAtCheckout', 'usedCount'],
           editProperties: [
             'code',
             'type',
@@ -713,6 +712,7 @@ export async function buildAdminRouter() {
             'startsAt',
             'expiresAt',
             'isActive',
+            'showAtCheckout',
           ],
           actions: {
             ...resourceActions('manageCoupons'),
@@ -734,6 +734,7 @@ export async function buildAdminRouter() {
           },
           properties: {
             code: { isTitle: true, label: 'Code' },
+            showAtCheckout: { label: 'Show at checkout' },
             type: { label: 'Discount type' },
             value: { label: 'Value' },
             applyOn: { label: 'Applies to' },
@@ -745,7 +746,6 @@ export async function buildAdminRouter() {
         },
       },
       getSettingResource(Components.SettingsEdit),
-      getAutomaticDiscountResource(Components.AutomaticDiscounts),
       {
         resource: { model: AdminJSPrisma.getModelByName('AppReleasePolicy'), client: prisma },
         options: {

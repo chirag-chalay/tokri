@@ -29,6 +29,7 @@ export default function CheckoutPage() {
     discount,
     grandTotal,
     coupon,
+    couponLoading,
     deliveryOption,
     setDeliveryOption,
     deliveryConfig,
@@ -185,7 +186,7 @@ export default function CheckoutPage() {
   }
 
   const handleCheckout = async () => {
-    if (quoteLoading || !quote || !quote.options?.[deliveryOption]?.minimumMet) return
+    if (couponLoading || quoteLoading || !quote || !quote.options?.[deliveryOption]?.minimumMet) return
     if (!isLoggedIn) {
       Swal.fire({
         icon: 'info',
@@ -326,9 +327,9 @@ export default function CheckoutPage() {
         )}
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
           <section className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-white">Delivery address</h2>
               <Link
                 to="/account?section=addresses"
@@ -458,7 +459,7 @@ export default function CheckoutPage() {
           ) : null}
           </div>
 
-          <aside className="h-fit rounded-2xl border border-line bg-panel p-5 sm:p-6">
+          <aside className="min-w-0 h-fit rounded-2xl border border-line bg-panel p-5 sm:p-6">
             <h2 className="text-lg font-bold text-white">Order summary</h2>
             <div className="mt-4">
               <CouponBox compact />
@@ -567,6 +568,7 @@ export default function CheckoutPage() {
               onClick={handleCheckout}
               disabled={
                 paying ||
+                couponLoading ||
                 quoteLoading ||
                 !quote ||
                 !selectedQuote?.minimumMet ||

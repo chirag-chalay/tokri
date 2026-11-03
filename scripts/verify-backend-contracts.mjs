@@ -40,7 +40,7 @@ const allowedHosts = ['127.0.0.1', 'localhost', '::1']
 if (!allowedHosts.includes(parsedDbUrl.hostname)) {
   throw new Error(`FAIL CLOSED: Unauthorized host '${parsedDbUrl.hostname}'. Tests are strictly restricted to local isolated MySQL at localhost:3307.`)
 }
-const isDiscountTestDatabase = parsedDbUrl.port === '13317' && parsedDbUrl.pathname === '/tokri_discounts_test'
+const isDiscountTestDatabase = (parsedDbUrl.port === '13317' && parsedDbUrl.pathname === '/tokri_discounts_test') || (parsedDbUrl.port === '13318' && parsedDbUrl.pathname === '/tokri_manual_coupons_test')
 if (parsedDbUrl.port !== '3307' && !isDiscountTestDatabase) {
   throw new Error(`FAIL CLOSED: Unauthorized port '${parsedDbUrl.port}'. Tests are strictly restricted to local isolated MySQL at port 3307.`)
 }

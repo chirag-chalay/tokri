@@ -449,6 +449,10 @@ const CouponEdit = (props) => {
 
         <section className="tokri-coupon-card">
           <h4>Discount</h4>
+          <label className="tokri-coupon-toggle">
+            <input type="checkbox" checked={params.showAtCheckout === true || params.showAtCheckout === 'true'} onChange={(event) => setField('showAtCheckout', event.target.checked)} />
+            Show publicly in checkout Available Coupons
+          </label>
           <div className="tokri-choice-row">
             <ChoiceCard
               selected={couponType === 'percent'}
