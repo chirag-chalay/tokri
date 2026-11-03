@@ -56,7 +56,7 @@ export default function Header({ onLoginClick, className = '' }) {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full overflow-hidden bg-panel transition-colors duration-300 ${
+      className={`sticky top-0 z-50 w-full bg-panel transition-colors duration-300 ${
         festiveActive
           ? 'border-b border-[#E9C77A]/35 shadow-[0_4px_24px_rgba(242,168,74,0.12)]'
           : 'border-b border-line shadow-sm shadow-black/20'
