@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MoreVertical, Plus } from 'lucide-react'
 import { authDelete, authGet, authPost, authPut } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
@@ -19,6 +19,7 @@ export default function SavedAddresses() {
   const [saving, setSaving] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const menuRef = useRef(null)
 
   const loadAddresses = async () => {
     setLoading(true)
@@ -38,10 +39,14 @@ export default function SavedAddresses() {
   }, [user?.phone])
 
   useEffect(() => {
-    const onClick = () => setMenuOpenId(null)
-    document.addEventListener('click', onClick)
-    return () => document.removeEventListener('click', onClick)
-  }, [])
+    if (!menuOpenId) return undefined
+    const onPointerDown = (event) => {
+      if (menuRef.current?.contains(event.target)) return
+      setMenuOpenId(null)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [menuOpenId])
 
   const openCreate = () => {
     setEditingAddress(null)
@@ -64,6 +69,7 @@ export default function SavedAddresses() {
         const data = await authPost('/account/addresses', user, payload)
         setAddresses((prev) => [...prev, data.address])
       }
+      await refreshAddresses()
       setFormOpen(false)
       setEditingAddress(null)
     } finally {
@@ -150,27 +156,33 @@ export default function SavedAddresses() {
                   <p className="mt-1 text-sm leading-6 text-muted">{address.formatted}</p>
                 </div>
 
-                <div className="relative shrink-0">
+                <div
+                  className="relative shrink-0"
+                  ref={menuOpenId === address.id ? menuRef : null}
+                >
                   <button
                     type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
+                    onClick={() =>
                       setMenuOpenId((current) => (current === address.id ? null : address.id))
-                    }}
+                    }
                     className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition hover:bg-panel hover:text-white"
                     aria-label="Address options"
+                    aria-expanded={menuOpenId === address.id}
+                    aria-haspopup="menu"
                   >
                     <MoreVertical size={18} />
                   </button>
 
                   {menuOpenId === address.id && (
                     <div
-                      className={`absolute right-0 z-50 w-36 overflow-hidden rounded-xl border border-line bg-panel shadow-lg ${
+                      role="menu"
+                      className={`absolute right-0 z-[60] w-36 overflow-hidden rounded-xl border border-line bg-panel shadow-lg ${
                         isLast ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
                     >
                       <button
                         type="button"
+                        role="menuitem"
                         onClick={() => openEdit(address)}
                         className="block w-full px-4 py-2.5 text-left text-sm text-white hover:bg-panel-2"
                       >
@@ -178,6 +190,7 @@ export default function SavedAddresses() {
                       </button>
                       <button
                         type="button"
+                        role="menuitem"
                         onClick={() => requestDelete(address.id)}
                         className="block w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-950/40"
                       >

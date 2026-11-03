@@ -76,7 +76,9 @@ export default function CartDrawer() {
                         <h3 className="font-semibold text-white">{item.name}</h3>
                         <p className="text-sm text-muted">{item.weight}</p>
                       </div>
-                      <p className="font-semibold text-mint">{formatPrice(item.priceValue)}</p>
+                      <p className="font-semibold text-mint">
+                        {formatPrice(item.priceValue * item.quantity)}
+                      </p>
                     </div>
                     <div className="mt-3 flex items-center gap-3">
                       <button
