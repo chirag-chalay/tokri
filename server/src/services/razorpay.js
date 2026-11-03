@@ -79,6 +79,21 @@ export async function createOrderPaymentLink({ amountInr, orderNo, customer = {}
   }
 }
 
+/** Best-effort cancel so cash-collected COD links cannot be paid twice. */
+export async function cancelOrderPaymentLink(paymentLinkId) {
+  const id = String(paymentLinkId || '').trim()
+  if (!id) return null
+  try {
+    return await razorpayFetch(`/payment_links/${encodeURIComponent(id)}/cancel`, {
+      method: 'POST',
+      body: {},
+    })
+  } catch (error) {
+    console.error('Failed to cancel Razorpay payment link:', id, error.message)
+    return null
+  }
+}
+
 function formatRazorpayError(path, status, payload) {
   const rzp = payload?.error || {}
   const detail =

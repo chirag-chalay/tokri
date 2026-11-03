@@ -1,0 +1,42 @@
+---
+description: Staging/live Next deploy — API proxy bake, rewrites, partner stay local
+alwaysApply: true
+---
+
+# Staging / live deploy
+
+## Next `build:next` must set the API proxy target
+
+Rewrites in `next.config.mjs` are **baked at build time** into `.next/routes-manifest.json`.
+Runtime PM2 env alone is not enough after a rebuild.
+
+| Host | Set before `npm run build:next` | API process port |
+|------|----------------------------------|------------------|
+| Live (`tokri-live`) | `TOKRIII_API_PROXY_TARGET=http://127.0.0.1:5173` | 5173 |
+| Staging (`tokri-staging`) | `TOKRIII_API_PROXY_TARGET=http://127.0.0.1:3020` | 3020 |
+
+Default in `next.config.mjs` is `http://127.0.0.1:5223` (local). Building without the env above makes `/api/*`, `/uploads/*`, `/tokri-backoffice`, and `/partner` return **500** (`ECONNREFUSED` to 5223). Orders/addresses look broken even though the API process is fine.
+
+After rebuild, confirm before telling the user it is done:
+
+```bash
+# live
+grep 5173 .next/routes-manifest.json | head
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5222/api/v1/app/bootstrap
+
+# staging
+grep 3020 .next/routes-manifest.json | head
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/api/v1/app/bootstrap
+```
+
+Expect **200**. Prefer the start scripts (`scripts/start-live-next.sh`, `scripts/start-staging-next.sh`) which already export the right target for `next start`.
+
+## Live `next.config.mjs` rewrites
+
+Live keeps local-only rewrites for `/tokri-backoffice` and `/partner` (not always on `origin/main`). Before pull: back up `next.config.mjs`. After pull: restore those rewrite lines if missing, then rebuild with the live proxy target above.
+
+## Deploy path and what not to push
+
+- Ship storefront/API via GitHub: push `staging` and/or `main`, then pull on the matching server. Live tracks `main` — do not pull the staging branch onto live.
+- Keep `tokri-partner-go/` and uncommitted partner server experiments local until the user explicitly asks to push them.
+- Do not commit server `.env` / `.env.production` secrets.

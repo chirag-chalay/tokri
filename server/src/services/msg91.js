@@ -339,9 +339,15 @@ function formatOrderItems(items) {
 
 function partnerPaymentLabel(order) {
   const mode = String(order.paymentMode || 'cod').toLowerCase()
-  if (mode === 'online' || order.paymentCollectedAs === 'online' || order.razorpayPaymentId) {
+  if (mode === 'online' || order.paymentCollectedAs === 'online') {
     return String(order.paymentStatus || '').toLowerCase() === 'paid' ? 'Paid online' : 'Online - unpaid'
   }
+  const collected = String(order.paymentCollectedAs || '').toLowerCase()
+  if (collected === 'qr' || (order.razorpayPaymentId && collected !== 'cash')) {
+    return String(order.paymentStatus || '').toLowerCase() === 'paid' ? 'Paid via QR' : 'COD - QR pending'
+  }
+  if (collected === 'cash') return 'COD - cash collected'
+  if (order.razorpayPaymentLinkId || order.razorpayQrUrl) return 'COD - cash or QR'
   return 'COD - collect cash'
 }
 

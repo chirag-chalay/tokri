@@ -1,10 +1,27 @@
 import { prisma } from '../lib/prisma.js'
-import { createOrderPaymentLink } from './razorpay.js'
+import { cancelOrderPaymentLink, createOrderPaymentLink } from './razorpay.js'
 import { toPublicAssetUrl } from '../utils/formatters.js'
+import { notifyOrderStatus } from './push.js'
 
 function parseAddress(address) {
   if (!address || typeof address !== 'object') return null
   return address
+}
+
+function toCoord(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+/** Single place to change later if auto-delivered should stop. */
+export function deliveryPaidUpdate(paymentCollectedAs, paymentId) {
+  const data = {
+    paymentStatus: 'paid',
+    paymentCollectedAs,
+    status: 'delivered',
+  }
+  if (paymentId) data.razorpayPaymentId = paymentId
+  return data
 }
 
 export function formatPartnerOrder(order) {
@@ -19,10 +36,14 @@ export function formatPartnerOrder(order) {
     grandTotal: Number(order.grandTotal),
     itemsTotal: Number(order.itemsTotal),
     createdAt: order.createdAt,
+    expectedDeliveryDate: order.expectedDeliveryDate || null,
+    deliveryOption: order.deliveryOption || null,
     razorpayQrUrl: order.razorpayQrUrl || null,
     razorpayPaymentLinkId: order.razorpayPaymentLinkId || null,
     customerName: order.customer?.name || address?.name || 'Customer',
     customerPhone: order.customer?.phone || address?.phone || '',
+    latitude: toCoord(address?.latitude),
+    longitude: toCoord(address?.longitude),
     address: address
       ? {
           name: address.name,
@@ -33,6 +54,8 @@ export function formatPartnerOrder(order) {
           state: address.state,
           pincode: address.pincode,
           landmark: address.landmark,
+          latitude: toCoord(address.latitude),
+          longitude: toCoord(address.longitude),
         }
       : null,
     items: (order.items || []).map((item) => ({
@@ -63,6 +86,27 @@ async function loadAssignedOrder(orderId, partnerId) {
   return order
 }
 
+function assertCodCollectable(order) {
+  if (order.status === 'cancelled') {
+    throw Object.assign(new Error('This order was cancelled.'), { status: 400 })
+  }
+  if (order.paymentMode !== 'cod') {
+    throw Object.assign(new Error('This order was not placed as cash on delivery.'), { status: 400 })
+  }
+}
+
+function sortPartnerOrders(orders) {
+  const rank = (order) => {
+    if (order.status === 'delivered' || order.paymentStatus === 'paid') return 1
+    return 0
+  }
+  return [...orders].sort((a, b) => {
+    const diff = rank(a) - rank(b)
+    if (diff !== 0) return diff
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
+}
+
 export async function listPartnerOrders(partnerId) {
   const orders = await prisma.order.findMany({
     where: {
@@ -73,33 +117,53 @@ export async function listPartnerOrders(partnerId) {
     take: 100,
     include: partnerOrderInclude,
   })
-  return orders.map(formatPartnerOrder)
+  return sortPartnerOrders(orders).map(formatPartnerOrder)
 }
 
-export async function collectCashForOrder(orderId, { partnerId } = {}) {
+export async function getPartnerOrder(orderId, partnerId) {
   const order = await loadAssignedOrder(orderId, partnerId)
-  if (order.paymentMode !== 'cod') {
-    throw Object.assign(new Error('This order was not placed as cash on delivery.'), { status: 400 })
-  }
-  if (order.paymentStatus === 'paid') {
-    return order
-  }
+  return formatPartnerOrder(order)
+}
 
-  return prisma.order.update({
-    where: { id: order.id },
-    data: {
-      paymentStatus: 'paid',
-      paymentCollectedAs: 'cash',
-    },
+async function reloadPartnerOrder(orderId) {
+  return prisma.order.findUnique({
+    where: { id: orderId },
     include: partnerOrderInclude,
   })
 }
 
+export async function collectCashForOrder(orderId, { partnerId } = {}) {
+  const order = await loadAssignedOrder(orderId, partnerId)
+  assertCodCollectable(order)
+  if (order.paymentStatus === 'paid') {
+    return order
+  }
+
+  const result = await prisma.order.updateMany({
+    where: {
+      id: order.id,
+      paymentStatus: { not: 'paid' },
+      status: { not: 'cancelled' },
+      paymentMode: 'cod',
+    },
+    data: deliveryPaidUpdate('cash'),
+  })
+
+  const updated = (await reloadPartnerOrder(order.id)) || order
+  if (result.count > 0) {
+    if (order.razorpayPaymentLinkId) {
+      await cancelOrderPaymentLink(order.razorpayPaymentLinkId)
+    }
+    notifyOrderStatus(updated, 'delivered').catch((error) =>
+      console.error('Failed to send push after cash collect:', error),
+    )
+  }
+  return updated
+}
+
 export async function createOrderPaymentQr(orderId, { partnerId } = {}) {
   const order = await loadAssignedOrder(orderId, partnerId)
-  if (order.paymentMode !== 'cod') {
-    throw Object.assign(new Error('QR payment is only for cash on delivery orders.'), { status: 400 })
-  }
+  assertCodCollectable(order)
   if (order.paymentStatus === 'paid') {
     return order
   }
@@ -132,13 +196,22 @@ export async function markOrderPaidByQr({ orderNo, paymentId }) {
   const order = await prisma.order.findUnique({ where: { orderNo } })
   if (!order) return null
   if (order.paymentStatus === 'paid') return order
+  if (order.status === 'cancelled') return order
 
-  return prisma.order.update({
-    where: { id: order.id },
-    data: {
-      paymentStatus: 'paid',
-      paymentCollectedAs: 'qr',
-      razorpayPaymentId: paymentId || order.razorpayPaymentId,
+  const result = await prisma.order.updateMany({
+    where: {
+      id: order.id,
+      paymentStatus: { not: 'paid' },
+      status: { not: 'cancelled' },
     },
+    data: deliveryPaidUpdate('qr', paymentId || order.razorpayPaymentId),
   })
+
+  const updated = await prisma.order.findUnique({ where: { id: order.id } })
+  if (result.count > 0 && updated) {
+    notifyOrderStatus(updated, 'delivered').catch((error) =>
+      console.error('Failed to send push after QR payment:', error),
+    )
+  }
+  return updated
 }

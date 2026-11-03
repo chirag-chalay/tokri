@@ -4,7 +4,13 @@ import { prisma } from '../lib/prisma.js'
 import { signPartnerToken } from '../services/jwt.js'
 import { requestPartnerPasswordReset } from '../services/partnerPassword.js'
 import { requirePartner } from '../middleware/partnerAuth.js'
-import { collectCashForOrder, createOrderPaymentQr, formatPartnerOrder, listPartnerOrders } from '../services/partnerOrders.js'
+import {
+  collectCashForOrder,
+  createOrderPaymentQr,
+  formatPartnerOrder,
+  getPartnerOrder,
+  listPartnerOrders,
+} from '../services/partnerOrders.js'
 
 const router = Router()
 
@@ -72,6 +78,15 @@ router.get('/orders', requirePartner, async (req, res, next) => {
   try {
     const orders = await listPartnerOrders(req.partner.id)
     res.json({ orders })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/orders/:id', requirePartner, async (req, res, next) => {
+  try {
+    const order = await getPartnerOrder(req.params.id, req.partner.id)
+    res.json({ order })
   } catch (error) {
     next(error)
   }
