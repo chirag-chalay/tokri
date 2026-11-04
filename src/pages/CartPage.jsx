@@ -76,7 +76,8 @@ function MobileCartView({
   deliveryConfig,
 }) {
   const navigate = useNavigate()
-  const { quoteLoading } = useCart()
+  const { quoteLoading, quote } = useCart()
+  const hasPublicCoupons = (quote?.availableCoupons || []).length > 0
 
   return (
     <div className="min-h-screen bg-canvas pb-28 lg:hidden">
@@ -121,9 +122,11 @@ function MobileCartView({
             ))}
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-line bg-panel p-4">
-            <CouponBox compact />
-          </section>
+          {hasPublicCoupons ? (
+            <section className="rounded-2xl border border-line bg-panel p-4">
+              <CouponBox compact />
+            </section>
+          ) : null}
 
           <section className="overflow-hidden rounded-2xl border border-line bg-panel p-4">
             <BillDetails
@@ -158,7 +161,9 @@ function MobileCartView({
               className="flex w-full items-center justify-between rounded-xl bg-brand px-5 py-3.5 text-black transition active:bg-brand-hover"
             >
               <span>
-                <span className="block text-lg font-bold leading-none">{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</span>
+                <span className="block text-lg font-bold leading-none">
+                  {quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}
+                </span>
                 <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wide text-black/70">
                   TOTAL
                 </span>
@@ -201,106 +206,106 @@ function DesktopCartView({
 }) {
   return (
     <section className="mx-auto hidden max-w-7xl bg-canvas px-4 py-10 sm:px-6 lg:block lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm text-muted">Cart</p>
-            <h1 className="text-3xl font-bold text-white">Your Shopping Bag</h1>
-          </div>
-          <Link to="/" className="text-sm text-mint hover:text-white">
-            Continue shopping
-          </Link>
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm text-muted">Cart</p>
+          <h1 className="text-3xl font-bold text-white">Your Shopping Bag</h1>
         </div>
+        <Link to="/" className="text-sm text-mint hover:text-white">
+          Continue shopping
+        </Link>
+      </div>
 
-        {cartItems.length === 0 ? (
-          <div className="rounded-[2rem] border border-line bg-panel p-12 text-center text-muted">
-            <p className="text-xl font-semibold text-white">Your cart is empty</p>
-            <p className="mt-3">Add fresh fruits from the home page to place your order.</p>
-          </div>
-        ) : (
-          <div className="grid gap-8 lg:grid-cols-[1.8fr_1fr]">
-            <div className="space-y-4">
-              {cartItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex flex-col gap-4 rounded-[2rem] border border-line bg-panel p-5 sm:flex-row sm:items-center"
-                >
-                  <img
-                    src={resolveAssetUrl(item.image)}
-                    alt={item.name}
-                    className="h-28 w-28 rounded-3xl object-cover"
-                  />
-                  <div className="flex-1">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h2 className="text-lg font-semibold text-white">{item.name}</h2>
-                        <p className="text-sm text-muted">{item.weight}</p>
-                      </div>
-                      <p className="text-lg font-semibold text-white">
-                        {formatPrice(item.priceValue * item.quantity)}
-                      </p>
+      {cartItems.length === 0 ? (
+        <div className="rounded-[2rem] border border-line bg-panel p-12 text-center text-muted">
+          <p className="text-xl font-semibold text-white">Your cart is empty</p>
+          <p className="mt-3">Add fresh fruits from the home page to place your order.</p>
+        </div>
+      ) : (
+        <div className="grid gap-8 lg:grid-cols-[1.8fr_1fr]">
+          <div className="space-y-4">
+            {cartItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-4 rounded-[2rem] border border-line bg-panel p-5 sm:flex-row sm:items-center"
+              >
+                <img
+                  src={resolveAssetUrl(item.image)}
+                  alt={item.name}
+                  className="h-28 w-28 rounded-3xl object-cover"
+                />
+                <div className="flex-1">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">{item.name}</h2>
+                      <p className="text-sm text-muted">{item.weight}</p>
                     </div>
-                    <div className="mt-4 flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="h-9 w-9 rounded-full border border-line text-white"
-                      >
-                        –
-                      </button>
-                      <span className="font-semibold text-white">{item.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="h-9 w-9 rounded-full border border-line text-white"
-                      >
-                        +
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        className="ml-auto text-sm text-muted hover:text-white"
-                      >
-                        Remove
-                      </button>
-                    </div>
+                    <p className="text-lg font-semibold text-white">
+                      {formatPrice(item.priceValue * item.quantity)}
+                    </p>
+                  </div>
+                  <div className="mt-4 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(item.id, -1)}
+                      className="h-9 w-9 rounded-full border border-line text-white"
+                    >
+                      –
+                    </button>
+                    <span className="font-semibold text-white">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(item.id, 1)}
+                      className="h-9 w-9 rounded-full border border-line text-white"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      className="ml-auto text-sm text-muted hover:text-white"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="space-y-6 rounded-[2rem] border border-line bg-panel p-6">
-              <CouponBox />
-              <BillDetails
-                cartItems={cartItems}
-                itemsTotal={itemsTotal}
-                taxTotal={taxTotal}
-                deliveryCharge={deliveryCharge}
-                handlingCharge={handlingCharge}
-                discount={discount}
-                grandTotal={grandTotal}
-                deliveryOption={deliveryOption}
-                deliveryConfig={deliveryConfig}
-              />
-              {hasDeliveryAddress ? (
-                <button
-                  type="button"
-                  onClick={onProceed}
-                  className="w-full rounded-full bg-brand py-4 text-sm font-semibold text-black transition hover:bg-brand-hover"
-                >
-                  Proceed to checkout
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onAddAddress}
-                  className="w-full rounded-full bg-brand py-4 text-sm font-semibold text-black transition hover:bg-brand-hover"
-                >
-                  Add address to proceed
-                </button>
-              )}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
+
+          <div className="space-y-6 rounded-[2rem] border border-line bg-panel p-6">
+            <CouponBox />
+            <BillDetails
+              cartItems={cartItems}
+              itemsTotal={itemsTotal}
+              taxTotal={taxTotal}
+              deliveryCharge={deliveryCharge}
+              handlingCharge={handlingCharge}
+              discount={discount}
+              grandTotal={grandTotal}
+              deliveryOption={deliveryOption}
+              deliveryConfig={deliveryConfig}
+            />
+            {hasDeliveryAddress ? (
+              <button
+                type="button"
+                onClick={onProceed}
+                className="w-full rounded-full bg-brand py-4 text-sm font-semibold text-black transition hover:bg-brand-hover"
+              >
+                Proceed to checkout
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onAddAddress}
+                className="w-full rounded-full bg-brand py-4 text-sm font-semibold text-black transition hover:bg-brand-hover"
+              >
+                Add address to proceed
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

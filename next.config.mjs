@@ -44,9 +44,15 @@ const nextConfig = {
     return headersList
   },
   async rewrites() {
+    // Public site port (5222) is Next; AdminJS + partner pages live on the API process.
+    // Mirror the old Vite proxy so /tokri-backoffice keeps working without nginx changes.
     return [
       { source: '/api/:path*', destination: `${apiTarget}/api/:path*` },
       { source: '/uploads/:path*', destination: `${apiTarget}/uploads/:path*` },
+      { source: '/tokri-backoffice', destination: `${apiTarget}/tokri-backoffice` },
+      { source: '/tokri-backoffice/:path*', destination: `${apiTarget}/tokri-backoffice/:path*` },
+      { source: '/partner', destination: `${apiTarget}/partner` },
+      { source: '/partner/:path*', destination: `${apiTarget}/partner/:path*` },
     ]
   },
   webpack(config, { webpack }) {

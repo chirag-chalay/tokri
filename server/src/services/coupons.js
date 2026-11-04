@@ -276,19 +276,27 @@ export async function checkoutCouponOffers(
   rates,
   { customerId, selectedCode, isInterState = false } = {},
 ) {
-  // Private codes never enter this result, including locked/ineligible responses.
+  // Only active public coupons. Private codes never enter this list.
+  // Expired / not-started / capped coupons are omitted (not shown as locked rows).
+  // Cart-eligibility failures stay as locked unlock rows.
   const coupons = await prisma.coupon.findMany({
-    where: { showAtCheckout: true },
+    where: { showAtCheckout: true, isActive: true },
     orderBy: [{ minCart: 'asc' }, { code: 'asc' }],
   })
   const currentSubtotal = subtotal(items)
-  return Promise.all(
+  const offers = await Promise.all(
     coupons.map(async (coupon) => {
-      const minimumSubtotal = Number(coupon.minCart || 0)
-      let estimatedSavings = 0,
-        reason = null
       try {
         await findActiveCoupon(coupon.code)
+      } catch (error) {
+        if (error.status !== 400) throw error
+        return null
+      }
+
+      const minimumSubtotal = Number(coupon.minCart || 0)
+      let estimatedSavings = 0
+      let reason = null
+      try {
         estimatedSavings = (
           await applyCouponToItems(
             coupon,
@@ -318,7 +326,9 @@ export async function checkoutCouponOffers(
         estimatedSavings,
         applied: eligible && coupon.code === selectedCode,
         reason,
+        knowMoreHtml: coupon.knowMoreHtml || null,
       }
     }),
   )
+  return offers.filter(Boolean)
 }

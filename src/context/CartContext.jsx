@@ -16,6 +16,19 @@ const parsePrice = (price) => {
   return Number.isNaN(numeric) ? 0 : numeric
 }
 
+/** Highest estimatedSavings among eligible offers; tie-break min cart then code. */
+export function pickBestEligibleCoupon(offers = []) {
+  const eligible = offers.filter((offer) => offer?.eligible && offer?.code)
+  if (!eligible.length) return null
+  return [...eligible].sort((a, b) => {
+    const savingsDiff = Number(b.estimatedSavings || 0) - Number(a.estimatedSavings || 0)
+    if (savingsDiff !== 0) return savingsDiff
+    const minDiff = Number(b.minimumSubtotal || 0) - Number(a.minimumSubtotal || 0)
+    if (minDiff !== 0) return minDiff
+    return String(a.code).localeCompare(String(b.code))
+  })[0]
+}
+
 function categorySlugFrom(product) {
   if (!product) return null
   if (Array.isArray(product.categories) && product.categories.length) {
@@ -114,6 +127,7 @@ export function CartProvider({ children }) {
   useEffect(() => { try { if (coupon?.code) sessionStorage.setItem('tokri_selected_coupon', coupon.code); else sessionStorage.removeItem('tokri_selected_coupon') } catch { /* Storage may be unavailable. */ } }, [coupon?.code])
   const cartItemsRef = useRef(cartItems)
   cartItemsRef.current = cartItems
+
   const skipServerPush = useRef(true)
   const wasGuest = useRef(!isLoggedIn)
 
@@ -434,7 +448,8 @@ export function CartProvider({ children }) {
           couponRequest.current += 1
           setCouponLoading(false)
           setCoupon(null)
-          setCouponError(data.couponStatus.message)
+          // Auto-cleared when the cart no longer qualifies — no banner needed.
+          setCouponError('')
         }
         setCouponAction(null)
         return data

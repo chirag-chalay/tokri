@@ -1,12 +1,10 @@
-import DiscountDetails from './DiscountDetails'
 import { useNavigate } from '../lib/navigation'
 import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'
 import CouponBox from './CouponBox'
-import { formatDeliveryCharge } from '../lib/delivery'
+import CartLineItem from './CartLineItem'
+import BillDetails from './BillDetails'
 import { useFocusTrap } from '../hooks/useFocusTrap'
-
-const formatPrice = (value) => `₹${value.toLocaleString('en-IN')}`
 
 export default function CartDrawer() {
   const navigate = useNavigate()
@@ -18,15 +16,19 @@ export default function CartDrawer() {
     taxTotal,
     deliveryCharge,
     handlingCharge,
+    discount,
     grandTotal,
-    quoteLoading,
+    quote,
     showDrawer,
     closeDrawer,
     updateQuantity,
     removeItem,
+    deliveryOption,
+    deliveryConfig,
   } = useCart()
 
   const containerRef = useFocusTrap(Boolean(showDrawer), closeDrawer)
+  const hasPublicCoupons = (quote?.availableCoupons || []).length > 0
 
   if (!showDrawer) return null
 
@@ -49,10 +51,12 @@ export default function CartDrawer() {
         className="w-full max-w-md overflow-y-auto border-l border-line bg-panel p-6 text-white outline-none"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-sm text-muted">My Cart</p>
-            <h2 className="text-2xl font-bold text-white">{totalCount} item{totalCount !== 1 ? 's' : ''}</h2>
+            <h2 className="text-2xl font-bold text-white">
+              {totalCount} item{totalCount !== 1 ? 's' : ''}
+            </h2>
           </div>
           <button className="text-muted transition hover:text-white" onClick={closeDrawer} type="button">
             Close
@@ -66,81 +70,53 @@ export default function CartDrawer() {
           </div>
         ) : (
           <>
-            <div className="mb-6 space-y-4">
+            {hasPublicCoupons ? (
+              <div className="mb-4 rounded-2xl border border-line bg-panel-2 p-4">
+                <CouponBox compact />
+              </div>
+            ) : null}
+
+            <div className="mb-5 space-y-3">
               {cartItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-4 rounded-3xl border border-line bg-panel-2 p-4">
-                  <img src={item.image} alt={item.name} className="h-20 w-20 rounded-3xl object-cover" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <h3 className="font-semibold text-white">{item.name}</h3>
-                        <p className="text-sm text-muted">{item.weight}</p>
-                      </div>
-                      <p className="font-semibold text-mint">
-                        {formatPrice(item.priceValue * item.quantity)}
-                      </p>
-                    </div>
-                    <div className="mt-3 flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="h-9 w-9 rounded-full border border-line text-white transition hover:bg-panel"
-                      >
-                        –
-                      </button>
-                      <span className="font-semibold">{item.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="h-9 w-9 rounded-full border border-line text-white transition hover:bg-panel"
-                      >
-                        +
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        className="ml-auto text-sm text-muted transition hover:text-white"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <CartLineItem
+                  key={item.id}
+                  item={item}
+                  onDecrease={() => {
+                    if (item.quantity <= 1) removeItem(item.id)
+                    else updateQuantity(item.id, -1)
+                  }}
+                  onIncrease={() => updateQuantity(item.id, 1)}
+                />
               ))}
             </div>
 
-            <div className="space-y-4 rounded-[2rem] border border-line bg-canvas p-5">
-              <CouponBox compact />
-              <div className="flex items-center justify-between text-sm text-muted">
-                <span>Item total</span>
-                <span>{formatPrice(itemsTotal)}</span>
-              </div>
-              {taxTotal > 0 && (
-                <div className="flex items-center justify-between text-sm text-muted">
-                  <span>Taxes & GST</span>
-                  <span>{formatPrice(taxTotal)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between text-sm text-muted">
-                <span>Cart handling</span>
-                <span>{formatPrice(handlingCharge)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm text-muted">
-                <span>Delivery charges</span>
-                <span className={deliveryCharge > 0 ? '' : 'text-mint'}>{quoteLoading ? 'Calculating…' : formatDeliveryCharge(deliveryCharge)}</span>
-              </div>
-              <DiscountDetails />
-              <div className="flex items-center justify-between border-t border-line pt-4 text-base font-semibold text-white">
-                <span>Total</span>
-                <span>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</span>
-              </div>
+            <div className="mb-4 rounded-2xl border border-line bg-panel-2 p-4">
+              <BillDetails
+                cartItems={cartItems}
+                itemsTotal={itemsTotal}
+                taxTotal={taxTotal}
+                deliveryCharge={deliveryCharge}
+                handlingCharge={handlingCharge}
+                discount={discount}
+                grandTotal={grandTotal}
+                deliveryOption={deliveryOption}
+                deliveryConfig={deliveryConfig}
+              />
             </div>
+
+            <section className="mb-4 rounded-2xl border border-line bg-panel-2 p-4">
+              <h2 className="text-base font-bold text-white">Cancellation Policy</h2>
+              <p className="mt-3 text-sm leading-6 text-muted">
+                Orders cannot be cancelled once packed for delivery. In case of unexpected delays, a
+                refund will be provided where applicable.
+              </p>
+            </section>
 
             {hasDeliveryAddress ? (
               <button
                 type="button"
                 onClick={handleCheckout}
-                className="mt-4 block w-full rounded-full bg-brand py-4 text-center text-sm font-semibold text-black transition hover:bg-brand-hover"
+                className="mt-4 block w-full rounded-xl bg-brand py-4 text-center text-sm font-semibold text-black transition hover:bg-brand-hover"
               >
                 Proceed to checkout
               </button>
@@ -151,7 +127,7 @@ export default function CartDrawer() {
                   closeDrawer()
                   openPicker()
                 }}
-                className="mt-4 block w-full rounded-full bg-brand py-4 text-center text-sm font-semibold text-black transition hover:bg-brand-hover"
+                className="mt-4 block w-full rounded-xl bg-brand py-4 text-center text-sm font-semibold text-black transition hover:bg-brand-hover"
               >
                 Add address to proceed
               </button>

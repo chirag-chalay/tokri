@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, H3, Icon, Text } from '@adminjs/design-system'
-import { useNotice, useRecord } from 'adminjs'
+import { BasePropertyComponent, useNotice, useRecord } from 'adminjs'
 
 const withoutTrailingSlash = (value) => String(value || '').replace(/\/+$/, '')
 
@@ -352,6 +352,9 @@ const CouponEdit = (props) => {
   const usageType = params.usageType || 'unlimited'
   const couponType = params.type || 'percent'
   const isActive = params.isActive !== false && params.isActive !== 'false'
+  const knowMoreProperty = resource.editProperties.find(
+    (property) => property.propertyPath === 'knowMoreHtml',
+  )
 
   useEffect(() => {
     let ignore = false
@@ -627,6 +630,25 @@ const CouponEdit = (props) => {
           </label>
         </section>
       </Box>
+
+      <section className="tokri-coupon-card">
+        <h4>Know more</h4>
+        <p>
+          Optional HTML shown under Know more in Coupons &amp; offers on the website. Leave empty to
+          hide Know more for this coupon.
+        </p>
+        {knowMoreProperty ? (
+          <Box style={{ minHeight: 220 }}>
+            <BasePropertyComponent
+              where="edit"
+              onChange={handleChange}
+              property={knowMoreProperty}
+              resource={resource}
+              record={record}
+            />
+          </Box>
+        ) : null}
+      </section>
 
       <Box className="tokri-coupon-actions">
         <Button variant="contained" type="submit" disabled={loading}>

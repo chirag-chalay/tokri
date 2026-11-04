@@ -2,7 +2,7 @@
 
 This replaces the active Automatic Discounts feature. Baseline verified from remote staging: `6533795be32449b06c857122b0bfd4d4191f391f`; no newer staging commits were present. Branch: `feature/tokriii-manual-checkout-coupons`.
 
-No coupon is selected automatically. At ₹1,500 all three public offers are available, and customers can select any one. A private manual code replaces the selection. Shipping coupons also occupy the single coupon slot; first-three-orders free morning delivery remains separate.
+The storefront Coupons & offers UI (mini cart, cart, checkout) lists `showAtCheckout` offers, including locked rows. Shoppers tap Apply to select one offer (nothing auto-applies). Optional admin Know more HTML appears only when set. There is no manual “Have a coupon?” code input on the website. Shipping coupons also occupy the single coupon slot; first-three-orders free morning delivery remains separate.
 
 ## Backend and admin
 
@@ -46,7 +46,7 @@ It adds `Coupon.showAtCheckout DEFAULT false`, disables the retired configuratio
 
 Before a staging write, verify the actual MySQL instance/schema and grants against independently identified production, take and verify a backup of DB/environment/uploads/release, inspect migration history and the existing automatic-discount schema, and approve this SQL separately. Apply once through the established reviewed migration process, regenerate Prisma Client, build Next/Vite as appropriate, regenerate AdminJS's bundle and restart only staging services. Never run migration/seed commands on every push. If the previous additive migration is absent, review the actual schema first rather than assuming it is installed. MySQL DDL is not transactional; inspect partial state before retrying.
 
-For activation, open each dedicated record under Coupons, review percentage, minimum, targeting, schedule and usage rules, enable **Coupon is active**, keep **Show publicly...** checked, then save. Enabling a coupon makes it available for manual choice; it never applies it automatically.
+For activation, open each dedicated record under Coupons, review percentage, minimum, targeting, schedule and usage rules, enable **Coupon is active**, keep **Show publicly...** checked, then save. Optional **Know more (HTML)** feeds the Coupons & offers panel. Enabling a coupon makes it available to Apply; nothing is selected until the shopper taps Apply.
 
 Deployment rollback keeps the additive columns and historical data; do not drop them or restore old order totals. The retired automatic configuration must remain OFF even if rolling application code back.
 

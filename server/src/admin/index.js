@@ -713,6 +713,7 @@ export async function buildAdminRouter() {
             'expiresAt',
             'isActive',
             'showAtCheckout',
+            'knowMoreHtml',
           ],
           actions: {
             ...resourceActions('manageCoupons'),
@@ -735,6 +736,7 @@ export async function buildAdminRouter() {
           properties: {
             code: { isTitle: true, label: 'Code' },
             showAtCheckout: { label: 'Show at checkout' },
+            knowMoreHtml: { type: 'richtext', label: 'Know more (HTML)' },
             type: { label: 'Discount type' },
             value: { label: 'Value' },
             applyOn: { label: 'Applies to' },
