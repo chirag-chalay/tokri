@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from '../lib/navigation'
+import { CookieSettings } from './MarketingConsent'
 import { Truck, ShieldCheck, Clock, Leaf, Mail, Phone, MapPin } from 'lucide-react'
 import tokriLogo from '../assets/tokri-logo.png'
 import playStoreIcon from '../assets/play-store.svg'
@@ -219,6 +220,7 @@ const Footer = () => {
               <li><Link to="/blog" className="transition hover:text-white">Blog</Link></li>
               <li><Link to="/help-faqs" className="transition hover:text-white">Help & FAQs</Link></li>
               <li><Link to="/returns-policy" className="transition hover:text-white">Returns Policy</Link></li>
+              <li><CookieSettings /></li>
               <li><Link to="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link></li>
               <li><Link to="/terms-and-conditions" className="transition hover:text-white">Terms & Conditions</Link></li>
             </ul>

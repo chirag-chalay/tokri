@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { getMarketingConsent, MARKETING_CONSENT_UPDATED, setMarketingConsent } from '../lib/metaPixel'
 
 function subscribe(listener) {
@@ -12,6 +12,20 @@ function subscribe(listener) {
   }
 }
 const serverSnapshot = () => 'unavailable'
+const OPEN_SETTINGS = 'tokriii:open-cookie-settings'
+
+export function CookieSettings() {
+  const consent = useSyncExternalStore(subscribe, getMarketingConsent, serverSnapshot)
+  if (consent === 'unavailable') return null
+
+  return (
+    <button type="button" onClick={(event) => {
+      event.currentTarget.dispatchEvent(new CustomEvent(OPEN_SETTINGS, { bubbles: true }))
+    }} className="min-h-11 text-left transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2">
+      Cookie settings
+    </button>
+  )
+}
 
 export default function MarketingConsent() {
   const consent = useSyncExternalStore(subscribe, getMarketingConsent, serverSnapshot)
@@ -19,6 +33,16 @@ export default function MarketingConsent() {
   const [error, setError] = useState('')
   const settingsButton = useRef(null)
   const panelTitle = useRef(null)
+  useEffect(() => {
+    function openSettings(event) {
+      settingsButton.current = event.target
+      setEditing(true)
+      requestAnimationFrame(() => panelTitle.current?.focus({ preventScroll: true }))
+    }
+    document.addEventListener(OPEN_SETTINGS, openSettings)
+    return () => document.removeEventListener(OPEN_SETTINGS, openSettings)
+  }, [])
+
   if (consent === 'unavailable') return null
 
   function choose(granted) {
@@ -47,14 +71,6 @@ export default function MarketingConsent() {
           {consent !== null && <p className="mt-3 text-xs">Marketing cookies are currently {consent === 'granted' ? 'allowed' : 'off'}.</p>}
           {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
         </section>
-      )}
-      {!open && (
-        <button ref={settingsButton} type="button" onClick={() => {
-          setEditing(true)
-          requestAnimationFrame(() => panelTitle.current?.focus({ preventScroll: true }))
-        }} className="fixed bottom-24 left-3 z-40 min-h-11 rounded-full border border-line bg-panel px-4 py-2 text-xs font-semibold text-white shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 lg:bottom-4">
-          Cookie settings
-        </button>
       )}
     </>
   )

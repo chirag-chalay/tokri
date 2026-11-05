@@ -38,10 +38,21 @@ API_URL=https://server.tokriii.com
 TRUST_PROXY=true
 ```
 
+### Production backend build
+
+From `server/`, generate the Prisma client before starting the API:
+
+```bash
+npm run build
+npm start
+```
+
+The backend runs JavaScript directly, so it does not need transpilation. The build generates the Prisma client without changing the database schema.
+
 ### Production frontend build (on www server or CI)
 
 ```bash
-npm run build   # uses .env.production → VITE_API_BASE_URL=https://server.tokriii.com/api/v1
+npm --prefix .. run build   # from server/; builds the Vite storefront in ../dist/
 ```
 
 Serve `dist/` from Nginx on `www.tokriii.com` and proxy `/tokri-backoffice` to the API server.
