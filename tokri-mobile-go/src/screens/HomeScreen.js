@@ -51,6 +51,7 @@ export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [headerCollapse, setHeaderCollapse] = useState(0)
 
   const openProduct = (slug, origin) => {
     navigation.navigate('Product', { slug, origin })
@@ -104,9 +105,15 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      <AppHeader navigation={navigation} />
+      <AppHeader navigation={navigation} collapseProgress={headerCollapse} />
       <ScrollView
         style={styles.container}
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          const y = event.nativeEvent.contentOffset.y
+          const next = Math.max(0, Math.min(1, y / 56))
+          setHeaderCollapse((current) => (Math.abs(current - next) > 0.04 ? next : current))
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
       >
         {error ? <Text style={styles.error}>{error}</Text> : null}

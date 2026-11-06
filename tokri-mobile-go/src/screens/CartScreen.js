@@ -343,8 +343,14 @@ export default function CartScreen({ navigation }) {
                   <Text style={styles.name}>{item.name}</Text>
                   {item.weight ? <Text style={styles.weight}>{item.weight}</Text> : null}
                   <View style={styles.priceRow}>
-                    <Text style={styles.price}>{formatPrice(item.priceValue)}</Text>
-                    {cutoffPrice(item) ? <Text style={styles.cutPrice}>{formatPrice(cutoffPrice(item))}</Text> : null}
+                    <Text style={styles.price}>
+                      {formatPrice(Number(item.priceValue || 0) * Number(item.quantity || 0))}
+                    </Text>
+                    {cutoffPrice(item) ? (
+                      <Text style={styles.cutPrice}>
+                        {formatPrice(cutoffPrice(item) * Number(item.quantity || 0))}
+                      </Text>
+                    ) : null}
                   </View>
                   <View style={styles.qtyRow}>
                     <Pressable style={styles.qtyBtn} onPress={() => changeQty(item.slug, item.quantity - 1)}>
@@ -445,8 +451,20 @@ export default function CartScreen({ navigation }) {
                 <Text style={styles.freeNudge}>{selectedQuote.offerMessage}</Text>
               ) : null}
               {taxTotal > 0 && <BillRow icon="receipt-outline" label="Taxes & GST" value={formatPrice(taxTotal)} />}
-              {quote?.totals?.couponDiscount > 0 && <BillRow icon="pricetag-outline" label="Coupon" value={`-${formatPrice(quote.totals.couponDiscount)}`} free />}
-              {quote?.totals?.discountMessage && <Text style={styles.freeNudge}>{quote.totals.discountMessage}</Text>}
+              {quote?.totals?.couponDiscount > 0 ? (
+                <BillRow
+                  icon="pricetag-outline"
+                  label={
+                    quote?.couponStatus?.status === 'applied' && quote.couponStatus.code
+                      ? `${quote.couponStatus.code} Coupon Applied`
+                      : coupon?.code
+                        ? `${coupon.code} Coupon Applied`
+                        : 'Coupon Applied'
+                  }
+                  value={`-${formatPrice(quote.totals.couponDiscount)}`}
+                  free
+                />
+              ) : null}
 
               <View style={styles.grandRow}>
                 <Text style={styles.grandLabel}>Grand total</Text>
