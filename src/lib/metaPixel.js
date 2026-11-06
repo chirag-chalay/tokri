@@ -1,6 +1,9 @@
 // One production-only Meta Pixel shared by the Next.js and Vite storefronts.
 // No marketing requests are permitted until the visitor explicitly opts in.
 export const META_PIXEL_ID = '891089060757681'
+// Availability safeguard: remote EST rule 1653918566377185 recursively derives
+// PageView. Enable only after the Meta account owner removes that rule.
+export const META_PIXEL_ENABLED = import.meta.env.VITE_META_PIXEL_ENABLED === 'true'
 export const MARKETING_CONSENT_COOKIE = 'tokriii_marketing_consent'
 export const MARKETING_CONSENT_UPDATED = 'tokriii:marketing-consent-updated'
 
@@ -15,6 +18,7 @@ const SAFE_QUERY_KEYS = new Set([
 let lastPageViewKey = null
 let consentListenerAttached = false
 let pixelConsentGranted = false
+let initializing = false
 
 function onProductionHost() {
   return typeof window !== 'undefined' &&
@@ -71,42 +75,52 @@ function alreadyInitializedByAnotherTag() {
 }
 
 function initializeMetaPixel() {
-  if (!onProductionHost() || !hasMarketingConsent()) return false
+  if (!META_PIXEL_ENABLED || initializing || !onProductionHost() || !hasMarketingConsent()) return false
   if (!safePageKey()) return false
-  if (window.__tokriMetaPixelId === META_PIXEL_ID) {
-    // Re-acceptance also has to re-grant permission in the already loaded SDK.
-    if (!pixelConsentGranted) window.fbq('consent', 'grant')
-    pixelConsentGranted = true
-    return true
-  }
-
-  if (typeof window.fbq !== 'function') {
-    // Official Meta Pixel queue/bootstrap pattern; library loads async.
-    const fbq = function (...args) {
-      if (fbq.callMethod) fbq.callMethod.apply(fbq, args)
-      else fbq.queue.push(args)
+  initializing = true
+  try {
+    if (window.__tokriMetaPixelId === META_PIXEL_ID) {
+      // Re-acceptance also has to re-grant permission in the already loaded SDK.
+      if (!pixelConsentGranted) window.fbq('consent', 'grant')
+      pixelConsentGranted = true
+      return true
     }
-    fbq.queue = []
-    fbq.push = fbq
-    fbq.loaded = true
-    fbq.version = '2.0'
-    window.fbq = fbq
-    window._fbq = fbq
+
+    if (typeof window.fbq !== 'function') {
+      // Official Meta Pixel queue/bootstrap pattern; library loads async.
+      const fbq = function (...args) {
+        if (fbq.callMethod) fbq.callMethod.apply(fbq, args)
+        else fbq.queue.push(args)
+      }
+      fbq.queue = []
+      fbq.push = fbq
+      fbq.loaded = true
+      fbq.version = '2.0'
+      window.fbq = fbq
+      window._fbq = fbq
+    }
+
+    if (!alreadyInitializedByAnotherTag()) window.fbq('init', META_PIXEL_ID)
+    window.fbq('consent', 'grant')
+    pixelConsentGranted = true
+
+    if (!document.querySelector(`script[src="${PIXEL_SCRIPT}"]`)) {
+      const script = document.createElement('script')
+      script.async = true
+      script.src = PIXEL_SCRIPT
+      document.head.appendChild(script)
+    }
+
+    window.__tokriMetaPixelId = META_PIXEL_ID
+    return true
+  } catch (error) {
+    // Failed initialization remains retryable; shopping must keep working.
+    pixelConsentGranted = false
+    console.error('Meta Pixel initialization failed', error)
+    return false
+  } finally {
+    initializing = false
   }
-
-  if (!alreadyInitializedByAnotherTag()) window.fbq('init', META_PIXEL_ID)
-  window.fbq('consent', 'grant')
-  pixelConsentGranted = true
-
-  if (!document.querySelector(`script[src="${PIXEL_SCRIPT}"]`)) {
-    const script = document.createElement('script')
-    script.async = true
-    script.src = PIXEL_SCRIPT
-    document.head.appendChild(script)
-  }
-
-  window.__tokriMetaPixelId = META_PIXEL_ID
-  return true
 }
 
 /**
@@ -135,7 +149,11 @@ export function setMarketingConsent(granted) {
 
   if (!approved) {
     if (window.__tokriMetaPixelId === META_PIXEL_ID && typeof window.fbq === 'function') {
-      window.fbq('consent', 'revoke')
+      try {
+        window.fbq('consent', 'revoke')
+      } catch (error) {
+        console.error('Meta Pixel consent revocation failed', error)
+      }
     }
     lastPageViewKey = null
     pixelConsentGranted = false
@@ -149,7 +167,7 @@ export function setMarketingConsent(granted) {
 
 /** PageViews on first load and client-side pathname/search changes. */
 export function trackMetaPageView(path) {
-  if (!onProductionHost() || !hasMarketingConsent()) return false
+  if (!META_PIXEL_ENABLED || !onProductionHost() || !hasMarketingConsent()) return false
   const key = safePageKey(path)
   if (!key) {
     lastPageViewKey = null
@@ -158,7 +176,14 @@ export function trackMetaPageView(path) {
   if (lastPageViewKey === key || !initializeMetaPixel()) return false
 
   // trackSingle targets ONLY the Tokriii dataset if another Pixel is present.
-  window.fbq('trackSingle', META_PIXEL_ID, 'PageView')
+  // Mark before invoking external code, so synchronous re-entry is deduplicated.
   lastPageViewKey = key
-  return true
+  try {
+    window.fbq('trackSingle', META_PIXEL_ID, 'PageView')
+    return true
+  } catch (error) {
+    lastPageViewKey = null
+    console.error('Meta Pixel PageView failed', error)
+    return false
+  }
 }

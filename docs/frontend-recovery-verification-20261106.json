@@ -1,0 +1,36 @@
+{
+  "cases": [
+    {
+      "name": "mobile-granted",
+      "completedReturns": 10,
+      "exceptions": 0,
+      "metaRequests": 0,
+      "cartPersisted": true
+    },
+    {
+      "name": "mobile-denied",
+      "completedReturns": 10,
+      "exceptions": 0,
+      "metaRequests": 0,
+      "cartPersisted": true
+    },
+    {
+      "name": "desktop-granted",
+      "completedReturns": 3,
+      "exceptions": 0,
+      "metaRequests": 0,
+      "cartPersisted": true
+    }
+  ],
+  "logDirectory": "/tmp/tokri-browser-logs-vANYdJ",
+  "capturedErrorKinds": [
+    "http",
+    "console",
+    "javascript",
+    "unhandledrejection",
+    "network",
+    "resource"
+  ],
+  "errorStormDeduplicated": true,
+  "environment": "Isolated production build; Chromium mobile emulation; public staging GET data; no physical-device or live deployment validation"
+}

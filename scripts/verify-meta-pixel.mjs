@@ -45,7 +45,10 @@ async function newBrowserFixture(hostname, route = '/') {
 
   globalThis.window = window
   globalThis.document = document
-  const pixel = await import(`${moduleUrl}?fixture=${testId++}`)
+  // Exercise the enabled integration explicitly; production defaults to disabled.
+  const source = readFileSync(new URL(moduleUrl), 'utf8')
+    .replace('import.meta.env.VITE_META_PIXEL_ENABLED', JSON.stringify('true'))
+  const pixel = await import(`data:text/javascript;base64,${Buffer.from(source + `\n// fixture=${testId++}`).toString('base64')}`)
   return {
     pixel,
     window,

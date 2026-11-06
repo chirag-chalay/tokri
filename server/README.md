@@ -151,3 +151,51 @@ cd server && npm run dev
 # terminal 2 — shop
 npm run dev
 ```
+# Website frontend diagnostics
+
+The website loads `public/frontend-errors.js` before hydration in Next.js and
+before the Vite entrypoint. It captures uncaught JavaScript errors, unhandled
+promise rejections, `console.error` (including React errors), failed resources,
+fetch failures/HTTP errors and XHR failures/HTTP errors. Admin and partner pages
+are excluded. Backend application errors are not added to this log.
+
+`POST /api/v1/frontend-errors` accepts batches only from exact origins in
+`CORS_ORIGINS` (or the configured client/app URL defaults). Errors are written to
+`server/logs/website-frontend-errors.jsonl`, or `FRONTEND_ERROR_LOG_DIR`, with private
+file permissions. Three rotated archives retain at most about 20 MiB in total.
+This directory must remain outside any public web root mapping.
+
+The collector strips URL queries/fragments, credentials, sensitive route IDs,
+common email/phone patterns and unrecognized fields. The browser does not send
+cookies, storage contents, arbitrary console objects or request/response bodies.
+Messages still require care: free-form text redaction cannot identify every kind
+of personal data. Browser deduplication, bounded queues, a 60-event/minute budget,
+server request limits and a 32 KiB body limit prevent error storms from growing
+without bounds. Failed deliveries are dropped without retries. Browser crashes,
+offline errors, blocked scripts and cross-origin stack details may not be captured.
+
+Inspect locally with `tail -f server/logs/website-frontend-errors.jsonl` from the
+repository root. Logs are not served through an unauthenticated viewer.
+
+Meta Pixel defaults to disabled to isolate the recursive remote EST PageView
+rule `1653918566377185` on pixel `891089060757681`. Keep it disabled until the Meta
+account owner removes that rule and verifies the refreshed remote configuration.
+Then opt in using `TOKRIII_META_PIXEL_ENABLED=true` for Next.js or
+`VITE_META_PIXEL_ENABLED=true` for Vite, rebuild and restart the relevant website
+process. Consent is still required after enabling. The Next no-script beacon uses
+the same switch; keep the build and runtime setting consistent. Deploying these
+source changes requires rebuilding the website and restarting the API collector.
+Existing shopper cookies/caches do not need to be cleared.
+
+Validation:
+
+```sh
+node scripts/verify-meta-pixel.mjs
+node --test scripts/verify-meta-pixel-recovery.mjs server/tests/frontend-errors.test.js
+VERIFY_BUILD_DIR=/tmp/tokri-frontend-verify-... node scripts/verify-frontend-recovery.mjs
+```
+
+The browser check uses an isolated Next production build on ports 5341/5342,
+production-origin browser routing and public staging GET data. It does not write
+customer/order data or modify the live Meta configuration. Set `CHROME_PATH` and
+the browser library path if required on the test machine.

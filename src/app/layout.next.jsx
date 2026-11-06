@@ -2,6 +2,7 @@ import '../index.css'
 import { cookies, headers } from 'next/headers'
 import { indexingEnabled } from '../lib/server/indexing'
 import MarketingConsent from '../components/MarketingConsent'
+import Script from 'next/script'
 
 export async function generateMetadata() {
   const requestHeaders = await headers()
@@ -29,7 +30,7 @@ export default async function RootLayout({ children }) {
   const hostname = String(requestHeaders.get('host') || '').toLowerCase().split(':')[0]
   const productionHost = hostname === 'tokriii.com' || hostname === 'www.tokriii.com'
   const consent = (await cookies()).get('tokriii_marketing_consent')?.value === 'granted'
-  const renderNoScriptPixel = productionHost && consent
+  const renderNoScriptPixel = process.env.TOKRIII_META_PIXEL_ENABLED === 'true' && productionHost && consent
 
   return (
     <html lang="en">
@@ -38,6 +39,7 @@ export default async function RootLayout({ children }) {
         <link rel="stylesheet" href="/fonts/fonts.css" />
       </head>
       <body>
+        <Script src="/frontend-errors.js" strategy="beforeInteractive" />
         <div id="root">{children}<MarketingConsent /></div>
         {renderNoScriptPixel && (
           <noscript>
