@@ -52,6 +52,46 @@ npm start
 
 ---
 
+## Does anything auto-push to staging / main?
+
+**No.** This file is only notes. Nothing merges or deploys by itself.
+
+| Action | Automatic? | What you do |
+|--------|------------|-------------|
+| Save WIP | No | `git push origin chirag-app` yourself |
+| Put code on staging | No | When finished: merge `chirag-app` → `staging`, then `git push origin staging` |
+| Put code on main / live | No | After staging is good: merge → `main`, then `git push origin main` |
+| EAS app build | No | Run `eas build ...` on the laptop when ready |
+| Website server deploy | No | Separate VPS pull/rebuild — only if you are deploying the site |
+
+Until you run those merge + push commands, **only `chirag-app` on GitHub** has your new work.
+
+---
+
+## SSH / login — what is and is not in this file
+
+**This file does not contain SSH private keys, passwords, or PATs.** Do not put secrets in git docs.
+
+You need auth on the **new laptop** for GitHub (pull/push). Use whichever the clone already uses:
+
+```bash
+git remote -v
+```
+
+- If remote is `https://github.com/...` → GitHub login / Personal Access Token when git asks (or GitHub CLI `gh auth login`).
+- If remote is `git@github.com:...` → that laptop needs your GitHub SSH key added in GitHub → Settings → SSH keys.
+
+**VPS / server SSH** (`tokri-staging`, host `82.112.236.206`, etc.) is only for deploying the **website/API on the server**. You do **not** need it to:
+
+- pull `chirag-app`
+- finish the customer app
+- push to GitHub
+- create an EAS APK/build
+
+Copy your SSH key to the new laptop only if you will SSH into the VPS from there. Never commit the private key into this repo.
+
+---
+
 ## Daily save while working (do this often)
 
 Stay on `chirag-app`. Do **not** merge to `staging` or `main` until the app work is done.
