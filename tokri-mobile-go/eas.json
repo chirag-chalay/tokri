@@ -29,12 +29,17 @@
       }
     },
     "production": {
+      "distribution": "store",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://tokriii.com/api/v1"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6822043083"
+      }
+    }
   }
 }

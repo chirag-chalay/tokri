@@ -4,6 +4,7 @@ import { Clock, Leaf, ShieldCheck } from 'lucide-react'
 import { fetchJson, normalizeProduct, normalizeProducts } from '../lib/api'
 import CartControl from '../components/CartControl'
 import ProductDetailsBlock from '../components/ProductDetailsBlock'
+import CatalogImage from '../components/CatalogImage'
 
 const discountPercent = (product) => {
   const price = Number(product.priceValue)
@@ -36,11 +37,10 @@ function RelatedProductCard({ product, onNavigate }) {
             {off}% OFF
           </span>
         )}
-        <img
+        <CatalogImage
           src={product.image}
           alt={product.name}
           className="h-full w-full object-cover transition group-hover:scale-105"
-          loading="lazy"
         />
       </div>
       <h3 className="line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-white">
@@ -179,7 +179,7 @@ export default function ProductDetail() {
               </span>
             )}
             <div className="overflow-hidden rounded-2xl bg-slate-50">
-              <img
+              <CatalogImage
                 src={product.image}
                 alt={product.name}
                 className="aspect-square w-full object-cover"

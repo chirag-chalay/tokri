@@ -56,69 +56,91 @@ export default function AddressPicker() {
   const [locating, setLocating] = useState(false)
   const [form, setForm] = useState(emptyForm())
   const [error, setError] = useState('')
-  const autoTried = useRef(false)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const showForm = isLoggedIn && (formOpen || addresses.length === 0)
 
   const applyDetected = useCallback((found) => {
     setForm((current) => ({
       ...current,
-      line1: current.line1 || found.line1 || '',
-      line2: current.line2 || found.line2 || '',
-      city: current.city || found.city || '',
-      state: current.state || found.state || '',
-      pincode: current.pincode || found.pincode || '',
-      landmark: current.landmark || found.landmark || '',
+      line1: found.line1 || '',
+      line2: found.line2 || '',
+      city: found.city || '',
+      state: found.state || '',
+      pincode: found.pincode || '',
+      landmark: found.landmark || '',
       ...mapPin(found),
     }))
+    setFieldErrors((current) => {
+      const next = { ...current }
+      ;['line1', 'line2', 'city', 'state', 'pincode'].forEach((key) => {
+        if (found?.[key]) delete next[key]
+      })
+      return next
+    })
   }, [])
 
-  const fillFromLocation = useCallback(
-    async ({ silent = false } = {}) => {
-      setLocating(true)
-      setError('')
-      try {
-        const found = await fetchAddressFromDevice()
-        applyDetected(found)
-      } catch (err) {
-        if (silent) setError(err.message || 'Could not detect your location.')
-        else explainLocationError(err)
-      } finally {
-        setLocating(false)
-      }
-    },
-    [applyDetected],
-  )
+  const fillFromLocation = useCallback(async () => {
+    setLocating(true)
+    setError('')
+    try {
+      const found = await fetchAddressFromDevice()
+      applyDetected(found)
+    } catch (err) {
+      explainLocationError(err)
+    } finally {
+      setLocating(false)
+    }
+  }, [applyDetected])
 
   const startForm = () => {
     setError('')
-    setForm(emptyForm(user?.phone || ''))
+    setFieldErrors({})
+    setForm({
+      ...emptyForm(user?.phone || ''),
+      name: String(user?.name || '').trim(),
+      phone: String(user?.phone || '').replace(/\D/g, '').slice(0, 10),
+    })
     setFormOpen(true)
   }
 
   const closeForm = () => {
     setFormOpen(false)
     setError('')
+    setFieldErrors({})
     setLocating(false)
-    autoTried.current = false
     if (addresses.length === 0) closePicker()
   }
 
+  const emptyBookPrefill = useRef(false)
   useEffect(() => {
-    if (!pickerOpen || !showForm) {
-      autoTried.current = false
+    if (!pickerOpen) {
+      emptyBookPrefill.current = false
       return
     }
-    if (autoTried.current) return
-    autoTried.current = true
-    fillFromLocation({ silent: true })
-  }, [pickerOpen, showForm, fillFromLocation])
+    if (!showForm || formOpen || emptyBookPrefill.current) return
+    emptyBookPrefill.current = true
+    setFieldErrors({})
+    setForm({
+      ...emptyForm(user?.phone || ''),
+      name: String(user?.name || '').trim(),
+      phone: String(user?.phone || '').replace(/\D/g, '').slice(0, 10),
+    })
+  }, [pickerOpen, showForm, formOpen, user?.name, user?.phone])
 
-  const update = (field, value) => setForm((current) => ({
-    ...current,
-    [field]: value,
-    ...(ADDRESS_FIELDS.has(field) ? { latitude: null, longitude: null } : {}),
-  }))
+  const update = (field, value) => {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(ADDRESS_FIELDS.has(field) ? { latitude: null, longitude: null } : {}),
+    }))
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
 
   const removeAddress = (address) => {
     Alert.alert('Delete address', 'Remove this saved address?', [
@@ -140,9 +162,33 @@ export default function AddressPicker() {
 
   const saveAddress = async () => {
     setError('')
+    const nextErrors = {}
+    const name = String(form.name || '').trim()
+    const phone = String(form.phone || '').replace(/\D/g, '')
+    const line1 = String(form.line1 || '').trim()
+    const city = String(form.city || '').trim()
+    const state = String(form.state || '').trim()
+    const pincode = String(form.pincode || '').replace(/\D/g, '')
+    if (!name) nextErrors.name = 'Enter full name'
+    if (phone.length !== 10) nextErrors.phone = 'Enter a valid 10-digit mobile number'
+    if (!line1) nextErrors.line1 = 'Enter house / flat / building'
+    if (!city) nextErrors.city = 'Enter city'
+    if (!state) nextErrors.state = 'Enter state'
+    if (pincode.length !== 6) nextErrors.pincode = 'Enter a valid 6-digit pincode'
+    setFieldErrors(nextErrors)
+    if (Object.keys(nextErrors).length) return
+
     setSaving(true)
     try {
-      const data = await authPost('/account/addresses', token, form)
+      const data = await authPost('/account/addresses', token, {
+        ...form,
+        name,
+        phone,
+        line1,
+        city,
+        state,
+        pincode,
+      })
       await refresh()
       if (data.address?.id) await selectAddress(data.address.id)
       setFormOpen(false)
@@ -191,7 +237,7 @@ export default function AddressPicker() {
             <Text style={styles.hint}>Where should we deliver your fresh fruits?</Text>
             <Pressable
               style={[styles.locateBtn, locating && { opacity: 0.7 }]}
-              onPress={() => fillFromLocation()}
+              onPress={fillFromLocation}
               disabled={locating}
             >
               {locating ? (
@@ -221,6 +267,7 @@ export default function AddressPicker() {
               onChangeText={(value) => update('name', value)}
               placeholder="Receiver name"
               onFocusField={ensureVisible}
+              error={fieldErrors.name}
             />
             <Field
               label="Mobile number"
@@ -230,6 +277,7 @@ export default function AddressPicker() {
               keyboardType="number-pad"
               prefix="+91"
               onFocusField={ensureVisible}
+              error={fieldErrors.phone}
             />
             <Field
               label="House / flat / building"
@@ -237,6 +285,7 @@ export default function AddressPicker() {
               onChangeText={(value) => update('line1', value)}
               placeholder="Flat 402, Green Valley Apartments"
               onFocusField={ensureVisible}
+              error={fieldErrors.line1}
             />
             <Field
               label="Street / area"
@@ -247,10 +296,22 @@ export default function AddressPicker() {
             />
             <View style={styles.twoCol}>
               <View style={{ flex: 1 }}>
-                <Field label="City" value={form.city} onChangeText={(value) => update('city', value)} onFocusField={ensureVisible} />
+                <Field
+                  label="City"
+                  value={form.city}
+                  onChangeText={(value) => update('city', value)}
+                  onFocusField={ensureVisible}
+                  error={fieldErrors.city}
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Field label="State" value={form.state} onChangeText={(value) => update('state', value)} onFocusField={ensureVisible} />
+                <Field
+                  label="State"
+                  value={form.state}
+                  onChangeText={(value) => update('state', value)}
+                  onFocusField={ensureVisible}
+                  error={fieldErrors.state}
+                />
               </View>
             </View>
             <View style={styles.twoCol}>
@@ -262,6 +323,7 @@ export default function AddressPicker() {
                   placeholder="6-digit pincode"
                   keyboardType="number-pad"
                   onFocusField={ensureVisible}
+                  error={fieldErrors.pincode}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -350,14 +412,14 @@ export default function AddressPicker() {
   )
 }
 
-function Field({ label, prefix, onFocusField, ...inputProps }) {
+function Field({ label, prefix, onFocusField, error, ...inputProps }) {
   const { colors } = useTheme()
   const styles = useThemedStyles(createStyles)
   const wrapRef = useRef(null)
   return (
     <View ref={wrapRef} style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.inputWrap}>
+      <View style={[styles.inputWrap, error ? styles.inputWrapError : null]}>
         {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
         <TextInput
           style={styles.input}
@@ -369,6 +431,7 @@ function Field({ label, prefix, onFocusField, ...inputProps }) {
           }}
         />
       </View>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   )
 }
@@ -481,8 +544,10 @@ const createStyles = (c) => ({
     borderRadius: 12,
     paddingHorizontal: 12,
   },
+  inputWrapError: { borderColor: c.danger },
   prefix: { color: c.muted, marginRight: 8, fontWeight: '700' },
   input: { flex: 1, color: c.text, paddingVertical: 11, fontSize: 14 },
+  fieldError: { color: c.danger, fontSize: 12, marginTop: 6 },
   error: { color: c.danger, marginBottom: 10 },
   save: {
     backgroundColor: c.brand,

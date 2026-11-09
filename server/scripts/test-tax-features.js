@@ -14,6 +14,11 @@ function assert(condition, message) {
   console.log(`  ✓ ${message}`)
 }
 
+function extractGst(inclusiveAmount, rate) {
+  const taxableAmount = Math.round((inclusiveAmount * 100) / (100 + rate) * 100) / 100
+  return Math.round((inclusiveAmount - taxableAmount) * 100) / 100
+}
+
 async function main() {
   console.log('========================================================')
   console.log('🧪 RUNNING TAX MANAGEMENT & GST CHECKOUT/INVOICE TESTS')
@@ -128,7 +133,7 @@ async function main() {
   const almondQty = 2
   const almondPrice = Number(almond.priceValue)
   const expectedSubtotal2 = almondPrice * almondQty
-  const expectedTax2 = Math.round(expectedSubtotal2 * 0.05 * 100) / 100
+  const expectedTax2 = extractGst(expectedSubtotal2, 5)
   const expectedCgst2 = Math.round((expectedTax2 / 2) * 100) / 100
   const expectedSgst2 = Math.round((expectedTax2 - expectedCgst2) * 100) / 100
 
@@ -155,7 +160,7 @@ async function main() {
     { slug: cashew.slug, quantity: 1 },
   ]
   const cashewTotal = Number(cashew.priceValue) * 1
-  const expectedTax3 = Math.round(cashewTotal * 0.05 * 100) / 100
+  const expectedTax3 = extractGst(cashewTotal, 5)
 
   const order3Result = await createCheckoutOrder(customer, {
     items: mixedItems,
@@ -196,9 +201,9 @@ async function main() {
     { slug: pistachio.slug, quantity: 2 },
     { slug: raisin.slug, quantity: 1 },
   ]
-  const almondLineTax = Math.round(Number(almond.priceValue) * 1 * 0.05 * 100) / 100
-  const pistaLineTax = Math.round(Number(pistachio.priceValue) * 2 * 0.05 * 100) / 100
-  const raisinLineTax = Math.round(Number(raisin.priceValue) * 1 * 0.05 * 100) / 100
+  const almondLineTax = extractGst(Number(almond.priceValue), 5)
+  const pistaLineTax = extractGst(Number(pistachio.priceValue) * 2, 5)
+  const raisinLineTax = extractGst(Number(raisin.priceValue), 5)
   const expectedTotalTax5 = Math.round((almondLineTax + pistaLineTax + raisinLineTax) * 100) / 100
 
   const order5Result = await createCheckoutOrder(customer, {
@@ -230,7 +235,7 @@ async function main() {
     data: { gstRate: 12.00 },
   })
 
-  const expectedTax12 = Math.round(Number(almond.priceValue) * 1 * 0.12 * 100) / 100
+  const expectedTax12 = extractGst(Number(almond.priceValue), 12)
   const order6Result = await createCheckoutOrder(customer, {
     items: [{ slug: almond.slug, quantity: 1 }],
     addressId: 'addr-delhi-1',
@@ -268,8 +273,8 @@ async function main() {
   assert(Buffer.isBuffer(pdfBuf) && pdfBuf.length > 1000, `Invoice PDF generated successfully (${pdfBuf.length} bytes, ${invoiceNo})`)
 
   const grandTotal3 = Number(order3.grandTotal)
-  const calculatedGrandTotal3 = Math.round((Number(order3.itemsTotal) + Number(order3.deliveryCharge) + Number(order3.handlingCharge) + Number(order3.taxTotal) - Number(order3.discount)) * 100) / 100
-  assert(grandTotal3 === calculatedGrandTotal3, `Order Grand Total (₹${grandTotal3}) matches Items + Delivery + Handling + Tax - Discount`)
+  const calculatedGrandTotal3 = Math.round((Number(order3.itemsTotal) + Number(order3.deliveryCharge) + Number(order3.handlingCharge) - Number(order3.discount)) * 100) / 100
+  assert(grandTotal3 === calculatedGrandTotal3, `Order Grand Total (₹${grandTotal3}) matches GST-inclusive items + Delivery + Handling - Discount`)
 
   console.log('\n--- Test 9: First 3 free deliveries offer works with GST ---')
   const freeStatus = await getCustomerFreeDeliveryStatus(customer.id)

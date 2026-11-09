@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Clock, Leaf, ShieldCheck } from 'lucide-react'
 import ProductDetailsBlock from '../../components/ProductDetailsBlock'
+import CatalogImage from '../../components/CatalogImage'
 import SafeCartControl from './SafeCartControl'
 import RelatedProductCard from './RelatedProductCard'
 
@@ -43,7 +44,7 @@ export default function ProductView({ product, relatedProducts }) {
               </span>
             )}
             <div className="overflow-hidden rounded-2xl bg-slate-50">
-              <img
+              <CatalogImage
                 src={product.image}
                 alt={product.name}
                 className="aspect-square w-full object-cover"

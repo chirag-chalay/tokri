@@ -431,7 +431,7 @@ const OrderDetail = (props) => {
               <div><dt>Handling</dt><dd /><dd>{formatMoney(params.handlingCharge)}</dd></div>
               {Number(params.taxTotal) > 0 ? (
                 <div>
-                  <dt>Taxes (GST){params.isInterState ? ' · IGST' : ' · CGST+SGST'}</dt>
+                  <dt>{params.gstIncluded ? 'GST included' : 'Taxes (GST)'}{params.isInterState ? ' · IGST' : ' · CGST+SGST'}</dt>
                   <dd />
                   <dd>{formatMoney(params.taxTotal)}</dd>
                 </div>

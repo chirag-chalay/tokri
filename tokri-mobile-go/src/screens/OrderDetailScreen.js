@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Clipboard, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
+import { Alert, Clipboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from '../components/Icon'
@@ -8,28 +8,9 @@ import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { authGet, formatPrice, normalizeOrder } from '../lib/api'
 import { formatOrderWhen, paymentLabel, statusLabel } from '../lib/orders'
 import { formatExpectedDeliveryDate } from '../lib/delivery'
+import { downloadOrderInvoice } from '../lib/invoice'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
-
-function invoiceText(order) {
-  const lines = [
-    'Tokriii invoice',
-    `Order ${order.orderNo}`,
-    formatOrderWhen(order.createdAt),
-    paymentLabel(order),
-    '',
-    ...(order.items || []).map(
-      (item) => `${item.name} x ${item.quantity}  ${formatPrice(item.lineTotal || item.priceValue * item.quantity)}`,
-    ),
-    '',
-    `Item total  ${formatPrice(order.itemsTotal)}`,
-    `Cart handling  ${formatPrice(order.handlingCharge)}`,
-    `Delivery charges  ${Number(order.deliveryCharge) ? formatPrice(order.deliveryCharge) : 'FREE'}`,
-    Number(order.discount) ? `Discount  -${formatPrice(order.discount)}` : null,
-    `Bill total  ${formatPrice(order.grandTotal)}`,
-  ].filter(Boolean)
-  return lines.join('\n')
-}
 
 export default function OrderDetailScreen({ navigation, route }) {
   const { colors } = useTheme()
@@ -40,6 +21,7 @@ export default function OrderDetailScreen({ navigation, route }) {
   const orderNo = route.params?.orderNo
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false)
 
   const load = useCallback(async () => {
     const data = await authGet(`/account/orders/${encodeURIComponent(orderNo)}`, token)
@@ -72,6 +54,17 @@ export default function OrderDetailScreen({ navigation, route }) {
     ])
   }
 
+  const shareInvoice = async () => {
+    setDownloadingInvoice(true)
+    try {
+      await downloadOrderInvoice(order.orderNo, token)
+    } catch (error) {
+      Alert.alert('Invoice unavailable', error.message || 'Could not download this invoice.')
+    } finally {
+      setDownloadingInvoice(false)
+    }
+  }
+
   if (loading) return <LoadingView />
   if (!order) return null
 
@@ -93,9 +86,12 @@ export default function OrderDetailScreen({ navigation, route }) {
         ) : null}
         <Pressable
           style={styles.invoiceLink}
-          onPress={() => Share.share({ title: `Invoice ${order.orderNo}`, message: invoiceText(order) }).catch(() => {})}
+          disabled={downloadingInvoice}
+          onPress={shareInvoice}
         >
-          <Text style={styles.invoiceText}>Download Invoice</Text>
+          <Text style={styles.invoiceText}>
+            {downloadingInvoice ? 'Preparing invoice…' : 'Download Invoice'}
+          </Text>
           <Icon name="download-outline" size={16} color={colors.brand} />
         </Pressable>
 
@@ -133,7 +129,17 @@ export default function OrderDetailScreen({ navigation, route }) {
         </View>
 
         <Text style={styles.blockTitle}>Bill details</Text>
-        <BillRow label="Item total" value={formatPrice(order.itemsTotal)} />
+        <BillRow label={`Item total${order.gstIncluded ? ' (GST included)' : ''}`} value={formatPrice(order.itemsTotal)} />
+        {Number(order.taxTotal) > 0 ? order.gstIncluded ? order.isInterState ? (
+          <BillRow label="IGST included" value={formatPrice(order.igstTotal)} />
+        ) : (
+          <>
+            <BillRow label="CGST included" value={formatPrice(order.cgstTotal)} />
+            <BillRow label="SGST included" value={formatPrice(order.sgstTotal)} />
+          </>
+        ) : (
+          <BillRow label="Taxes & GST" value={formatPrice(order.taxTotal)} />
+        ) : null}
         <BillRow label="Cart handling" value={`+${formatPrice(order.handlingCharge)}`} />
         <BillRow
           label="Delivery charges"

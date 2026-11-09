@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { useAddress } from './AddressContext'
-import { authDelete, authGet, authPost, authPut, fetchJson, PLACEHOLDER_IMAGE, postJson } from '../lib/api'
+import { authDelete, authGet, authPost, authPut, fetchJson, postJson } from '../lib/api'
 import {
   DEFAULT_DELIVERY,
   defaultOptionForAddress,
@@ -58,7 +58,7 @@ function readStoredCart() {
           priceValue,
           oldPrice: item.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null),
           oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
-          image: item.image || PLACEHOLDER_IMAGE,
+          image: item.image || '',
           weight: item.weight || '250 g',
           quantity,
           categorySlug: item.categorySlug || null,
@@ -86,7 +86,7 @@ function mapServerCartItem(item) {
     priceValue,
     oldPrice: item.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null),
     oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
-    image: item.image || PLACEHOLDER_IMAGE,
+    image: item.image || '',
     weight: item.weight || '250 g',
     quantity: Math.max(1, Number(item.quantity) || 1),
     categorySlug: item.category?.slug || item.categorySlug || null,
@@ -302,7 +302,7 @@ export function CartProvider({ children }) {
           priceValue,
           oldPrice,
           oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
-          image: product.image || PLACEHOLDER_IMAGE,
+          image: product.image || '',
           weight: product.weight || '250 g',
           quantity: 1,
           categorySlug: categorySlugFrom(product),

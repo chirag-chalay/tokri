@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import CatalogImage from '../../components/CatalogImage'
 import SafeCartControl from './SafeCartControl'
 
 const discountPercent = (product) => {
@@ -35,11 +36,10 @@ export default function RelatedProductCard({ product }) {
             {off}% OFF
           </span>
         )}
-        <img
+        <CatalogImage
           src={product.image}
           alt={product.name}
           className="h-full w-full object-cover transition group-hover:scale-105"
-          loading="lazy"
         />
       </div>
       <h3 className="line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-white">
@@ -64,4 +64,3 @@ export default function RelatedProductCard({ product }) {
     </article>
   )
 }
-

@@ -16,6 +16,12 @@ import { errorHandler } from './middleware/errorHandler.js'
 import { prisma } from './lib/prisma.js'
 import { recoverPendingOnlinePayments } from './services/checkout.js'
 
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    'DATABASE_URL is not set. Create server/.env from server/.env.example and set it to your local MySQL connection string.',
+  )
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const uploadsPath = path.join(__dirname, '../uploads')
 const distPath = path.join(__dirname, '../../dist')
