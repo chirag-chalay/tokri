@@ -6,7 +6,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -18,30 +17,8 @@ import LoadingView from '../components/LoadingView'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { authGet, formatPrice, normalizeOrder } from '../lib/api'
 import { formatOrderWhen, paymentLabel } from '../lib/orders'
+import { downloadOrderInvoice } from '../lib/invoice'
 import { useAuth } from '../context/AuthContext'
-
-function invoiceText(order) {
-  const lines = [
-    'Tokriii invoice',
-    `Order ${order.orderNo}`,
-    formatOrderWhen(order.createdAt),
-    paymentLabel(order),
-    '',
-    ...(order.items || []).map(
-      (item) => `${item.name} x ${item.quantity}  ${formatPrice(item.lineTotal || item.priceValue * item.quantity)}`,
-    ),
-    '',
-    `Total  ${formatPrice(order.grandTotal)}`,
-  ]
-  return lines.join('\n')
-}
-
-function shareInvoice(order) {
-  Share.share({
-    title: `Invoice ${order.orderNo}`,
-    message: invoiceText(order),
-  }).catch(() => {})
-}
 
 function rateOrder() {
   Alert.alert('Rate order', 'How was your Tokriii order?', [
@@ -59,6 +36,18 @@ export default function OrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [downloadingInvoice, setDownloadingInvoice] = useState(null)
+
+  const shareInvoice = async (order) => {
+    setDownloadingInvoice(order.orderNo)
+    try {
+      await downloadOrderInvoice(order.orderNo, token)
+    } catch (error) {
+      Alert.alert('Invoice unavailable', error.message || 'Could not download this invoice.')
+    } finally {
+      setDownloadingInvoice(null)
+    }
+  }
 
   const load = useCallback(async () => {
     if (!isLoggedIn) {
@@ -137,8 +126,14 @@ export default function OrdersScreen({ navigation }) {
               </ScrollView>
 
               <View style={styles.actions}>
-                <Pressable style={styles.actionBtn} onPress={() => shareInvoice(item)}>
-                  <Text style={styles.actionText}>Download invoice</Text>
+                <Pressable
+                  style={styles.actionBtn}
+                  disabled={downloadingInvoice === item.orderNo}
+                  onPress={() => shareInvoice(item)}
+                >
+                  <Text style={styles.actionText}>
+                    {downloadingInvoice === item.orderNo ? 'Preparing invoice…' : 'Download invoice'}
+                  </Text>
                 </Pressable>
                 <View style={styles.actionSplit} />
                 <Pressable style={styles.actionBtn} onPress={rateOrder}>

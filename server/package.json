@@ -27,7 +27,8 @@
     "db:apply-blog": "node scripts/apply-blog.js",
     "db:apply-app-release": "node scripts/apply-app-release.js",
     "db:apply-social": "node scripts/apply-social-links.js",
-    "test:coupons": "node --test tests/manual-coupons.test.js"
+    "test:coupons": "node --test tests/manual-coupons.test.js",
+    "test:inclusive-gst": "node --test tests/inclusive-gst.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

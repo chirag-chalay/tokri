@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { categoryDetails } from '../data/categories'
 import { fetchJson, normalizeProducts, resolveAssetUrl } from '../lib/api'
 import CartControl from '../components/CartControl'
+import CatalogImage from '../components/CatalogImage'
 
 const discountPercent = (product) => {
   const price = Number(product.priceValue)
@@ -14,14 +14,13 @@ const discountPercent = (product) => {
 export default function CategoryPage() {
   const navigate = useNavigate()
   const { categoryId } = useParams()
-  const fallbackCategory = categoryDetails[categoryId]
-  const [category, setCategory] = useState(fallbackCategory)
-  const [loading, setLoading] = useState(!fallbackCategory)
+  const [category, setCategory] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [prevId, setPrevId] = useState(categoryId)
 
   if (prevId !== categoryId) {
     setPrevId(categoryId)
-    setLoading(!fallbackCategory)
+    setLoading(true)
   }
 
   useEffect(() => {
@@ -37,7 +36,7 @@ export default function CategoryPage() {
         }
       })
       .catch(() => {
-        if (!ignore) setCategory(fallbackCategory)
+        if (!ignore) setCategory(null)
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -46,7 +45,7 @@ export default function CategoryPage() {
     return () => {
       ignore = true
     }
-  }, [categoryId, fallbackCategory])
+  }, [categoryId])
 
   if (loading) {
     return (
@@ -99,7 +98,7 @@ export default function CategoryPage() {
             <div className="flex flex-row items-center gap-3 sm:gap-8">
               <div className="shrink-0">
                 <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-panel-2 shadow-inner sm:h-40 sm:w-40">
-                  <img
+                  <CatalogImage
                     src={resolveAssetUrl(category.image)}
                     alt={category.title || category.label}
                     className="h-full w-full object-cover"
@@ -158,11 +157,10 @@ export default function CategoryPage() {
                         {off}% OFF
                       </span>
                     )}
-                    <img
+                    <CatalogImage
                       src={product.image}
                       alt={product.name}
                       className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                      loading="lazy"
                     />
                   </div>
                   <h3 className="line-clamp-2 min-h-[2rem] text-xs font-semibold leading-tight text-white">

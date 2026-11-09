@@ -8,6 +8,7 @@ import {
   sendDeliveryPartnerAssignment,
   sendOrderConfirmation,
 } from '../services/msg91.js'
+import { orderPricesIncludeGst } from '../utils/tax.js'
 
 function parseAddress(address) {
   if (!address || typeof address !== 'object') return null
@@ -47,6 +48,7 @@ export function flattenOrder(order) {
     sgstTotal: String(order.sgstTotal || 0),
     igstTotal: String(order.igstTotal || 0),
     isInterState: Boolean(order.isInterState),
+    gstIncluded: orderPricesIncludeGst(order),
     grandTotal: String(order.grandTotal),
     couponCode: order.couponCode || '',
     deliveryOption: order.deliveryOption || '',

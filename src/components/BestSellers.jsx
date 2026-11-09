@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from '../lib/navigation'
-import { bestSellers } from '../data/bestSellers'
 import { fetchJson, normalizeProducts } from '../lib/api'
 import DeferredCartControl from './DeferredCartControl'
+import CatalogImage from './CatalogImage'
 
 const discountPercent = (product) => {
   const price = Number(product.priceValue)
@@ -13,14 +13,14 @@ const discountPercent = (product) => {
 
 export default function BestSellers({ initialProducts, deferCart = false }) {
   const navigate = useNavigate()
-  const [products, setProducts] = useState(Array.isArray(initialProducts) ? initialProducts : bestSellers)
+  const [products, setProducts] = useState(Array.isArray(initialProducts) ? initialProducts : [])
 
   useEffect(() => {
     let ignore = false
 
     fetchJson('/products?flag=bestSeller&limit=12')
       .then((items) => {
-        if (!ignore && items.length) setProducts(normalizeProducts(items))
+        if (!ignore) setProducts(normalizeProducts(items))
       })
       .catch(() => {})
 
@@ -28,6 +28,8 @@ export default function BestSellers({ initialProducts, deferCart = false }) {
       ignore = true
     }
   }, [])
+
+  if (products.length === 0) return null
 
   return (
     <section className="bg-canvas py-8 lg:py-14">
@@ -63,11 +65,10 @@ export default function BestSellers({ initialProducts, deferCart = false }) {
                       {off}% OFF
                     </span>
                   )}
-                  <img
+                  <CatalogImage
                     src={product.image}
                     alt={product.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
-                    loading="lazy"
                   />
                 </div>
                 <h3 className="line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-white">

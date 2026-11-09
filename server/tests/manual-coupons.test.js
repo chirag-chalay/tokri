@@ -371,7 +371,7 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
               { couponCode: 'TOKRII15' },
             )
           ).totals.taxTotal,
-          63.75,
+          60.71,
         )
         const mixed = await pricing(
           [
@@ -385,7 +385,7 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
           mixed.totals.lineItems.map((x) => x.discount),
           [150, 75],
         )
-        assert.equal(mixed.totals.taxTotal, 21.25)
+        assert.equal(mixed.totals.taxTotal, 20.24)
         await prisma.coupon.update({
           where: { code: 'PRIVATE50' },
           data: { targetType: 'products', targetSlugs: ['manual-dry'] },
@@ -402,7 +402,7 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
           targeted.totals.lineItems.map((x) => x.discount),
           [0, 50],
         )
-        assert.equal(targeted.totals.taxTotal, 22.5)
+        assert.equal(targeted.totals.taxTotal, 21.43)
         await prisma.coupon.update({
           where: { code: 'PRIVATE50' },
           data: { targetType: 'all', targetSlugs: [] },
@@ -677,7 +677,7 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
           targeted.totals.lineItems.map((line) => line.discount),
           [0, 50],
         )
-        assert.equal(targeted.totals.taxTotal, 22.5)
+        assert.equal(targeted.totals.taxTotal, 21.43)
         const count = await prisma.order.count()
         await assert.rejects(
           create(customer, {

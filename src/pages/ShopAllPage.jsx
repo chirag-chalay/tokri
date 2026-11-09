@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from '../lib/navigation'
 import { fetchJson, normalizeProducts, resolveAssetUrl } from '../lib/api'
 import { useCart } from '../context/CartContext'
 import DeferredCartControl from '../components/DeferredCartControl'
+import CatalogImage from '../components/CatalogImage'
 import Footer from '../components/Footer'
 
 const PAGE_SIZE = 24
@@ -66,11 +67,10 @@ function ProductCard({ product, onNavigate, deferCart }) {
             {off}% OFF
           </span>
         )}
-        <img
+        <CatalogImage
           src={product.image}
           alt={product.name}
           className="h-full w-full object-cover"
-          loading="lazy"
         />
       </div>
 
@@ -769,11 +769,10 @@ export default function ShopAllPage({ initialData }) {
                           isActive ? 'border-emerald-400' : 'border-line'
                         }`}
                       >
-                        <img
+                        <CatalogImage
                           src={category.image}
                           alt=""
                           className="h-full w-full object-cover"
-                          loading="lazy"
                         />
                       </span>
                       <span

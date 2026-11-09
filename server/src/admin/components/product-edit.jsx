@@ -308,7 +308,7 @@ const ProductEdit = (props) => {
             <StatusSwitch
               checked={isFlagOn(params.isTaxable)}
               title="Taxable"
-              hint={isFlagOn(params.isTaxable) ? 'GST will be charged at checkout' : 'No GST on this product'}
+              hint={isFlagOn(params.isTaxable) ? 'GST is included in the product price and shown on the invoice' : 'No GST on this product'}
               onLabel="Yes"
               offLabel="No"
               onChange={(next) => {

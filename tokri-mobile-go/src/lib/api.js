@@ -28,7 +28,7 @@ async function parseResponse(response) {
   return data
 }
 
-function authHeaders(token) {
+export function authHeaders(token) {
   const headers = {
     'Content-Type': 'application/json',
     'X-App-Platform': appPlatform(),

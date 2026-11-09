@@ -1,5 +1,5 @@
 import { Minus, Plus } from 'lucide-react'
-import { resolveAssetUrl } from '../lib/api'
+import CatalogImage from './CatalogImage'
 
 const formatPrice = (value) =>
   `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
@@ -33,8 +33,8 @@ export default function CartLineItem({ item, onDecrease, onIncrease }) {
 
   return (
     <article className="flex gap-3 rounded-2xl border border-line bg-panel px-4 py-4">
-      <img
-        src={resolveAssetUrl(item.image)}
+      <CatalogImage
+        src={item.image}
         alt={item.name}
         className="h-[72px] w-[72px] shrink-0 rounded-xl border border-line bg-panel-2 object-cover"
       />

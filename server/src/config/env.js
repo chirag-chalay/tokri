@@ -1,16 +1,19 @@
 import dotenv from 'dotenv'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-dotenv.config()
+const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+dotenv.config({ path: path.join(serverRoot, '.env') })
 
 function stripTrailingSlash(value) {
   return String(value || '').replace(/\/+$/, '')
 }
 
-const port = Number(process.env.PORT) || 5222
+const port = Number(process.env.PORT) || 5223
 const adminPath = process.env.ADMIN_PATH || '/tokri-backoffice'
 const clientUrl = stripTrailingSlash(process.env.CLIENT_URL || 'http://localhost:5222')
 const appUrl = stripTrailingSlash(process.env.APP_URL || clientUrl)
-const apiUrl = stripTrailingSlash(process.env.API_URL || appUrl || `http://localhost:${port}`)
+const apiUrl = stripTrailingSlash(process.env.API_URL || `http://localhost:${port}`)
 
 // Uploads public host. Prefer explicit PUBLIC_ASSET_URL, otherwise same host as API.
 // Staging (server.tokriii.com) and production (tokriii.com) each serve their own /uploads.

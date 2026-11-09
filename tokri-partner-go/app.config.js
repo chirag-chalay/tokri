@@ -19,20 +19,20 @@ module.exports = {
   expo: {
     name: isLiveApi ? 'Tokriii Partner' : 'Tokriii Partner Staging',
     slug: 'tokriii-partner',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
     newArchEnabled: true,
     ios: {
       supportsTablet: false,
-      buildNumber: '1',
+      buildNumber: '2',
       bundleIdentifier: isLiveApi ? 'com.tokriii.partner' : 'com.tokriii.partner.staging',
     },
     updates: { enabled: false },
     android: {
       package: isLiveApi ? 'com.tokriii.partner' : 'com.tokriii.partner.staging',
-      versionCode: 1,
+      versionCode: 2,
       usesCleartextTraffic: true,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',

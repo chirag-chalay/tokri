@@ -5,15 +5,14 @@ import { Link } from '../lib/navigation'
 import { resolveAssetUrl } from '../lib/api'
 import DiwaliAtmosphere from './DiwaliAtmosphere'
 import { getDiwaliStatus } from '../lib/diwaliConfig'
-import defaultBanner from '../assets/hero-banner.png'
 
 const emptySubscribe = () => () => {}
 const getClientSearch = () => (typeof window !== 'undefined' ? window.location.search || '' : '')
 
 export default function Banner({ image, mobileImage, rawUrls = false, isDiwaliActive = null }) {
-  const desktopSrc = image ? (rawUrls ? image : resolveAssetUrl(image)) : defaultBanner
+  const desktopSrc = image ? (rawUrls ? image : resolveAssetUrl(image)) : null
   const mobileSrc = mobileImage ? (rawUrls ? mobileImage : resolveAssetUrl(mobileImage)) : null
-  const src = mobileSrc || desktopSrc || defaultBanner
+  const src = mobileSrc || desktopSrc
 
   const search = useSyncExternalStore(emptySubscribe, getClientSearch, () => '')
 
@@ -32,8 +31,6 @@ export default function Banner({ image, mobileImage, rawUrls = false, isDiwaliAc
   } else {
     festiveActive = getDiwaliStatus().isActive
   }
-
-  if (!src && !festiveActive) return null
 
   return (
     <section className="relative w-full overflow-hidden pt-4 sm:pt-6 pb-2">
@@ -68,6 +65,12 @@ export default function Banner({ image, mobileImage, rawUrls = false, isDiwaliAc
               />
             )}
           </Link>
+        )}
+        {!src && (
+          <div
+            aria-hidden="true"
+            className="aspect-[2/1] min-h-24 rounded-xl bg-gradient-to-r from-panel via-panel-2 to-panel sm:aspect-[4/1] sm:min-h-32"
+          />
         )}
       </div>
     </section>

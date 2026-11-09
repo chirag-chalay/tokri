@@ -28,7 +28,8 @@ async function runTests() {
     },
   ]
   const dryTotals = calcCartTotals(dryOnlyItems, defaultChargeRates(), 0, false)
-  const expectedDryGst = Math.round(Number(almond.priceValue) * (Number(almond.gstRate) / 100) * 100) / 100
+  const almondBase = Math.round(Number(almond.priceValue) * 100 / (100 + Number(almond.gstRate)) * 100) / 100
+  const expectedDryGst = Math.round((Number(almond.priceValue) - almondBase) * 100) / 100
   console.log(`Dry Fruit Alone (${almond.name}): itemsTotal=₹${dryTotals.itemsTotal}, taxTotal=₹${dryTotals.taxTotal} (Expected ₹${expectedDryGst})`)
   if (dryTotals.taxTotal !== expectedDryGst) {
     throw new Error(`Dry fruit GST mismatch: got ${dryTotals.taxTotal}, expected ${expectedDryGst}`)

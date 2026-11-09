@@ -25,8 +25,7 @@ export function plainText(html) {
 }
 
 export function assetUrl(value) {
-  if (value) return value
-  return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect fill="#f8fafc" width="100%" height="100%"/></svg>')
+  return value || ''
 }
 
 export function detailMetadata(kind, item) {
