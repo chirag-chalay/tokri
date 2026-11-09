@@ -75,7 +75,7 @@ const TaxEdit = (props) => {
         <StatusSwitch
           checked={isTaxableBool}
           title="Taxable"
-          hint={isTaxableBool ? 'GST will be charged at checkout' : '0% GST (fresh fruits / exempt)'}
+          hint={isTaxableBool ? 'GST is included in the product price and shown on the invoice' : '0% GST (fresh fruits / exempt)'}
           onLabel="Yes"
           offLabel="No"
           onChange={handleTaxableToggle}
@@ -110,7 +110,7 @@ const TaxEdit = (props) => {
         </div>
         <Text mt="sm" opacity={0.7} fontSize="12px">
           {isTaxableBool
-            ? `At checkout, intra-state orders split into ${(Number(params.gstRate || 5) / 2).toFixed(1)}% CGST + ${(Number(params.gstRate || 5) / 2).toFixed(1)}% SGST; inter-state orders charge ${Number(params.gstRate || 5)}% IGST.`
+            ? `GST is included in the product price. Intra-state invoices split it into ${(Number(params.gstRate || 5) / 2).toFixed(1)}% CGST + ${(Number(params.gstRate || 5) / 2).toFixed(1)}% SGST; inter-state invoices show ${Number(params.gstRate || 5)}% IGST.`
             : 'Product is exempt/non-taxable (0% GST).'}
         </Text>
       </section>

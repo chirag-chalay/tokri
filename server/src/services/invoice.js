@@ -1,10 +1,18 @@
 import PDFDocument from 'pdfkit'
 import { prisma } from '../lib/prisma.js'
 import { formatExpectedDeliveryDate } from './delivery.js'
+import { orderPricesIncludeGst } from '../utils/tax.js'
 
 function formatMoney(value) {
   const amount = Number(value || 0)
-  return `Rs. ${amount.toFixed(2)}`
+  return `Rs. ${amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+function formatTableMoney(value) {
+  return formatMoney(value)
 }
 
 function formatDate(date) {
@@ -82,6 +90,7 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         : order.paymentMode === 'online' || order.razorpayPaymentId
           ? 'Online (Razorpay)'
           : 'Cash on Delivery'
+  const gstInclusive = orderPricesIncludeGst(order)
 
   return new Promise((resolve, reject) => {
     try {
@@ -289,17 +298,17 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
       // ==========================================
       // 3. ITEMS TABLE
       // ==========================================
-      const tableScale = pageWidth / 623
-      const colProductW = 115 * tableScale
-      const colHsnW = 42 * tableScale
-      const colQtyW = 26 * tableScale
-      const colRateW = 46 * tableScale
+      const tableScale = pageWidth / 523
+      const colProductW = 103 * tableScale
+      const colHsnW = 38 * tableScale
+      const colQtyW = 24 * tableScale
+      const colRateW = 58 * tableScale
       const colTaxableW = 56 * tableScale
-      const colGstRateW = 40 * tableScale
-      const colCgstW = 48 * tableScale
-      const colSgstW = 48 * tableScale
-      const colIgstW = 48 * tableScale
-      const colTotalW = 54 * tableScale
+      const colGstRateW = 36 * tableScale
+      const colCgstW = 52 * tableScale
+      const colSgstW = 52 * tableScale
+      const colIgstW = 52 * tableScale
+      const colTotalW = 52 * tableScale
 
       const colProductX = left
       const colHsnX = colProductX + colProductW
@@ -346,19 +355,23 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         doc.rect(left, y, pageWidth, 22).fill(rowBg)
         doc.rect(left, y, pageWidth, 22).strokeColor(borderColor).lineWidth(0.5).stroke()
 
-        const itemTaxableAmount = Math.round((Number(item.priceValue) * item.quantity - Number(item.discount || 0)) * 100) / 100
+        const itemAmount = Math.round((Number(item.priceValue) * item.quantity - Number(item.discount || 0)) * 100) / 100
         const itemTaxAmount = Number(item.taxAmount || 0)
         const isTax = Boolean(item.isTaxable)
         const gstRateNum = Number(item.gstRate || 0)
+        const itemTaxableAmount = isTax && gstRateNum > 0 && gstInclusive
+          ? Math.round((itemAmount - itemTaxAmount) * 100) / 100
+          : itemAmount
+        const itemLineTotal = gstInclusive ? itemAmount : itemAmount + itemTaxAmount
 
         const cgstStr = Number(item.cgstAmount || 0) > 0
-          ? formatMoney(item.cgstAmount)
+          ? formatTableMoney(item.cgstAmount)
           : (order.isInterState ? '—' : 'Rs. 0.00')
         const sgstStr = Number(item.sgstAmount || 0) > 0
-          ? formatMoney(item.sgstAmount)
+          ? formatTableMoney(item.sgstAmount)
           : (order.isInterState ? '—' : 'Rs. 0.00')
         const igstStr = Number(item.igstAmount || 0) > 0
-          ? formatMoney(item.igstAmount)
+          ? formatTableMoney(item.igstAmount)
           : (!order.isInterState ? '—' : 'Rs. 0.00')
 
         doc
@@ -369,14 +382,14 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         doc.font('Helvetica-Bold').text(item.name, colProductX + 4, y + 6, { width: colProductW - 6, lineBreak: false })
         doc.font('Helvetica').text(item.hsnCode || '—', colHsnX, y + 6, { width: colHsnW, align: 'center' })
         doc.text(String(item.quantity), colQtyX, y + 6, { width: colQtyW - 2, align: 'right' })
-        doc.text(formatMoney(item.priceValue), colRateX, y + 6, { width: colRateW - 2, align: 'right' })
-        doc.text(formatMoney(itemTaxableAmount), colTaxableX, y + 6, { width: colTaxableW - 2, align: 'right' })
+        doc.text(formatTableMoney(item.priceValue), colRateX, y + 6, { width: colRateW - 2, align: 'right' })
+        doc.text(formatTableMoney(itemTaxableAmount), colTaxableX, y + 6, { width: colTaxableW - 2, align: 'right' })
         doc.text(isTax && gstRateNum > 0 ? `${gstRateNum}%` : '0%', colGstRateX, y + 6, { width: colGstRateW - 2, align: 'right' })
         doc.text(cgstStr, colCgstX, y + 6, { width: colCgstW - 2, align: 'right' })
         doc.text(sgstStr, colSgstX, y + 6, { width: colSgstW - 2, align: 'right' })
         doc.text(igstStr, colIgstX, y + 6, { width: colIgstW - 2, align: 'right' })
-        doc.font('Helvetica-Bold').text(formatMoney(itemTaxableAmount + itemTaxAmount), colTotalX, y + 6, {
-          width: colTotalW - 4,
+        doc.font('Helvetica-Bold').text(formatTableMoney(itemLineTotal), colTotalX, y + 6, {
+          width: colTotalW - 2,
           align: 'right',
         })
 
@@ -413,12 +426,21 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         .fillColor(mutedColor)
         .font('Helvetica')
         .fontSize(8)
-        .text('• GST is charged at applicable statutory rates per product.', left, notesY + 12)
+        .text(
+          gstInclusive
+            ? '• GST is included in taxable product prices at applicable statutory rates.'
+            : '• GST is shown at applicable statutory rates per product.',
+          left,
+          notesY + 12,
+        )
         .text('• Tokriii guarantees 100% freshness on all farm-sourced produce.', left, notesY + 24)
         .text('• This is a computer-generated tax invoice and requires no signature.', left, notesY + 36)
 
       // Right totals calculation
-      renderTotalLine('Subtotal:', formatMoney(order.itemsTotal))
+      renderTotalLine(
+        `Items total${gstInclusive ? ' (incl. GST)' : ''}:`,
+        formatMoney(order.itemsTotal),
+      )
 
       if (Number(order.discount) > 0) {
         if (order.automaticDiscount) {
@@ -432,7 +454,15 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         renderTotalLine('Discount:', 'Rs. 0.00', false, mutedColor)
       }
 
-      renderTotalLine('Product base:', formatMoney(order.items.reduce((sum, item) => sum + Number(item.priceValue) * item.quantity - Number(item.discount || 0), 0)))
+      const taxableValue = order.items.reduce((sum, item) => {
+        const lineAmount = Number(item.priceValue) * item.quantity - Number(item.discount || 0)
+        const rate = Number(item.gstRate || 0)
+        const taxable = gstInclusive && item.isTaxable && rate > 0
+          ? Math.round((lineAmount - Number(item.taxAmount || 0)) * 100) / 100
+          : lineAmount
+        return sum + taxable
+      }, 0)
+      renderTotalLine('Taxable value:', formatMoney(taxableValue))
 
       const cgstTotalVal = Number(order.cgstTotal || 0)
       const sgstTotalVal = Number(order.sgstTotal || 0)
@@ -442,6 +472,9 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
       renderTotalLine('SGST:', order.isInterState ? '—' : formatMoney(sgstTotalVal))
       renderTotalLine('IGST:', !order.isInterState ? '—' : formatMoney(igstTotalVal))
       renderTotalLine('Total GST:', formatMoney(order.taxTotal || 0), true)
+      if (gstInclusive && Number(order.taxTotal) > 0) {
+        renderTotalLine('GST included in item prices:', 'Yes', false, mutedColor)
+      }
 
       const isFreeDelivery = order.freeDeliveryApplied || Number(order.deliveryCharge) === 0
       const deliveryText = isFreeDelivery

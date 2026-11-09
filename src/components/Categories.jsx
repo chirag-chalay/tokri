@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link } from '../lib/navigation'
-import { categories as fallbackCategories } from '../data/categories'
 import { fetchJson, resolveAssetUrl } from '../lib/api'
+import CatalogImage from './CatalogImage'
 
 export default function Categories({ initialCategories }) {
-  const [categories, setCategories] = useState(Array.isArray(initialCategories) ? initialCategories : fallbackCategories)
+  const [categories, setCategories] = useState(Array.isArray(initialCategories) ? initialCategories : [])
 
   useEffect(() => {
     let ignore = false
 
     fetchJson('/categories')
       .then((items) => {
-        if (!ignore && items.length) {
+        if (!ignore && Array.isArray(items)) {
           setCategories(
             items.map((item) => ({
               ...item,
@@ -27,6 +27,8 @@ export default function Categories({ initialCategories }) {
       ignore = true
     }
   }, [])
+
+  if (categories.length === 0) return null
 
   return (
     <section className="mb-0 mt-8 bg-canvas lg:mb-0 lg:mt-14">
@@ -46,7 +48,7 @@ export default function Categories({ initialCategories }) {
               >
                 <article className="text-center">
                   <div className="mx-auto aspect-square overflow-hidden rounded-xl bg-transparent">
-                    <img
+                    <CatalogImage
                       src={category.image}
                       alt={category.label}
                       className="h-full w-full object-cover"

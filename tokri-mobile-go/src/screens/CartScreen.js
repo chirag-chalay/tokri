@@ -450,7 +450,14 @@ export default function CartScreen({ navigation }) {
               ) : selectedQuote?.freeDeliveryApplied && selectedQuote.offerMessage ? (
                 <Text style={styles.freeNudge}>{selectedQuote.offerMessage}</Text>
               ) : null}
-              {taxTotal > 0 && <BillRow icon="receipt-outline" label="Taxes & GST" value={formatPrice(taxTotal)} />}
+              {taxTotal > 0 ? quote?.totals?.isInterState ? (
+                <BillRow icon="receipt-outline" label="IGST included" value={formatPrice(quote.totals.igstTotal)} />
+              ) : (
+                <>
+                  <BillRow icon="receipt-outline" label="CGST included" value={formatPrice(quote?.totals?.cgstTotal)} />
+                  <BillRow icon="receipt-outline" label="SGST included" value={formatPrice(quote?.totals?.sgstTotal)} />
+                </>
+              ) : null}
               {quote?.totals?.couponDiscount > 0 ? (
                 <BillRow
                   icon="pricetag-outline"

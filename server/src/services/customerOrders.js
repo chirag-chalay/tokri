@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js'
 import { toPublicAssetUrl } from '../utils/formatters.js'
+import { orderPricesIncludeGst } from '../utils/tax.js'
 
 function parseAddress(address) {
   if (!address || typeof address !== 'object') return null
@@ -45,6 +46,8 @@ export function formatCustomerOrder(order) {
     cgstTotal: Number(order.cgstTotal || 0),
     sgstTotal: Number(order.sgstTotal || 0),
     igstTotal: Number(order.igstTotal || 0),
+    isInterState: Boolean(order.isInterState),
+    gstIncluded: orderPricesIncludeGst(order),
     discount: Number(order.discount),
     automaticDiscount: order.automaticDiscount || null,
     couponCode: order.couponCode || null,
@@ -70,6 +73,11 @@ export function formatCustomerOrder(order) {
       lineTotal: Number(item.priceValue) * item.quantity,
       discount: Number(item.discount || 0),
       taxAmount: Number(item.taxAmount || 0),
+      isTaxable: Boolean(item.isTaxable),
+      gstRate: Number(item.gstRate || 0),
+      cgstAmount: Number(item.cgstAmount || 0),
+      sgstAmount: Number(item.sgstAmount || 0),
+      igstAmount: Number(item.igstAmount || 0),
     })),
   }
 }

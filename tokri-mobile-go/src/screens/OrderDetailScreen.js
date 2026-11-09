@@ -18,11 +18,29 @@ function invoiceText(order) {
     formatOrderWhen(order.createdAt),
     paymentLabel(order),
     '',
-    ...(order.items || []).map(
-      (item) => `${item.name} x ${item.quantity}  ${formatPrice(item.lineTotal || item.priceValue * item.quantity)}`,
-    ),
+    ...(order.items || []).flatMap((item) => {
+      const itemLines = [
+        `${item.name} x ${item.quantity}  ${formatPrice(item.lineTotal || item.priceValue * item.quantity)}`,
+      ]
+      if (item.isTaxable && item.gstRate > 0) {
+        if (order.isInterState) {
+          itemLines.push(`  IGST @ ${item.gstRate}%  ${formatPrice(item.igstAmount)}`)
+        } else {
+          itemLines.push(`  CGST @ ${item.gstRate / 2}%  ${formatPrice(item.cgstAmount)}`)
+          itemLines.push(`  SGST @ ${item.gstRate / 2}%  ${formatPrice(item.sgstAmount)}`)
+        }
+      }
+      return itemLines
+    }),
     '',
-    `Item total  ${formatPrice(order.itemsTotal)}`,
+    `Item total${order.gstIncluded ? ' (GST included)' : ''}  ${formatPrice(order.itemsTotal)}`,
+    Number(order.taxTotal) && order.gstIncluded
+      ? order.isInterState
+        ? `IGST included  ${formatPrice(order.igstTotal)}`
+        : `CGST included  ${formatPrice(order.cgstTotal)}\nSGST included  ${formatPrice(order.sgstTotal)}`
+      : Number(order.taxTotal)
+        ? `Taxes & GST  ${formatPrice(order.taxTotal)}`
+        : null,
     `Cart handling  ${formatPrice(order.handlingCharge)}`,
     `Delivery charges  ${Number(order.deliveryCharge) ? formatPrice(order.deliveryCharge) : 'FREE'}`,
     Number(order.discount) ? `Discount  -${formatPrice(order.discount)}` : null,
@@ -133,7 +151,17 @@ export default function OrderDetailScreen({ navigation, route }) {
         </View>
 
         <Text style={styles.blockTitle}>Bill details</Text>
-        <BillRow label="Item total" value={formatPrice(order.itemsTotal)} />
+        <BillRow label={`Item total${order.gstIncluded ? ' (GST included)' : ''}`} value={formatPrice(order.itemsTotal)} />
+        {Number(order.taxTotal) > 0 ? order.gstIncluded ? order.isInterState ? (
+          <BillRow label="IGST included" value={formatPrice(order.igstTotal)} />
+        ) : (
+          <>
+            <BillRow label="CGST included" value={formatPrice(order.cgstTotal)} />
+            <BillRow label="SGST included" value={formatPrice(order.sgstTotal)} />
+          </>
+        ) : (
+          <BillRow label="Taxes & GST" value={formatPrice(order.taxTotal)} />
+        ) : null}
         <BillRow label="Cart handling" value={`+${formatPrice(order.handlingCharge)}`} />
         <BillRow
           label="Delivery charges"

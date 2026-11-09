@@ -25,3 +25,20 @@ eas build -p android --profile preview
 ```
 
 The APK already talks to `https://tokriii.com/api/v1`.
+
+## Build for TestFlight
+
+Use the production profile for an App Store / TestFlight build:
+
+```bash
+npm install -g eas-cli
+eas login
+eas build:configure
+eas build --platform ios --profile production
+```
+
+This uses the `store` distribution in `eas.json`, which is the correct profile for an App Store build that can be uploaded to TestFlight. After the build completes, submit it with:
+
+```bash
+eas submit --platform ios --profile production
+```

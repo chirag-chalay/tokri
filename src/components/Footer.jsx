@@ -70,7 +70,6 @@ const AppStoreIcon = () => (
 
 const Footer = () => {
   const [socialLinks, setSocialLinks] = useState({})
-  const [appNotice, setAppNotice] = useState('')
 
   useEffect(() => {
     let ignore = false
@@ -239,19 +238,15 @@ const Footer = () => {
                 <img src={playStoreIcon} alt="" className="h-6 w-6 shrink-0 object-contain" aria-hidden="true" />
                 <span className="text-xs font-medium leading-tight">Get it on play store</span>
               </a>
-              <button
-                type="button"
-                onClick={() => setAppNotice('Coming soon')}
+              <a
+                href="https://apps.apple.com/in/app/tokriii/id6822043083"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex w-[70%] max-w-[200px] items-center gap-2 rounded-lg border-2 border-slate-900 bg-white px-3 py-2 text-left text-slate-900 shadow-sm transition hover:bg-slate-50"
               >
                 <AppStoreIcon />
                 <span className="text-xs font-medium leading-tight">Get it on app store</span>
-              </button>
-              {appNotice ? (
-                <p className="text-sm font-medium text-mint" role="status">
-                  {appNotice}
-                </p>
-              ) : null}
+              </a>
             </div>
           </div>
         </div>

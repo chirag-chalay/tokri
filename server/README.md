@@ -7,11 +7,18 @@ Express + Prisma + MySQL + AdminJS backend for the Tokriii storefront and future
 ```bash
 # From project root
 cd server
-cp .env.example .env   # edit DATABASE_URL if needed
+cp .env.example .env   # set DATABASE_URL to your local MySQL user/password
 npm install
 npm run db:setup       # create tables + seed data
 npm run dev            # API on http://localhost:5223 (see .env)
 ```
+
+The setup seed does not add example products or categories. The storefront catalog
+stays empty until you add real catalog entries in the admin dashboard.
+
+The backend loads `server/.env` regardless of the directory used to start it.
+MySQL must be running locally and the example `DATABASE_URL` must be replaced
+with a valid local connection string before starting the API.
 
 From project root, run the storefront dev server separately:
 

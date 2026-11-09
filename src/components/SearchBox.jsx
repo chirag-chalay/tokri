@@ -3,6 +3,7 @@ import { Link } from '../lib/navigation'
 import { Search, X } from 'lucide-react'
 import { fetchJson, normalizeProduct } from '../lib/api'
 import CartControl from './CartControl'
+import CatalogImage from './CatalogImage'
 
 const PAGE_SIZE = 12
 const MIN_CHARS = 2
@@ -46,11 +47,10 @@ function ResultCard({ product, onNavigate }) {
               {off}% OFF
             </span>
           )}
-          <img
+          <CatalogImage
             src={product.image}
             alt={product.name}
             className="h-full w-full object-contain p-1 transition group-hover:scale-105"
-            loading="lazy"
           />
         </div>
         <p className="line-clamp-2 min-h-[2rem] text-xs font-medium text-white">
@@ -265,11 +265,10 @@ export default function SearchBox({ variant = 'desktop' }) {
                           onClick={() => setOpen(false)}
                           className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-panel-2"
                         >
-                          <img
+                          <CatalogImage
                             src={item.image}
                             alt={item.name}
                             className="h-7 w-7 rounded object-cover"
-                            loading="lazy"
                           />
                           <span className="text-sm text-mint">{item.name}</span>
                         </Link>
