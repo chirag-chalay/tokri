@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Clipboard, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
+import { Alert, Clipboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from '../components/Icon'
@@ -8,46 +8,9 @@ import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { authGet, formatPrice, normalizeOrder } from '../lib/api'
 import { formatOrderWhen, paymentLabel, statusLabel } from '../lib/orders'
 import { formatExpectedDeliveryDate } from '../lib/delivery'
+import { downloadOrderInvoice } from '../lib/invoice'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
-
-function invoiceText(order) {
-  const lines = [
-    'Tokriii invoice',
-    `Order ${order.orderNo}`,
-    formatOrderWhen(order.createdAt),
-    paymentLabel(order),
-    '',
-    ...(order.items || []).flatMap((item) => {
-      const itemLines = [
-        `${item.name} x ${item.quantity}  ${formatPrice(item.lineTotal || item.priceValue * item.quantity)}`,
-      ]
-      if (item.isTaxable && item.gstRate > 0) {
-        if (order.isInterState) {
-          itemLines.push(`  IGST @ ${item.gstRate}%  ${formatPrice(item.igstAmount)}`)
-        } else {
-          itemLines.push(`  CGST @ ${item.gstRate / 2}%  ${formatPrice(item.cgstAmount)}`)
-          itemLines.push(`  SGST @ ${item.gstRate / 2}%  ${formatPrice(item.sgstAmount)}`)
-        }
-      }
-      return itemLines
-    }),
-    '',
-    `Item total${order.gstIncluded ? ' (GST included)' : ''}  ${formatPrice(order.itemsTotal)}`,
-    Number(order.taxTotal) && order.gstIncluded
-      ? order.isInterState
-        ? `IGST included  ${formatPrice(order.igstTotal)}`
-        : `CGST included  ${formatPrice(order.cgstTotal)}\nSGST included  ${formatPrice(order.sgstTotal)}`
-      : Number(order.taxTotal)
-        ? `Taxes & GST  ${formatPrice(order.taxTotal)}`
-        : null,
-    `Cart handling  ${formatPrice(order.handlingCharge)}`,
-    `Delivery charges  ${Number(order.deliveryCharge) ? formatPrice(order.deliveryCharge) : 'FREE'}`,
-    Number(order.discount) ? `Discount  -${formatPrice(order.discount)}` : null,
-    `Bill total  ${formatPrice(order.grandTotal)}`,
-  ].filter(Boolean)
-  return lines.join('\n')
-}
 
 export default function OrderDetailScreen({ navigation, route }) {
   const { colors } = useTheme()
@@ -58,6 +21,7 @@ export default function OrderDetailScreen({ navigation, route }) {
   const orderNo = route.params?.orderNo
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false)
 
   const load = useCallback(async () => {
     const data = await authGet(`/account/orders/${encodeURIComponent(orderNo)}`, token)
@@ -90,6 +54,17 @@ export default function OrderDetailScreen({ navigation, route }) {
     ])
   }
 
+  const shareInvoice = async () => {
+    setDownloadingInvoice(true)
+    try {
+      await downloadOrderInvoice(order.orderNo, token)
+    } catch (error) {
+      Alert.alert('Invoice unavailable', error.message || 'Could not download this invoice.')
+    } finally {
+      setDownloadingInvoice(false)
+    }
+  }
+
   if (loading) return <LoadingView />
   if (!order) return null
 
@@ -111,9 +86,12 @@ export default function OrderDetailScreen({ navigation, route }) {
         ) : null}
         <Pressable
           style={styles.invoiceLink}
-          onPress={() => Share.share({ title: `Invoice ${order.orderNo}`, message: invoiceText(order) }).catch(() => {})}
+          disabled={downloadingInvoice}
+          onPress={shareInvoice}
         >
-          <Text style={styles.invoiceText}>Download Invoice</Text>
+          <Text style={styles.invoiceText}>
+            {downloadingInvoice ? 'Preparing invoice…' : 'Download Invoice'}
+          </Text>
           <Icon name="download-outline" size={16} color={colors.brand} />
         </Pressable>
 

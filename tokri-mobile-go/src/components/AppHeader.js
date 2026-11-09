@@ -27,25 +27,33 @@ export default function AppHeader({ navigation, onSearch, collapseProgress = 0 }
   const anim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
+    if (collapseProgress && typeof collapseProgress.interpolate === 'function') return
     const next = Math.max(0, Math.min(1, Number(collapseProgress) || 0))
-    Animated.timing(anim, {
-      toValue: next,
-      duration: 180,
-      useNativeDriver: false,
-    }).start()
+    anim.setValue(next)
   }, [anim, collapseProgress])
 
-  const topRowHeight = anim.interpolate({
+  const progress = collapseProgress && typeof collapseProgress.interpolate === 'function'
+    ? collapseProgress
+    : anim
+  const topRowHeight = progress.interpolate({
     inputRange: [0, 1],
     outputRange: [TOP_ROW_HEIGHT, 0],
   })
-  const topRowOpacity = anim.interpolate({
+  const topRowOpacity = progress.interpolate({
     inputRange: [0, 0.55, 1],
     outputRange: [1, 0.2, 0],
   })
-  const topRowMargin = anim.interpolate({
+  const topRowTranslateY = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 0],
+    outputRange: [0, -16],
+  })
+  const headerBackground = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.panel, colors.canvas],
+  })
+  const headerBorder = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.line, colors.brand],
   })
 
   const submit = (value = query) => {
@@ -72,15 +80,23 @@ export default function AppHeader({ navigation, onSearch, collapseProgress = 0 }
   }
 
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + 8 }]}>
+    <Animated.View
+      style={[
+        styles.wrap,
+        {
+          paddingTop: insets.top + 8,
+          backgroundColor: headerBackground,
+          borderBottomColor: headerBorder,
+        },
+      ]}
+    >
       <Animated.View
         style={{
           height: topRowHeight,
           opacity: topRowOpacity,
-          marginBottom: topRowMargin,
+          transform: [{ translateY: topRowTranslateY }],
           overflow: 'hidden',
         }}
-        pointerEvents={collapseProgress > 0.7 ? 'none' : 'auto'}
       >
         <View style={styles.topRow}>
           <Pressable style={styles.address} onPress={openPicker}>
@@ -119,7 +135,7 @@ export default function AppHeader({ navigation, onSearch, collapseProgress = 0 }
           <Icon name={listening ? 'mic' : 'mic-outline'} size={20} color={listening ? colors.brand : colors.mint} />
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   )
 }
 

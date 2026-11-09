@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit'
 import { prisma } from '../lib/prisma.js'
+import { calcItemTax } from '../config/charges.js'
 import { formatExpectedDeliveryDate } from './delivery.js'
 import { orderPricesIncludeGst } from '../utils/tax.js'
 
@@ -91,6 +92,9 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
           ? 'Online (Razorpay)'
           : 'Cash on Delivery'
   const gstInclusive = orderPricesIncludeGst(order)
+  const inclusiveItemTaxes = gstInclusive
+    ? order.items.map((item) => calcItemTax(item, Boolean(order.isInterState)))
+    : null
 
   return new Promise((resolve, reject) => {
     try {
@@ -344,7 +348,7 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
 
       // Table Rows
       let rowIndex = 0
-      for (const item of order.items) {
+      for (const [itemIndex, item] of order.items.entries()) {
         // Page break safety check
         if (y > doc.page.height - 150) {
           doc.addPage()
@@ -356,22 +360,28 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         doc.rect(left, y, pageWidth, 22).strokeColor(borderColor).lineWidth(0.5).stroke()
 
         const itemAmount = Math.round((Number(item.priceValue) * item.quantity - Number(item.discount || 0)) * 100) / 100
-        const itemTaxAmount = Number(item.taxAmount || 0)
+        const inclusiveTax = inclusiveItemTaxes?.[itemIndex]
+        const itemTaxAmount = Number(inclusiveTax?.taxAmount ?? item.taxAmount ?? 0)
         const isTax = Boolean(item.isTaxable)
         const gstRateNum = Number(item.gstRate || 0)
-        const itemTaxableAmount = isTax && gstRateNum > 0 && gstInclusive
-          ? Math.round((itemAmount - itemTaxAmount) * 100) / 100
+        const itemTaxableAmount = inclusiveTax
+          ? inclusiveTax.lineTaxableAmount
           : itemAmount
-        const itemLineTotal = gstInclusive ? itemAmount : itemAmount + itemTaxAmount
+        const itemLineTotal = inclusiveTax
+          ? inclusiveTax.lineTotal
+          : itemAmount + itemTaxAmount
 
-        const cgstStr = Number(item.cgstAmount || 0) > 0
-          ? formatTableMoney(item.cgstAmount)
+        const cgstAmount = inclusiveTax?.cgstAmount ?? Number(item.cgstAmount || 0)
+        const sgstAmount = inclusiveTax?.sgstAmount ?? Number(item.sgstAmount || 0)
+        const igstAmount = inclusiveTax?.igstAmount ?? Number(item.igstAmount || 0)
+        const cgstStr = cgstAmount > 0
+          ? formatTableMoney(cgstAmount)
           : (order.isInterState ? '—' : 'Rs. 0.00')
-        const sgstStr = Number(item.sgstAmount || 0) > 0
-          ? formatTableMoney(item.sgstAmount)
+        const sgstStr = sgstAmount > 0
+          ? formatTableMoney(sgstAmount)
           : (order.isInterState ? '—' : 'Rs. 0.00')
-        const igstStr = Number(item.igstAmount || 0) > 0
-          ? formatTableMoney(item.igstAmount)
+        const igstStr = igstAmount > 0
+          ? formatTableMoney(igstAmount)
           : (!order.isInterState ? '—' : 'Rs. 0.00')
 
         doc
@@ -428,7 +438,7 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         .fontSize(8)
         .text(
           gstInclusive
-            ? '• GST is included in taxable product prices at applicable statutory rates.'
+            ? '• Product prices include GST; taxable value and tax are shown separately below.'
             : '• GST is shown at applicable statutory rates per product.',
           left,
           notesY + 12,
@@ -454,25 +464,41 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
         renderTotalLine('Discount:', 'Rs. 0.00', false, mutedColor)
       }
 
-      const taxableValue = order.items.reduce((sum, item) => {
+      const taxableValue = order.items.reduce((sum, item, index) => {
         const lineAmount = Number(item.priceValue) * item.quantity - Number(item.discount || 0)
-        const rate = Number(item.gstRate || 0)
-        const taxable = gstInclusive && item.isTaxable && rate > 0
-          ? Math.round((lineAmount - Number(item.taxAmount || 0)) * 100) / 100
+        const taxable = inclusiveItemTaxes
+          ? inclusiveItemTaxes[index].lineTaxableAmount
           : lineAmount
         return sum + taxable
       }, 0)
       renderTotalLine('Taxable value:', formatMoney(taxableValue))
 
-      const cgstTotalVal = Number(order.cgstTotal || 0)
-      const sgstTotalVal = Number(order.sgstTotal || 0)
-      const igstTotalVal = Number(order.igstTotal || 0)
+      const inclusiveTotal = (key) =>
+        inclusiveItemTaxes?.reduce((sum, itemTax) => sum + itemTax[key], 0)
+      const cgstTotalVal = inclusiveTotal('cgstAmount') ?? Number(order.cgstTotal || 0)
+      const sgstTotalVal = inclusiveTotal('sgstAmount') ?? Number(order.sgstTotal || 0)
+      const igstTotalVal = inclusiveTotal('igstAmount') ?? Number(order.igstTotal || 0)
+      const taxTotalVal = inclusiveTotal('taxAmount') ?? Number(order.taxTotal || 0)
+      const taxRates = [...new Set(order.items
+        .filter((item) => item.isTaxable && Number(item.gstRate) > 0)
+        .map((item) => Number(item.gstRate)))]
+      const singleTaxRate = taxRates.length === 1 ? taxRates[0] : null
+      const rateText = (rate) => String(Number(rate.toFixed(2)))
 
-      renderTotalLine('CGST:', order.isInterState ? '—' : formatMoney(cgstTotalVal))
-      renderTotalLine('SGST:', order.isInterState ? '—' : formatMoney(sgstTotalVal))
-      renderTotalLine('IGST:', !order.isInterState ? '—' : formatMoney(igstTotalVal))
-      renderTotalLine('Total GST:', formatMoney(order.taxTotal || 0), true)
-      if (gstInclusive && Number(order.taxTotal) > 0) {
+      renderTotalLine(
+        singleTaxRate && !order.isInterState ? `CGST @ ${rateText(singleTaxRate / 2)}%:` : 'CGST:',
+        order.isInterState ? '—' : formatMoney(cgstTotalVal),
+      )
+      renderTotalLine(
+        singleTaxRate && !order.isInterState ? `SGST @ ${rateText(singleTaxRate / 2)}%:` : 'SGST:',
+        order.isInterState ? '—' : formatMoney(sgstTotalVal),
+      )
+      renderTotalLine(
+        singleTaxRate && order.isInterState ? `IGST @ ${rateText(singleTaxRate)}%:` : 'IGST:',
+        !order.isInterState ? '—' : formatMoney(igstTotalVal),
+      )
+      renderTotalLine('Total GST:', formatMoney(taxTotalVal), true)
+      if (gstInclusive && taxTotalVal > 0) {
         renderTotalLine('GST included in item prices:', 'Yes', false, mutedColor)
       }
 

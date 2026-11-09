@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  Animated,
   Dimensions,
   Pressable,
   RefreshControl,
@@ -51,7 +52,12 @@ export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
-  const [headerCollapse, setHeaderCollapse] = useState(0)
+  const headerScroll = useRef(new Animated.Value(0)).current
+  const headerCollapse = headerScroll.interpolate({
+    inputRange: [0, 56],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  })
 
   const openProduct = (slug, origin) => {
     navigation.navigate('Product', { slug, origin })
@@ -106,14 +112,13 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={styles.screen}>
       <AppHeader navigation={navigation} collapseProgress={headerCollapse} />
-      <ScrollView
+      <Animated.ScrollView
         style={styles.container}
         scrollEventThrottle={16}
-        onScroll={(event) => {
-          const y = event.nativeEvent.contentOffset.y
-          const next = Math.max(0, Math.min(1, y / 56))
-          setHeaderCollapse((current) => (Math.abs(current - next) > 0.04 ? next : current))
-        }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: headerScroll } } }],
+          { useNativeDriver: false },
+        )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
       >
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -154,7 +159,7 @@ export default function HomeScreen({ navigation }) {
         ))}
 
         <View style={{ height: 28 }} />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   )
 }

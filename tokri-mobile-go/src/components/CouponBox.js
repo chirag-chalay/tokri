@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Modal,
   Pressable,
@@ -128,8 +128,9 @@ export default function CouponBox() {
   const [localError, setLocalError] = useState('')
   const [expanded, setExpanded] = useState({})
   const [busyCode, setBusyCode] = useState(null)
-
-  const offers = quote?.availableCoupons || []
+  const previousOffers = useRef([])
+  if (quote) previousOffers.current = quote.availableCoupons || []
+  const offers = quote ? quote.availableCoupons || [] : previousOffers.current
   const selectedCode =
     quote?.couponStatus?.status === 'applied'
       ? quote.couponStatus.code
