@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { ValidationError } from 'adminjs'
 import { prisma } from '../lib/prisma.js'
 import { sendPartnerSetPasswordEmail } from '../services/partnerPassword.js'
@@ -163,7 +164,7 @@ export async function afterPartnerSave(response, request) {
       await sendPartnerSetPasswordEmail(partner, { isReset: false })
     }
   } catch (error) {
-    console.error('Failed to sync partner details onto orders:', error)
+    logError(error, 'background')
   }
   return sanitizePartnerRecord(response)
 }

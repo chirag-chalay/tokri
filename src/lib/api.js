@@ -62,7 +62,7 @@ export async function postJson(path, body) {
   const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(data.message || `Request failed (${response.status})`)
+    throw Object.assign(new Error(data.message || `Request failed (${response.status})`), { status: response.status })
   }
 
   return data
@@ -91,7 +91,7 @@ export async function authPost(path, user, body) {
     body: JSON.stringify(body),
   })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.message || `Request failed (${response.status})`)
+  if (!response.ok) throw Object.assign(new Error(data.message || `Request failed (${response.status})`), { status: response.status })
   return data
 }
 

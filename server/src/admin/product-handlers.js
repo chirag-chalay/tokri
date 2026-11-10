@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { prisma } from '../lib/prisma.js'
 
 export function slugify(value) {
@@ -62,7 +63,7 @@ export async function syncProductCategories(productId, categoryIds) {
       data: unique.map((categoryId) => ({ productId, categoryId })),
     })
   } catch (error) {
-    console.error('syncProductCategories failed', error)
+    logError(error, 'background')
   }
 }
 
@@ -141,7 +142,7 @@ export async function afterProductForm(response, request) {
             gstRate: product.gstRate || 0,
             isTaxable: Boolean(product.isTaxable),
           },
-        }).catch((err) => console.error('Failed to upsert ProductTax:', err))
+        }).catch((err) => logError(err, 'background'))
       }
     }
 
@@ -161,7 +162,7 @@ export async function afterProductForm(response, request) {
       record.params.categoryIds = JSON.stringify(slugs)
     }
   } catch (error) {
-    console.error('afterProductForm failed', error)
+    logError(error, 'background')
   }
 
   return response

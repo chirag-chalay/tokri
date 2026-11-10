@@ -116,6 +116,7 @@ export function CartProvider({ children }) {
   const quoteStateRef = useRef(null)
   const quoteInputRef = useRef(null)
   const inFlightQuotes = useRef(new Map())
+  const invalidQuoteRequest = useRef(null)
   const inFlightCoupons = useRef(new Map())
   const [coupon, setCoupon] = useState(() => { try { const code = sessionStorage.getItem('tokri_selected_coupon'); return code ? { code } : null } catch { return null } })
   const [couponError, setCouponError] = useState('')
@@ -411,10 +412,11 @@ export function CartProvider({ children }) {
   // One request path for automatic revalidation, focus refresh and payment checks.
   // Equivalent in-flight requests share a promise; cart revisions also distinguish
   // A -> B -> A changes so an old A response cannot become current again.
-  const refreshDeliveryQuote = useCallback(() => {
+  const refreshDeliveryQuote = useCallback(({ automatic = false } = {}) => {
     const input = quoteInputRef.current
     if (!input?.hasItems) return Promise.resolve(null)
     const requestKey = JSON.stringify([input.key, input.revision])
+    if (automatic && invalidQuoteRequest.current === requestKey) return Promise.resolve(null)
     const existing = inFlightQuotes.current.get(requestKey)
     if (existing) return existing
     const quoteId = ++quoteRequest.current
@@ -430,6 +432,7 @@ export function CartProvider({ children }) {
         if (!isCurrent()) return null
         // The server already priced the cart without an invalid coupon. Accept
         // that result under the cleared selection key without a second request.
+        invalidQuoteRequest.current = null
         const removed = data.couponStatus?.status === 'removed'
         const key = removed ? JSON.stringify({ ...JSON.parse(input.key), couponCode: null }) : input.key
         quoteStateRef.current = { key, data, revision: input.revision + (removed ? 1 : 0) }
@@ -455,6 +458,7 @@ export function CartProvider({ children }) {
         return data
       } catch (error) {
         if (!isCurrent()) return null
+        if ([400, 404, 422].includes(error.status)) invalidQuoteRequest.current = requestKey
         setQuoteError(error.message || 'Could not calculate delivery charges.')
         throw error
       } finally {
@@ -470,19 +474,20 @@ export function CartProvider({ children }) {
     if (!hasItems) {
       quoteRequest.current += 1
       quoteStateRef.current = null
+      invalidQuoteRequest.current = null
       setQuoteState(null)
       setQuotePending(false)
       setCoupon(null)
       setCouponAction(null)
       return
     }
-    if (quoteStateRef.current?.key !== quoteKey || quoteStateRef.current?.revision !== cartRevision.current) refreshDeliveryQuote().catch(() => {})
+    if (quoteStateRef.current?.key !== quoteKey || quoteStateRef.current?.revision !== cartRevision.current) refreshDeliveryQuote({ automatic: true }).catch(() => {})
   }, [hasItems, quoteKey, refreshDeliveryQuote])
 
   // Revalidate live admin changes for an open cart, on tab focus and periodically.
   useEffect(() => {
     if (!hasItems) return undefined
-    const refresh = () => { refreshDeliveryQuote().catch(() => {}) }
+    const refresh = () => { refreshDeliveryQuote({ automatic: true }).catch(() => {}) }
     window.addEventListener('focus', refresh)
     const interval = window.setInterval(refresh, 30000)
     return () => { window.removeEventListener('focus', refresh); window.clearInterval(interval) }
