@@ -37,6 +37,7 @@ export default function CheckoutPage() {
     pinDelivery,
     quote,
     quoteLoading,
+    quoteError,
     refreshDeliveryQuote,
     refreshFreeDelivery,
   } = useCart()
@@ -325,6 +326,19 @@ export default function CheckoutPage() {
           </div>
         )}
 
+        {quoteError ? (
+          <div role="alert" className="mb-6 rounded-xl border border-red-700/40 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+            <p className="font-semibold">We couldn't calculate your total.</p>
+            <p className="mt-1">{quoteError}</p>
+            <p className="mt-1">Review your cart and delivery address, then try again. The total must be confirmed before placing an order.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              <Link to="/cart" className="font-semibold underline">Review cart</Link>
+              <Link to="/account?section=addresses" className="font-semibold underline">Manage addresses</Link>
+              <button type="button" disabled={quoteLoading && !quoteError} onClick={() => refreshDeliveryQuote().catch(() => {})} className="font-semibold underline disabled:opacity-50">Retry calculation</button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="min-w-0 space-y-6">
           <section className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
@@ -441,7 +455,7 @@ export default function CheckoutPage() {
                           {copy.title}
                           {comingSoon ? ' (coming soon)' : quote
                             ? ` — ${formatDeliveryCharge(copy.deliveryFee)}`
-                            : ' — Calculating…'}
+                            : quoteError ? ' — Unavailable' : ' — Calculating…'}
                         </span>
                         {copy.subtitle ? (
                           <span className="mt-1 block text-sm text-muted">{copy.subtitle}</span>
@@ -505,7 +519,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between">
                 <span>Delivery charges</span>
                 <span className={deliveryCharge > 0 ? '' : 'text-mint'}>
-                  {quote ? formatDeliveryCharge(deliveryCharge) : 'Calculating…'}
+                  {quoteError ? 'Unavailable' : quote ? formatDeliveryCharge(deliveryCharge) : 'Calculating…'}
                 </span>
               </div>
               {selectedQuote?.freeDeliveryApplied && selectedQuote.offerMessage ? (
@@ -522,7 +536,7 @@ export default function CheckoutPage() {
 
             <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-lg font-bold text-white">
               <span>Total</span>
-              <span>{quote ? formatPrice(grandTotal) : 'Calculating…'}</span>
+              <span>{quoteError ? 'Unavailable' : quote ? formatPrice(grandTotal) : 'Calculating…'}</span>
             </div>
             <div className={`mt-3 h-9 rounded-xl bg-emerald-950/60 px-3 py-2 text-sm font-semibold text-mint ${totalSavings > 0 ? '' : 'invisible'}`}>
               You saved {formatPrice(totalSavings)}
@@ -565,6 +579,10 @@ export default function CheckoutPage() {
               <p className="mt-3 text-xs text-amber-300 text-center font-medium">
                 Add a delivery address to proceed
               </p>
+            ) : quoteError ? (
+              <p className="mt-3 text-xs text-amber-300 text-center font-medium">Resolve the calculation error above to continue.</p>
+            ) : quoteLoading || !quote ? (
+              <p className="mt-3 text-xs text-muted text-center font-medium">Calculating your order total…</p>
             ) : !selectedQuote?.minimumMet ? (
               <p className="mt-3 text-xs text-amber-300 text-center font-medium">
                 Minimum order amount not met
@@ -592,7 +610,7 @@ export default function CheckoutPage() {
               {paying
                 ? 'Processing...'
                 : paymentMode === 'online'
-                  ? `Pay ${quote ? formatPrice(grandTotal) : 'Calculating…'}`
+                  ? `Pay ${quoteError ? 'Unavailable' : quote ? formatPrice(grandTotal) : 'Calculating…'}`
                   : 'Place order (Cash on delivery)'}
             </button>
           </aside>

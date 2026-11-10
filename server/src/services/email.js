@@ -1,3 +1,4 @@
+import { log } from '../monitoring/index.js'
 import nodemailer from 'nodemailer'
 import { env } from '../config/env.js'
 
@@ -23,10 +24,7 @@ export async function sendEmail({ to, subject, html, text }) {
   const transport = getTransporter()
 
   if (!transport) {
-    console.log('[email:dev-fallback]')
-    console.log(`To: ${to}`)
-    console.log(`Subject: ${subject}`)
-    console.log(text || html)
+    log('error', 'email.unconfigured', { status: 'skipped' })
     return { dev: true, sent: false }
   }
 

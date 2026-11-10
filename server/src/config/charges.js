@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { allocateDiscount, decimal, money, subtotal } from '../utils/money.js'
 import { prisma } from '../lib/prisma.js'
 
@@ -92,7 +93,7 @@ export async function getChargeRates(option = 'morning') {
     const settings = await prisma.setting.findUnique({ where: { id: 1 } })
     return ratesFromSettings(settings, option)
   } catch (error) {
-    console.error('Failed to load charge settings:', error)
+    logError(error, 'background')
     return defaultChargeRates(option)
   }
 }

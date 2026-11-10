@@ -1,3 +1,5 @@
+import { log } from '../monitoring/index.js'
+import { logError } from '../monitoring/database.js'
 import dns from 'node:dns'
 import { prisma } from '../lib/prisma.js'
 import { getMsg91Settings } from '../utils/msg91Settings.js'
@@ -204,7 +206,7 @@ async function deliver({ phone, label, sms, whatsapp }) {
     const reason = !mobiles
       ? 'Phone number is missing.'
       : whatsappReason || 'MSG91 WhatsApp is not configured for this template.'
-    console.log(`[MSG91 not configured] ${label} -> ${mobiles || 'no number'}`, reason)
+    log('error', 'msg91.unconfigured', { status: 'skipped' })
     return { channel: 'dev', sent: false, reason }
   }
 
@@ -224,7 +226,7 @@ async function deliver({ phone, label, sms, whatsapp }) {
       if (!whatsappReady) {
         throw new Error(whatsappReason || error.message)
       }
-      console.error(`MSG91 SMS failed for ${label}, trying WhatsApp:`, error.message)
+      logError(error, 'msg91')
     }
   }
 
@@ -456,9 +458,9 @@ export async function sendDeliveryPartnerAssignment(orderLike) {
 
 export function notifyConfirmedOrder(order, { phone, name } = {}) {
   sendOrderConfirmation(order, { phone, name }).catch((error) =>
-    console.error('Failed to send order confirmation:', error),
+    logError(error, 'background'),
   )
   sendDeliveryPartnerAssignment(order).catch((error) =>
-    console.error('Failed to notify delivery partner:', error),
+    logError(error, 'background'),
   )
 }

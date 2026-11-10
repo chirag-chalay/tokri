@@ -1,4 +1,6 @@
 AdminJS.UserComponents = {}
+import Monitoring from '../src/admin/components/monitoring'
+AdminJS.UserComponents.Monitoring = Monitoring
 import Dashboard from '../src/admin/components/dashboard'
 AdminJS.UserComponents.Dashboard = Dashboard
 import ProductEdit from '../src/admin/components/product-edit'

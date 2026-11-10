@@ -80,14 +80,25 @@ async function runTests() {
   await assert(status.remaining === 2, 'Remaining is 2 after Order 1')
   await assert(status.isEligible === true, 'isEligible is still true')
 
-  console.log('\n[3] Testing Order 2 (Express delivery):')
+  console.log('\n[3] Testing Order 2 (Express delivery; regular fee and minimum apply):')
+  const settings = await prisma.setting.findUnique({ where: { id: 1 } })
+  const expressMinimum = Number(settings?.expressMinimumOrderValue ?? 1251)
+  const expressQuantity = Math.max(2, Math.ceil(expressMinimum / Number(product.priceValue)))
+  if (expectedItemsTotal < expressMinimum) {
+    let rejected = false
+    try { await createCheckoutOrder(customer, { items, addressId: 'addr_1', paymentMode: 'cod', deliveryOption: 'express' }) }
+    catch (error) { rejected = error.status === 400 }
+    await assert(rejected, 'Express orders below the configured minimum are rejected')
+  }
   const order2Result = await createCheckoutOrder(
     customer,
-    { items, addressId: 'addr_1', paymentMode: 'cod', deliveryOption: 'express' },
+    { items: [{ id: product.slug, quantity: expressQuantity }], addressId: 'addr_1', paymentMode: 'cod', deliveryOption: 'express' },
   )
   const order2 = await prisma.order.findUnique({ where: { id: order2Result.order.id } })
-  await assert(order2.freeDeliveryApplied === false, 'Express does not receive the Morning-only benefit')
-  await assert(Number(order2.deliveryCharge) === 99, 'Express retains its configured ₹99 delivery fee')
+  await assert(order2.freeDeliveryApplied === false, 'Express delivery does not use the Morning free-delivery offer')
+  const expressTotal = Number(product.priceValue) * expressQuantity
+  const expectedExpressFee = Number(settings?.expressFreeAbove) > 0 && expressTotal >= Number(settings.expressFreeAbove) ? 0 : Number(settings?.expressShippingFee ?? 99)
+  await assert(Number(order2.deliveryCharge) === expectedExpressFee, 'Express delivery uses its configured normal fee/threshold')
 
   status = await getCustomerFreeDeliveryStatus(customer.id)
   await assert(status.used === 2, 'Used count is 2 after Order 2')
@@ -120,18 +131,17 @@ async function runTests() {
     'Order 4 grandTotal includes standard delivery charge',
   )
 
-  console.log('\n[6] Testing cancellation of Order 2 (Restores 1 free delivery):')
+  console.log('\n[6] Testing cancellation excludes orders and restores eligibility below quota:')
   await prisma.order.update({
     where: { id: order2.id },
     data: { status: 'cancelled' },
   })
 
   status = await getCustomerFreeDeliveryStatus(customer.id)
-  await assert(status.used === 3, 'One cancellation leaves three qualifying orders')
-  await assert(status.remaining === 0, 'Three qualifying orders still exhaust the quota')
+  await assert(status.used === 3 && status.remaining === 0, 'Cancelling one of four orders leaves three valid orders')
   await prisma.order.update({ where: { id: order4.id }, data: { status: 'cancelled' } })
   status = await getCustomerFreeDeliveryStatus(customer.id)
-  await assert(status.used === 2, 'Two cancellations restore eligibility below three orders')
+  await assert(status.used === 2, 'Cancelling two of four orders leaves two valid orders')
   await assert(status.remaining === 1, 'Remaining free deliveries increases back to 1')
   await assert(status.isEligible === true, 'Customer is eligible again')
 

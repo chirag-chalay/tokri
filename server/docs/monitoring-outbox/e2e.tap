@@ -1,0 +1,89 @@
+TAP version 13
+# [AdminJS]: There is no property of the name: "deliveryPartnerId". Check out the "editProperties" in the resource: "Order"
+# [AdminJS]: There is no property of the name: "deliveryPartnerId". Check out the "editProperties" in the resource: "Order"
+# Subtest: isolated MySQL + real AdminJS/browser + simulated Razorpay regression
+    # Subtest: browser login and monitoring page render through real AdminJS sessions
+    ok 1 - browser login and monitoring page render through real AdminJS sessions
+      ---
+      duration_ms: 2839.638963
+      type: 'test'
+      ...
+    # Subtest: customer registration/login, COD checkout, API and database errors produce real events
+    ok 2 - customer registration/login, COD checkout, API and database errors produce real events
+      ---
+      duration_ms: 318.889744
+      type: 'test'
+      ...
+    # Subtest: successful simulated payment and repeated confirmation update paid state once
+    ok 3 - successful simulated payment and repeated confirmation update paid state once
+      ---
+      duration_ms: 187.265408
+      type: 'test'
+      ...
+    # Subtest: failed payment returned with HTTP 200 is logged as failed; provider errors remain safe
+    ok 4 - failed payment returned with HTTP 200 is logged as failed; provider errors remain safe
+      ---
+      duration_ms: 169.070686
+      type: 'test'
+      ...
+    # Subtest: signed/invalid/duplicate/unmatched webhooks and refunds have correct outcomes
+    ok 5 - signed/invalid/duplicate/unmatched webhooks and refunds have correct outcomes
+      ---
+      duration_ms: 954.356795
+      type: 'test'
+      ...
+    # Subtest: real AdminJS product edit/delete, coupon/settings/team actions have safe audit values
+    ok 6 - real AdminJS product edit/delete, coupon/settings/team actions have safe audit values
+      ---
+      duration_ms: 739.84784
+      type: 'test'
+      ...
+    # Subtest: real MySQL callback and array transaction rollbacks do not publish audit events
+    ok 7 - real MySQL callback and array transaction rollbacks do not publish audit events
+      ---
+      duration_ms: 74.581033
+      type: 'test'
+      ...
+    # Subtest: browser date/type/search and 50/100-row pages; debug controls and expiry
+    ok 8 - browser date/type/search and 50/100-row pages; debug controls and expiry
+      ---
+      duration_ms: 1603.690333
+      type: 'test'
+      ...
+# [AdminJS]: There is no property of the name: "deliveryPartnerId". Check out the "editProperties" in the resource: "Order"
+    # Subtest: anonymous/staff/revoked sessions and invalid dates are rejected; CSRF protected
+    ok 9 - anonymous/staff/revoked sessions and invalid dates are rejected; CSRF protected
+      ---
+      duration_ms: 352.397745
+      type: 'test'
+      ...
+    # Subtest: storage failure preserves checkout, persists critical events and keeps debug controls available
+    ok 10 - storage failure preserves checkout, persists critical events and keeps debug controls available
+      ---
+      duration_ms: 198.840798
+      type: 'test'
+      ...
+    # Subtest: all six daily categories exist and payment/customer/admin secrets never enter files
+    ok 11 - all six daily categories exist and payment/customer/admin secrets never enter files
+      ---
+      duration_ms: 92.542839
+      type: 'test'
+      ...
+    1..11
+ok 1 - isolated MySQL + real AdminJS/browser + simulated Razorpay regression
+  ---
+  duration_ms: 9398.48829
+  type: 'test'
+  ...
+# COD order TKR50374021615; customer account and login events verified
+# Storage unavailable: COD + online order creation + payment confirmation + health completed in 58 ms
+# Daily files: payment-2026-11-10.log, error-2026-11-10.log, debug-2026-11-10.log, audit-2026-11-10.log, account-2026-11-10.log, access-2026-11-10.log
+1..1
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9492.376574

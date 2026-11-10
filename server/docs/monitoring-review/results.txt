@@ -1,0 +1,113 @@
+Tokriii Logs & Monitoring review — 2026-11-09
+Branch: feature/admin-logs-monitoring
+Disposition: fixes and isolated verification complete; strict zero-loss durability remains a deployment gap.
+Real Razorpay sandbox: UNVERIFIED (no credentials; simulated testing explicitly authorized).
+
+SAFETY AND ISOLATION
+No push, deployment, existing-service restart or live database access/modification.
+A new MySQL 8.0.46 process used a temporary datadir/socket, loopback port 33379,
+and fresh tokri_monitoring_review / tokri_monitoring_e2e_test databases.
+The disposable MySQL process was shut down after verification; existing services were untouched.
+No developer .env was loaded by integration/regression applications. The isolation
+bootstrap enforces an explicit loopback test/review database on a nonstandard port.
+Messaging credentials were empty; test database messaging settings disabled.
+Razorpay SDK operations and fetch responses were simulated and external browser
+requests blocked. No live payment credentials were used.
+A fresh Prisma 6.19.3 client was generated under temporary storage because the
+workspace-generated client was older than schema.prisma. Workspace client untouched.
+Pre-existing changes in server/.adminjs/bundle.js, src/components/Banner.jsx and
+src/components/Footer.jsx were compared with the pre-review patch and preserved.
+
+REQUIREMENT STATUS
+1. Six categories: PASS in isolated real application/database flows.
+   Access: AdminJS and customer login, HTTP requests, IP/status/internal user IDs.
+   Error: actual invalid API calls, database errors, provider failures; fatal child
+   process exits with status 1 and a safe error file, without raw secret messages.
+   Audit: real AdminJS product create/edit/delete and bulk deletion, coupon
+   create/edit/delete, settings, order edits and admin registration. Decimal prices
+   retained; deletion has old values and new:null. Rollback emits no mutation event.
+   Debug: manual browser controls, authenticated transport, safe request timings.
+   Payment: COD/online attempts, success/failure, invalid signatures, signed webhooks,
+   refunds, concurrent replays and unmatched deliveries. Refund events are observed;
+   existing commerce behavior is preserved (no refund execution API introduced).
+   Account: actual OTP registration and AdminJS administrator creation.
+2. Viewer: PASS. Real Chromium + native AdminJS sessions; date/type/search plus
+   status/user/order/IP filters; empty date results; 50 and 100-row pages including
+   final 23-row page; timestamps rendered in IST. Screenshot: admin-pagination.png.
+3. Debug: PASS. OFF at initialization; authorized manual controls; duration cap;
+   clock-advanced expiry; disabled/expired events do not enter files. UI state
+   updates as expiry passes. Auth and debug controls remain usable on storage failure.
+4. Critical-event reliability: PARTIAL, not an absolute zero-loss guarantee.
+   Added reserved queue capacity, fsync acknowledgments and explicit sanitized
+   emergency records for queue overflow, writer failure and unacknowledged forced
+   exits. Both normal and emergency queues are bounded; emergency overflow is
+   counted and summarized. Degradation/pruning/corruption is visible in the viewer.
+   SIGTERM drains requests and logging; fatal failures retain safe records and exit.
+   Durable transactional outbox / acknowledged external sink still REQUIRED for
+   guarantees across SIGKILL/power loss or simultaneous disk and stderr failure.
+   Supervisor stderr retention/alerting was NOT configured or deployed by this review.
+   Consumers must deduplicate stable event IDs on ambiguous delivery/fallback repeats.
+5. Security: PASS for tested boundaries. Active role rechecked from DB per request;
+   anonymous/staff/revoked sessions denied; custom header/same-origin control check;
+   no-store responses; read-only viewer. Secrets, passwords, OTPs, contact data,
+   request/response bodies and gateway payloads absent from logs. Embedded email,
+   phone, auth and token strings redacted; legacy rows re-sanitized on read.
+   Private file modes, symlink rejection and public-storage directory rejection tested.
+6. Daily rotation/retention/disk budget: PASS. Actual files across IST midnight,
+   expiry deletion, byte caps and private permissions verified. Disk-pressure
+   deletions produce supervisor alerts. Limits cover managed logical log-file bytes.
+7. Failure isolation: PASS for tested failures. While the log directory was replaced
+   by a non-directory, COD and online creation, payment confirmation, health and
+   product deletion succeeded. The missing payment/delete records were explicitly
+   captured in sanitized emergency output. A stalled emergency pipe remains bounded.
+   No production load/performance claim is made; the outage sequence timing is in e2e.tap.
+
+CONFIRMED ISSUES FIXED
+- Critical and access/debug events previously shared a drop queue; failures existed
+  only as in-memory counters. Added priority, explicit fallback/health and shutdown handling.
+- Viewer reads shared the writer queue and could delay writes. Readers now run independently.
+- Dates such as 2026-02-31 were accepted; status filtering ignored outcome when status existed.
+- HTTP-200 failed payments were labeled success. Provider transport/business outcomes separated.
+- Duplicate COD QR/cash handlers could both update a previously unpaid order.
+  A synchronized read-interleaving probe exposed two update events (cod-race-before.jsonl).
+  Conditional updates now produce one paid transition under concurrent QR/cash replays,
+  while preserving the original returned order/customer/items shape.
+- Deleted records incorrectly appeared in new values; now new:null, old=deleted record.
+- Unknown numeric metadata and approved strings could leak sensitive values.
+  Tightened the allowlist and string redaction; applied redaction to reader output too.
+- Non-directory/permission errors could appear as empty logs; malformed rows were silently skipped.
+  Explicit storage/corruption alerts added; debug controls remain available when reads fail.
+- Filter labels did not have stable accessible names; explicit labels/IDs added.
+- Native fatal stderr could include secret-bearing messages/stacks; safe fail-stop logging added.
+- CLI --input-type=module was incorrectly inherited by file workers; filtered from worker arguments.
+- Legacy feature test assumed free Express delivery and incorrect cancellation arithmetic.
+  Updated tests to current Morning-only offer, Express minimum/fee and valid-order counts.
+  Business delivery/tax rules preserved.
+
+TEST EVIDENCE
+npm test: 15 PASS, 0 FAIL; 1 integration entry intentionally skipped without opt-in env.
+Opt-in isolated integration: 11 sequential scenarios PASS, 0 FAIL (12 TAP entries including parent).
+Backend regression scripts: test-product-filters, test-features, test-verification,
+  test-tax-features: all PASS. The live-capable test-upi-intent script was not run;
+  simulated success/failure/refund/webhook/replay cases replace external gateway calls.
+JavaScript syntax: PASS (80 files) for server source, tests and changed regression script.
+Prisma schema validation: PASS. Actual AdminJS bundle and browser rendering: PASS.
+git diff --check: PASS.
+
+FILES CHANGED DURING REVIEW
+src/monitoring/{index,worker,database,sanitize}.js — reliability, privacy, readers and audit semantics.
+src/admin/monitoring.js, src/admin/components/monitoring.jsx — validation, health and viewer accessibility.
+src/admin/index.js — optional watch control for isolated native AdminJS tests; default behavior preserved.
+src/routes/{auth,checkout,webhooks}.js — correct login/payment outcomes and webhook correlation.
+src/services/razorpay.js — provider outcome metadata; src/services/partnerOrders.js — atomic COD transitions.
+src/server.js — safe fatal handling and graceful log draining on shutdown.
+test/monitoring.test.js, test/monitoring-integration.test.js, test/helpers/{isolation,seed}.js.
+scripts/test-features.js, package.json, README.md and this evidence directory.
+
+REMAINING GAPS
+- Strict zero-loss critical logging requires a durable outbox or acknowledged external sink.
+- Real Razorpay sandbox testing: UNVERIFIED. No external sandbox account calls were made.
+- Rollout must regenerate Prisma Client from the deployed schema and verify target compatibility.
+- Existing AdminJS warning about Order.deliveryPartnerId remains; real order edits passed.
+- Local files remain alterable by host filesystem administrators; not an external audit archive.
+No deployment approval is requested or implied by this review.

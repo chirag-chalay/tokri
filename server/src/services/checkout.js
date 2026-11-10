@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { subtotal } from '../utils/money.js'
 import { calculateCheckoutPricing } from './pricing.js'
 import { prisma } from '../lib/prisma.js'
@@ -258,12 +259,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
         })
       } catch (error) {
         intentError = error.message || 'UPI could not be started.'
-        console.error('UPI intent was not created:', {
-          orderNo,
-          message: intentError,
-          razorpayStatus: error.razorpayStatus,
-          razorpayCode: error.razorpayCode,
-        })
+        logError(error, 'upi-intent')
       }
     }
   }
@@ -318,8 +314,8 @@ async function markOnlineOrderPaid(user, order, razorpayPaymentId) {
   const updated = await prisma.order.findUnique({ where: { id: order.id } })
   if (result.count === 0) return updated
 
-  await clearCart(user.id).catch((error) => console.error('Failed to clear cart:', error))
-  notifyOrderStatus(updated, 'paid').catch((error) => console.error('Failed to send push:', error))
+  await clearCart(user.id).catch((error) => logError(error, 'background'))
+  notifyOrderStatus(updated, 'paid').catch((error) => logError(error, 'background'))
   notifyConfirmedOrder(updated, { phone: user.phone, name: user.name })
 
   return updated
@@ -453,7 +449,7 @@ export async function recoverPendingOnlinePayments({ lookbackHours = 24, limit =
       const result = await reconcileOnlineOrderFromRazorpay(order)
       if (result.status === 'paid') recovered.push(result.order.orderNo)
     } catch (error) {
-      console.error('Razorpay reconcile failed:', order.orderNo, error.message)
+      logError(error, 'payment-recovery')
     }
   }
   return recovered
@@ -572,9 +568,9 @@ export async function confirmCodOrder(user, { orderNo }) {
 
   if (!order) throw Object.assign(new Error('Order not found.'), { status: 404 })
 
-  await clearCart(user.id).catch((error) => console.error('Failed to clear cart:', error))
+  await clearCart(user.id).catch((error) => logError(error, 'background'))
   notifyOrderStatus(order, order.status || 'pending').catch((error) =>
-    console.error('Failed to send push:', error),
+    logError(error, 'background'),
   )
   notifyConfirmedOrder(order, { phone: user.phone, name: user.name })
 

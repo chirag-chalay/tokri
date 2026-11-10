@@ -1,0 +1,33 @@
+
+=== Product sidebar filters ===
+
+  ✓ title search is contains, same as LIKE '%some test%'
+  ✓ price and active are two AND clauses
+  ✓ price 199 is an exact match
+  ✓ active yes is true
+  ✓ removed filter fields are ignored
+  ✓ dotted filter query is read
+  ✓ created date from/to is read
+  ✓ created from includes the whole start day
+  ✓ created to includes the whole end day
+  ✓ a request with three filters becomes one AND query
+  ✓ there is at least one product to test against
+  ✓ price filter finds the sample product
+  ✓ every price result is 300, including products beyond one page
+  ✓ price AND active includes the sample
+  ✓ price AND active excludes products that fail either condition
+  ✓ the opposite active flag excludes the sample
+  ✓ sample title is long enough for a partial search
+  ✓ title LIKE '%Raisin%' finds the sample
+  ✓ every title result contains the typed text
+  ✓ a title that matches nothing returns no products
+  ✓ created date matches the sample day
+  ✓ created date results stay inside that day
+  ✓ created from-date matches the same range across the whole table
+  ✓ updated date matches the sample day
+  ✓ updated date results stay inside that day
+  ✓ filtered total counts every matching product, not one page
+  ✓ page 1 and page 2 do not repeat records
+  ✓ page 2 still returns matches when more than one page exists
+
+All product filter checks passed.

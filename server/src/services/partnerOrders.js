@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { prisma } from '../lib/prisma.js'
 import { cancelOrderPaymentLink, createOrderPaymentLink } from './razorpay.js'
 import { toPublicAssetUrl } from '../utils/formatters.js'
@@ -156,7 +157,7 @@ export async function collectCashForOrder(orderId, { partnerId } = {}) {
       await cancelOrderPaymentLink(order.razorpayPaymentLinkId)
     }
     notifyOrderStatus(updated, 'delivered').catch((error) =>
-      console.error('Failed to send push after cash collect:', error),
+      logError(error, 'background'),
     )
   }
   return updated
@@ -211,7 +212,7 @@ export async function markOrderPaidByQr({ orderNo, paymentId }) {
   const updated = await prisma.order.findUnique({ where: { id: order.id } })
   if (result.count > 0 && updated) {
     notifyOrderStatus(updated, 'delivered').catch((error) =>
-      console.error('Failed to send push after QR payment:', error),
+      logError(error, 'background'),
     )
   }
   return updated

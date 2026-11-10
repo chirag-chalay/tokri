@@ -1,0 +1,32 @@
+=== TEST SUITE: TAX CALCULATION & FREE DELIVERY ===
+
+--- TEST 1: TAX CALCULATION FLOW ---
+Almond: isTaxable=true, gstRate=5%, price=500
+Banana: isTaxable=false, gstRate=0%, price=80
+Dry Fruit Alone (Almond): itemsTotal=₹500, taxTotal=₹25 (Expected ₹25)
+  -> CGST: 12.5 SGST: 12.5
+Fresh Fruit Alone (Banana): itemsTotal=₹160, taxTotal=₹0 (Expected ₹0)
+Mixed Cart (Banana + Almond): itemsTotal=₹580, taxTotal=₹25 (Expected ₹25)
+✅ Tax Calculation tests passed successfully.
+
+--- TEST 2: BRAND NEW ACCOUNT ORDER 1–4 FREE DELIVERY FLOW ---
+Created new test customer: cmw9mce4p0000f9ad8m8fer5t (9900011122)
+Initial Status: used=0, remaining=3, isEligible=true
+Order 1 (#TKR50370208886): deliveryCharge=₹0, freeDeliveryApplied=true
+After Order 1: used=1, remaining=2, isEligible=true
+Order 2 (#TKR50370245539): deliveryCharge=₹0, freeDeliveryApplied=true
+After Order 2: used=2, remaining=1, isEligible=true
+Order 3 (#TKR50370264463): deliveryCharge=₹0, freeDeliveryApplied=true
+After Order 3: used=3, remaining=0, isEligible=false
+Order 4 (#TKR50370282427): deliveryCharge=₹25, freeDeliveryApplied=false, taxTotal=₹25, grandTotal=₹552
+Invoice generated for Order 4: size=4072 bytes, invoiceNo=INV-TKR50370282427
+
+--- TEST 3: CANCELLED ORDER SLOT RESTORATION ---
+After cancelling Order 1: used=3, remaining=0, isEligible=false
+After cancelling Order 2: used=2, remaining=1, isEligible=true
+✅ Cancelled order quota restoration test passed successfully!
+
+Cleaning up verification records...
+All verification records cleaned up.
+
+🎉 ALL TESTS PASSED SUCCESSFULLY!

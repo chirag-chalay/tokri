@@ -1,7 +1,21 @@
+import { logError } from '../monitoring/database.js'
 import Razorpay from 'razorpay'
+import { logDurable } from '../monitoring/index.js'
 import crypto from 'crypto'
 import { getRazorpaySettings } from '../utils/razorpaySettings.js'
 import { prisma } from '../lib/prisma.js'
+
+async function paymentOperation(event, details, run) {
+  await logDurable('payment', event, { ...details, status: 'attempt', provider: 'razorpay' })
+  try {
+    const result = await run()
+    await logDurable('payment', event, { ...details, status: 'success', provider: 'razorpay', outcome: ['captured', 'authorized', 'failed', 'pending', 'processed'].includes(result?.status) ? result.status : undefined })
+    return result
+  } catch (error) {
+    await logDurable('payment', event, { ...details, status: 'failure', provider: 'razorpay', httpStatus: error?.statusCode || error?.status })
+    throw error
+  }
+}
 
 async function getClient() {
   const config = await getRazorpaySettings()
@@ -39,12 +53,12 @@ export async function createRazorpayOrder({ amountInr, receipt, notes = {} }) {
     throw Object.assign(new Error('Order total must be at least ₹1.'), { status: 400 })
   }
 
-  return client.orders.create({
+  return paymentOperation('razorpay.order.create', { orderNo: receipt }, () => client.orders.create({
     amount: amountPaise,
     currency: 'INR',
     receipt,
     notes,
-  })
+  }))
 }
 
 export async function createOrderPaymentLink({ amountInr, orderNo, customer = {} }) {
@@ -54,7 +68,7 @@ export async function createOrderPaymentLink({ amountInr, orderNo, customer = {}
     throw Object.assign(new Error('Order total must be at least ₹1.'), { status: 400 })
   }
 
-  const link = await client.paymentLink.create({
+  const link = await paymentOperation('razorpay.link.create', { orderNo }, () => client.paymentLink.create({
     amount: amountPaise,
     currency: 'INR',
     accept_partial: false,
@@ -67,7 +81,7 @@ export async function createOrderPaymentLink({ amountInr, orderNo, customer = {}
     notify: { sms: false, email: false },
     reminder_enable: false,
     notes: { orderNo },
-  })
+  }))
 
   const shortUrl = link.short_url || ''
   return {
@@ -89,7 +103,7 @@ export async function cancelOrderPaymentLink(paymentLinkId) {
       body: {},
     })
   } catch (error) {
-    console.error('Failed to cancel Razorpay payment link:', id, error.message)
+    logError(error, 'payment-link-cancel')
     return null
   }
 }
@@ -110,6 +124,9 @@ function formatRazorpayError(path, status, payload) {
 }
 
 async function razorpayFetch(path, { method = 'GET', body } = {}) {
+  return paymentOperation(method === 'GET' ? 'razorpay.lookup' : 'razorpay.payment.request', { orderId: body?.order_id || path.match(/^\/orders\/(order_[a-zA-Z0-9]+)/)?.[1], razorpayPaymentId: path.match(/^\/payments\/(pay_[a-zA-Z0-9]+)/)?.[1], orderNo: body?.notes?.orderNo }, () => razorpayFetchRaw(path, { method, body }))
+}
+async function razorpayFetchRaw(path, { method = 'GET', body } = {}) {
   const { config } = await getClient()
   const response = await fetch(`https://api.razorpay.com/v1${path}`, {
     method,
@@ -122,11 +139,6 @@ async function razorpayFetch(path, { method = 'GET', body } = {}) {
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
     const formatted = formatRazorpayError(path, response.status, payload)
-    console.error('Razorpay API error:', {
-      path,
-      status: response.status,
-      error: payload?.error || payload,
-    })
     throw Object.assign(new Error(formatted.message), {
       status: 400,
       razorpayStatus: response.status,
@@ -165,6 +177,9 @@ function extractIntentUrl(payload) {
 }
 
 async function razorpayForm(path, fields) {
+  return paymentOperation('razorpay.payment.request', { orderId: fields.order_id }, () => razorpayFormRaw(path, fields))
+}
+async function razorpayFormRaw(path, fields) {
   const { config } = await getClient()
   const body = new URLSearchParams()
   for (const [key, value] of Object.entries(fields)) {
@@ -182,11 +197,6 @@ async function razorpayForm(path, fields) {
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
     const formatted = formatRazorpayError(path, response.status, payload)
-    console.error('Razorpay form API error:', {
-      path,
-      status: response.status,
-      error: payload?.error || payload,
-    })
     throw Object.assign(new Error(formatted.message), {
       status: 400,
       razorpayStatus: response.status,
@@ -249,12 +259,6 @@ export async function createUpiIntentPayment({
         new Error('Razorpay response did not include a UPI intent link.'),
         { status: 400 },
       )
-      console.error('Razorpay UPI intent response missing link:', {
-        paymentId,
-        keys: Object.keys(payload || {}),
-        next: payload?.next,
-        link: payload?.link,
-      })
     } catch (error) {
       lastError = error
     }
