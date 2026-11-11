@@ -20,10 +20,14 @@ async function snapshot(target, key, model, where, locking) {
 }
 const seenErrors = new WeakSet()
 export function logError(error, source = 'application') {
+  const context = logContext.getStore()
+  if (context?.telemetryRequest) return // Invalid optional telemetry must not create logging loops.
+  if (context && !context.accessError) context.accessError = { source, errorKind: error instanceof Error ? error.constructor.name.replace(/[^a-zA-Z]/g, '').slice(0, 60) : 'Error', code: /^[A-Z][A-Z0-9_]{1,60}$/.test(error?.code || '') ? error.code : undefined }
   if (error && typeof error === 'object') {
     if (seenErrors.has(error)) return
     seenErrors.add(error)
   }
+  log('debug', 'backend.operation.failed', { source, status: Number(error?.status || error?.statusCode) || 500, errorKind: error instanceof Error ? error.constructor.name.replace(/[^a-zA-Z]/g, '').slice(0, 60) : 'Error', code: /^[A-Z][A-Z0-9_]{1,60}$/.test(error?.code || '') ? error.code : undefined })
   log('error', 'operation.failed', { source, status: Number(error?.status || error?.statusCode) || 500,
     code: /^[A-Z][A-Z0-9_]{1,60}$/.test(error?.code || '') ? error.code : undefined,
     errorKind: error instanceof Error ? error.constructor.name.replace(/[^a-zA-Z]/g, '').slice(0, 60) : 'Error' })

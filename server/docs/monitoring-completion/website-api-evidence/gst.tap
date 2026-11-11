@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: extracts GST from an inclusive product price without increasing invoice total
+ok 1 - extracts GST from an inclusive product price without increasing invoice total
+  ---
+  duration_ms: 2.440023
+  type: 'test'
+  ...
+# Subtest: calculates GST for a five-digit inclusive price to two decimal places
+ok 2 - calculates GST for a five-digit inclusive price to two decimal places
+  ---
+  duration_ms: 0.32384
+  type: 'test'
+  ...
+# Subtest: extracts GST after discount and preserves the discounted inclusive total
+ok 3 - extracts GST after discount and preserves the discounted inclusive total
+  ---
+  duration_ms: 0.434408
+  type: 'test'
+  ...
+# Subtest: retains the inclusive amount for non-taxable products and reports interstate GST as IGST
+ok 4 - retains the inclusive amount for non-taxable products and reports interstate GST as IGST
+  ---
+  duration_ms: 0.20209
+  type: 'test'
+  ...
+# Subtest: identifies inclusive orders without reclassifying historical tax-added totals
+ok 5 - identifies inclusive orders without reclassifying historical tax-added totals
+  ---
+  duration_ms: 0.183555
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 105.601744

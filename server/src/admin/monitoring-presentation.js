@@ -1,7 +1,8 @@
+import { readableStatus } from '../../../shared/monitoring.js'
 import { isIP } from 'node:net'
 import { sanitize } from '../monitoring/sanitize.js'
 
-export const categoryLabels = { access: 'Access', error: 'Errors', audit: 'Admin activity', debug: 'Debug', payment: 'Payments', account: 'New accounts' }
+export const categoryLabels = { website: 'Website access', api: 'API access', access: 'Earlier access history', error: 'Errors', audit: 'Admin activity', debug: 'Debug', payment: 'Payments', account: 'New accounts' }
 const modelFor = (row) => typeof row.model === 'string' ? row.model : typeof row.event === 'string' ? row.event.split('.')[0] : ''
 const currency = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const numeric = (value) => (typeof value === 'number' || typeof value === 'string' && value.trim() !== '') && Number.isFinite(Number(value)) && Number(value) >= 0
@@ -14,15 +15,8 @@ const words = (value) => displayText(value).replace(/([a-z])([A-Z])/g, '$1 $2').
 const success = new Set(['success', 'successful', 'paid', 'captured', 'refunded', 'processed', 'delivered', 'matched'])
 const failures = new Set(['failed', 'failure', 'error', 'cancelled', 'canceled'])
 const pending = new Set(['pending', 'attempt', 'created', 'authorized', 'processing'])
-export function resultFor(row) {
-  const status = String(row.status ?? '').toLowerCase()
-  if (row.outcome === 'unmatched') return 'Warning'
-  if (failures.has(status) || Number(status) >= 400 || row.category === 'error' && !['skipped', 'ignored'].includes(status)) return 'Failed'
-  if (success.has(status) || Number(status) >= 200 && Number(status) < 400) return 'Successful'
-  if (pending.has(status)) return 'Pending'
-  if (['debug.enabled', 'debug.disabled'].includes(row.event)) return 'Successful'
-  return 'Warning'
-}
+export function resultFor(row) { return readableStatus(row) }
+
 const models = { Product: 'product', Order: 'order', Coupon: 'coupon', Setting: 'store settings', User: 'administrator account', Customer: 'customer account', DeliveryPartner: 'delivery partner', Category: 'category', Page: 'page', Blog: 'blog post', Review: 'review', Media: 'media file', AppRelease: 'app settings', Pincode: 'delivery area' }
 Object.assign(models, { BlogPost: 'blog post', AppReleasePolicy: 'app update settings', ServiceablePincode: 'delivery area', ProductTax: 'product tax settings', AdminPermission: 'team permissions', CouponRedemption: 'coupon use', ProductCategory: 'product category assignment', Cart: 'shopping cart', CartItem: 'cart item', DeviceToken: 'notification registration', PartnerDeviceToken: 'delivery partner notification registration', PasswordResetToken: 'password reset request', PartnerPasswordToken: 'delivery partner password reset request' })
 const changeLabels = { priceValue: 'Product price', oldPriceValue: 'Previous selling price', mrp: 'Maximum retail price', stock: 'Stock', quantity: 'Quantity', isActive: 'Active', status: 'Order status', paymentStatus: 'Payment status', paymentMode: 'Payment method', shippingFee: 'Delivery fee', handlingFee: 'Handling fee', discount: 'Discount', minOrder: 'Minimum order', maxDiscount: 'Maximum discount', usageLimit: 'Usage limit', role: 'Role', codEnabled: 'Cash on delivery enabled', razorpayEnabled: 'Razorpay enabled', morningEnabled: 'Morning delivery enabled', expressEnabled: 'Same-day delivery enabled', isPublished: 'Published', isApproved: 'Approved', gstRate: 'GST rate' }
@@ -62,9 +56,9 @@ export function presentLog(row, names = {}) {
   const operation = typeof row.operation === 'string' ? row.operation : event.split('.')[1]
   const object = Object.hasOwn(models, model) ? models[model] : undefined
   const changes = changesFor(row)
-  const actor = names.actor || 'Name not recorded'
+  const actor = row.origin === 'browser' ? 'Website visitor (identity not collected)' : names.actor || 'Name not recorded'
   const recordedOrderNo = row.orderNo || (model === 'Order' ? row.new?.orderNo || row.old?.orderNo : null)
-  const subject = names.subject || (recordedOrderNo ? `Order ${displayText(recordedOrderNo)}` : model === 'Product' && (row.new?.slug || row.old?.slug) ? 'Product name not recorded' : model === 'Coupon' && (row.new?.code || row.old?.code) ? `Coupon: ${displayText(row.new?.code || row.old?.code)}` : object ? object[0].toUpperCase() + object.slice(1) : 'Not recorded')
+  const subject = displayText(row.product) ? `Product: ${displayText(row.product)}` : row.origin === 'browser' && displayText(row.page) ? displayText(row.page) : names.subject || (recordedOrderNo ? `Order ${displayText(recordedOrderNo)}` : model === 'Product' && (row.new?.slug || row.old?.slug) ? 'Product name not recorded' : model === 'Coupon' && (row.new?.code || row.old?.code) ? `Coupon: ${displayText(row.new?.code || row.old?.code)}` : object ? object[0].toUpperCase() + object.slice(1) : 'Not recorded')
   let action = 'Recorded event', description = 'An event was recorded. Its meaning and impact are not available for this event type.'
   const amount = money(row.amountInr)
   const paymentAmount = amount ? ` of ${amount}` : ''
@@ -74,7 +68,39 @@ export function presentLog(row, names = {}) {
     if (state === 'refunded') return `Payment${paymentAmount} was refunded.`
     return 'The payment is awaiting confirmation.'
   }
-  if (object && ['create', 'update', 'delete', 'upsert', 'createMany', 'updateMany', 'deleteMany'].includes(operation)) {
+  const product = displayText(row.product), page = displayText(row.page)
+  if (event === 'website.navigation') {
+    action = 'Page opened'
+    description = product ? `Customer opened the product page for ${product}.` : page ? `Customer opened the ${page.toLowerCase()} page.` : 'A website page was opened; its name was not recorded.'
+  } else if (event === 'cart.added') {
+    action = 'Added to cart'; description = product ? `Customer added ${product} to cart.` : 'A product was added to the website cart; its name was not recorded.'
+  } else if (event === 'cart.removed') {
+    action = 'Removed from cart'; description = product ? `Customer removed ${product} from cart.` : 'A product was removed from the website cart; its name was not recorded.'
+  } else if (event === 'cart.quantity.changed') {
+    action = 'Cart quantity changed'; description = product && numeric(row.quantity) ? `Customer changed the quantity of ${product} to ${row.quantity}.` : 'A quantity in the website cart changed.'
+  } else if (event === 'cart.cleared') {
+    action = 'Cart cleared'; description = 'The website cart was cleared.'
+  } else if (event === 'coupon.applied' || event === 'coupon.removed' || event === 'coupon.invalidated') {
+    action = 'Coupon selection changed'; description = event === 'coupon.applied' ? 'Customer selected a coupon for their cart.' : event === 'coupon.invalidated' ? 'The website cleared a coupon that no longer applied to the cart.' : 'Customer removed a coupon from their cart.'
+  } else if (event === 'customer.session.started' || event === 'customer.session.ended') {
+    action = 'Website sign-in session'; description = event.endsWith('started') ? 'A customer sign-in session started on the website.' : 'A customer sign-in session ended on the website.'
+  } else if (event === 'delivery.selected') {
+    action = 'Delivery selected'; description = ['morning', 'express'].includes(row.deliveryOption) ? `Customer selected the ${row.deliveryOption} delivery option.` : 'The website delivery selection changed.'
+  } else if (event === 'frontend.api.completed' || event === 'frontend.api.failed') {
+    const target = String(row.route || '')
+    action = target.includes('verify-otp') || target.includes('send-otp') ? 'Website sign-in request' : target.includes('checkout') ? 'Website checkout request' : 'Website data request'
+    description = failed ? target.startsWith('/api/v1/products') ? 'Website failed to load a product.' : `The ${action.toLowerCase()} failed.` : `The ${action.toLowerCase()} received a response.`
+  } else if (event === 'frontend.page.failed' || event === 'website.response.failed') {
+    action = 'Page loading failed'; description = page ? `Website failed to load the ${page.toLowerCase()} page.` : 'Website failed to load a page.'
+  } else if (event === 'frontend.resource.failed') {
+    action = 'Page resource failed'; description = row.resourceKind === 'product image' ? 'Website failed to load a product image.' : 'A resource needed by the website could not be loaded.'
+  } else if (event === 'frontend.error' || event === 'frontend.promise.failed') {
+    action = 'Website error'; description = page ? `A website error occurred on the ${page.toLowerCase()} page.` : 'A website error occurred.'
+  } else if (event === 'website.page.ready') {
+    action = 'Page diagnostics'; description = page ? `Diagnostic information was recorded for the ${page.toLowerCase()} page.` : 'Website page diagnostics were recorded.'
+  } else if (event === 'backend.operation.failed') {
+    action = 'Backend operation failed'; description = 'A backend operation failed while extra diagnostics were enabled.'
+  } else   if (object && ['create', 'update', 'delete', 'upsert', 'createMany', 'updateMany', 'deleteMany'].includes(operation)) {
     const verb = operation.startsWith('create') ? 'added' : operation.startsWith('delete') ? 'removed' : 'updated'
     action = `${object[0].toUpperCase() + object.slice(1)} ${verb}`
     if (failed) { action = `${object[0].toUpperCase() + object.slice(1)} change failed`; description = `The ${object} could not be ${verb}.` }
@@ -136,10 +162,10 @@ export function presentLog(row, names = {}) {
     action = 'Request timing'
     description = `Diagnostic timing was recorded for a request${numeric(row.durationMs) ? `: ${row.durationMs} milliseconds` : ''}.`
   } else if (event === 'request.completed' || event === 'request.aborted') {
-    action = event.endsWith('aborted') ? 'Request interrupted' : 'Website or API request'
-    description = event.endsWith('aborted') ? 'A request ended before the server completed its response.' : failed ? 'The server returned an error for a website or API request.' : 'The server responded to a website or API request.'
-  } else if (event === 'monitoring.viewed') {
-    action = 'Logs viewed'; description = 'An administrator opened the monitoring information.'
+    const route = typeof row.route === 'string' ? row.route : ''
+    const area = route.includes('/products') ? 'product information' : route.includes('/categories') ? 'product categories' : route.includes('/checkout/quote') ? 'the cart total' : route.includes('/preview-coupon') ? 'a coupon check' : route.includes('/account/cart') ? 'the shopping cart' : route.includes('/addresses') ? 'delivery addresses' : route.includes('/orders') ? 'order information' : route.includes('/checkout') ? 'checkout' : route.includes('/auth') ? 'customer sign-in' : route.includes('/settings') ? 'store settings' : 'the requested information'
+    action = event.endsWith('aborted') ? 'API request interrupted' : 'API request'
+    description = event.endsWith('aborted') ? 'The API request ended before a response was completed.' : failed ? `The API could not process ${area}.` : `The API processed a request for ${area}.`
   } else if (event === 'admin.action') {
     action = 'Admin action'; description = failed ? 'An administrator request failed. The exact action was not recorded.' : result === 'Successful' ? 'An administrator request completed. The exact action was not recorded.' : 'An administrator request was recorded. Its exact action and completion are not confirmed.'
   } else if (event === 'storage.files.pruned') {
@@ -147,7 +173,8 @@ export function presentLog(row, names = {}) {
   } else if (row.category === 'debug') {
     action = 'Diagnostic event'; description = 'Extra diagnostic information was recorded while debug logging was enabled. This entry does not explain its impact.'
   }
-  const presentation = { action, description, result, actor, subject, changes, category: Object.hasOwn(categoryLabels, row.category) ? categoryLabels[row.category] : 'Other', reference: displayText(recordedOrderNo) || names.order || '', identityNote: names.actor || names.subject || names.customer ? 'Names are from current records; they may differ from names at the time of the event.' : '', outcomeNote: result === 'Warning' && !row.status ? 'No outcome was recorded.' : '' }
+  const context = row.origin === 'browser' && displayText(row.pagePath) && !row.pagePath.includes('[') ? `Page: ${displayText(row.pagePath)}` : row.category === 'api' && displayText(row.route) ? `${row.method || 'Request'} ${displayText(row.route)}${numeric(row.durationMs) ? ` · ${row.durationMs} ms` : ''}` : ''
+  const presentation = { context, action, description, result, actor, subject, changes, category: Object.hasOwn(categoryLabels, row.category) ? categoryLabels[row.category] : 'Other', reference: displayText(recordedOrderNo) || names.order || '', identityNote: names.actor || names.subject || names.customer ? 'Names are from current records; they may differ from names at the time of the event.' : '', outcomeNote: result === 'Warning' && !row.status ? 'No outcome was recorded.' : '' }
   return { ...presentation, details: readableDetails(row, names, presentation) }
 }
 
@@ -196,6 +223,13 @@ function readableDetails(row, names, view) {
   const details = []
   const add = (label, value) => { if (typeof value === 'string' && value) details.push({ label, value }) }
   add('Area', requestArea(row))
+  if (displayText(row.pagePath)) add('Page URL (private parameters excluded)', displayText(row.pagePath))
+  if (row.navigationType) add('Navigation', { initial: 'Initial page visit', client: 'Client-side page transition', back_forward: 'Browser back or forward navigation' }[row.navigationType])
+  if (row.event === 'website.navigation' && !row.httpStatus) add('Page response', row.navigationType === 'client' ? 'A separate HTTP page response is not available for this client-side transition.' : 'The response status was not reported by the browser.')
+  if (row.method) add('Request method', ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(row.method) ? row.method : '')
+  if (displayText(row.route)) add('Endpoint', displayText(row.route))
+  if (row.origin === 'browser') add('Source', 'Browser-reported observation; not an authoritative payment or audit record.')
+  if (row.relatedRequestId) add('Backend correlation', 'A matching backend request reference is retained in the protected server log.')
   if (typeof row.ip === 'string' && isIP(row.ip)) add('Connection IP', row.ip)
   if (row.event === 'debug.enabled' && row.debugUntil && Number.isFinite(Date.parse(row.debugUntil))) add('Automatic stop', `${new Date(row.debugUntil).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })} IST`)
   if (view.reference) add('Order', `Order ${view.reference}`)

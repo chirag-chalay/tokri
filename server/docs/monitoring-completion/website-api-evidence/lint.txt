@@ -1,0 +1,10 @@
+
+/home/gaurav/Documents/tokri/src/context/AuthContext.jsx
+  104:6  warning  React Hook useEffect has missing dependencies: 'logout', 'persist', and 'user'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/gaurav/Documents/tokri/src/context/CartContext.jsx
+  196:6  warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+  267:6  warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+  271:6  warning  React Hook useEffect has a missing dependency: 'selectedAddress'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 4 problems (0 errors, 4 warnings)

@@ -1,3 +1,4 @@
+import { recordWebsiteDebug } from '../lib/websiteMonitoring'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { useAddress } from './AddressContext'
@@ -107,7 +108,7 @@ export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState(readStoredCart)
   const [showDrawer, setShowDrawer] = useState(false)
   const [deliveryConfig, setDeliveryConfig] = useState(DEFAULT_DELIVERY)
-  const [deliveryOption, setDeliveryOption] = useState('morning')
+  const [deliveryOption, setDeliveryOptionState] = useState('morning')
   const [freeDelivery, setFreeDelivery] = useState(null)
   const [quoteState, setQuoteState] = useState(null)
   const [quoteError, setQuoteError] = useState('')
@@ -266,10 +267,16 @@ export function CartProvider({ children }) {
   }, [user?.id, user?.token, isLoggedIn])
 
   useEffect(() => {
-    setDeliveryOption(defaultOptionForAddress(selectedAddress))
+    setDeliveryOptionState(defaultOptionForAddress(selectedAddress))
   }, [selectedAddress?.id, selectedAddress?.delivery?.defaultOption])
 
+  const chooseDeliveryOption = useCallback((option) => {
+    setDeliveryOptionState(option)
+    recordWebsiteDebug('delivery.selected', { deliveryOption: option })
+  }, [])
+
   const addItem = (product) => {
+    recordWebsiteDebug('cart.added', { productRef: product.slug || product.id, quantity: 1 })
     const priceValue = parsePrice(product.price ?? product.priceValue)
     const oldPriceValue = parsePrice(product.oldPriceValue ?? product.oldPrice)
     const oldPrice = product.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null)
@@ -317,6 +324,8 @@ export function CartProvider({ children }) {
   }
 
   const updateQuantity = (productId, delta) => {
+    const existing = cartItems.find(item => item.id === productId)
+    if (existing && delta) recordWebsiteDebug('cart.quantity.changed', { productRef: productId, quantity: Math.max(1, existing.quantity + delta) })
     setCartItems((items) =>
       items
         .map((item) =>
@@ -327,10 +336,12 @@ export function CartProvider({ children }) {
   }
 
   const removeItem = (productId) => {
+    if (cartItems.some(item => item.id === productId)) recordWebsiteDebug('cart.removed', { productRef: productId })
     setCartItems((items) => items.filter((item) => item.id !== productId))
   }
 
   const clearCart = useCallback(() => {
+    if (cartItemsRef.current.length) recordWebsiteDebug('cart.cleared', { count: cartItemsRef.current.length })
     skipServerPush.current = true
     couponRequest.current += 1
     setCouponLoading(false)
@@ -451,6 +462,7 @@ export function CartProvider({ children }) {
           couponRequest.current += 1
           setCouponLoading(false)
           setCoupon(null)
+          recordWebsiteDebug('coupon.invalidated')
           // Auto-cleared when the cart no longer qualifies — no banner needed.
           setCouponError('')
         }
@@ -524,6 +536,7 @@ export function CartProvider({ children }) {
           : await postJson('/checkout/preview-coupon', body)
         if (!isCurrent()) return null
         setCoupon(data.coupon)
+        if (data.coupon?.code) recordWebsiteDebug('coupon.applied')
         if (data.coupon?.code === input.payload.couponCode) refreshDeliveryQuote().catch(() => {})
         return data.coupon
       } catch (error) {
@@ -541,6 +554,7 @@ export function CartProvider({ children }) {
   }, [refreshDeliveryQuote])
 
   const removeCoupon = useCallback(() => {
+    if (quoteInputRef.current?.payload.couponCode) recordWebsiteDebug('coupon.removed')
     couponRequest.current += 1
     setCouponAction(quoteInputRef.current?.payload.couponCode || null)
     setCouponLoading(false)
@@ -569,7 +583,7 @@ export function CartProvider({ children }) {
         quoteError,
         refreshDeliveryQuote,
         deliveryOption: activeOption,
-        setDeliveryOption,
+        setDeliveryOption: chooseDeliveryOption,
         deliveryConfig,
         setDeliveryConfig,
         pinDelivery,

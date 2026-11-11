@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma.js'
 import { isSuperAdmin } from './permissions.js'
 import { enrichLogRows } from './monitoring-presentation.js'
 import { categories } from '../monitoring/sanitize.js'
-import { log, logContext, outboxHealth, persistCriticalLogs, monitoringState, setDebug, workerCall } from '../monitoring/index.js'
+import { logContext, outboxHealth, persistCriticalLogs, monitoringState, setDebug, workerCall } from '../monitoring/index.js'
 
 export async function monitoringHandler(request, _response, context) {
   // Re-read privileges so revoked/deactivated sessions cannot view logs or enable debug.
@@ -28,7 +28,6 @@ export async function monitoringHandler(request, _response, context) {
   const filters = Object.fromEntries(['date', 'category', 'status', 'user', 'orderId', 'ip', 'search', 'page', 'perPage'].map((key) => [key, String(query[key] || '').slice(0, 100)]))
   if (filters.category && !categories.includes(filters.category)) throw new ValidationError({}, { message: 'Invalid log type.' })
   if (filters.date && (!/^\d{4}-\d{2}-\d{2}$/.test(filters.date) || !Number.isFinite(Date.parse(filters.date)) || new Date(filters.date).toISOString().slice(0, 10) !== filters.date)) throw new ValidationError({}, { message: 'Invalid date.' })
-  log('access', 'monitoring.viewed', { status: 'success' })
   const outbox = await outboxHealth()
   if (String(request.method).toLowerCase() === 'post') return { ...monitoringState(), outbox, canManageDebug }
   try {

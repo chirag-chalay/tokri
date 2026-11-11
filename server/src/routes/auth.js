@@ -30,14 +30,14 @@ router.post('/verify-otp', async (req, res, next) => {
     if (result.user?.id) {
       result.user.freeDelivery = await getCustomerFreeDeliveryStatus(result.user.id)
     }
-    log('access', 'customer.login', { status: 'success' })
+    log('api', 'customer.login', { status: 'success' })
     res.json({
       ok: true,
       message: 'Login successful.',
       ...result,
     })
   } catch (error) {
-    log('access', 'customer.login', { status: 'failure' })
+    log('api', 'customer.login', { status: 'failure' })
     next(error)
   }
 })

@@ -4,10 +4,11 @@ import { createInterface } from 'node:readline'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { isMonitoringRequest, readableStatus } from '../../../shared/monitoring.js'
 import { categories, sanitize, istDate } from './sanitize.js'
 
 const { directory, maxBytes, retentionDays, readerOnly } = workerData
-const filePattern = /^(access|error|audit|debug|payment|account)-\d{4}-\d{2}-\d{2}\.log$/
+const filePattern = /^(website|api|access|error|audit|debug|payment|account)-\d{4}-\d{2}-\d{2}\.log$/
 // Fixed-size negative filter; possible matches are always checked against the file.
 // This avoids loading every ID or scanning an entire daily file for each new event.
 const dedupeIndexes = new Map()
@@ -192,7 +193,8 @@ async function read(query) {
           if (!row || typeof row !== 'object' || Array.isArray(row) || typeof row.timestamp !== 'string' || !Number.isFinite(Date.parse(row.timestamp))) throw new Error('Invalid row')
           row = sanitize(row)
         } catch { corruptRows++; continue }
-        if (query.status && ![row.status, row.outcome].some((value) => String(value ?? '') === query.status)) continue
+        if (file.category !== 'audit' && (row.event === 'monitoring.viewed' || (['request.completed', 'request.aborted', 'request.timing'].includes(row.event) && isMonitoringRequest(row.route)))) continue
+        if (query.status && (['Successful', 'Failed', 'Warning', 'Pending'].includes(query.status) ? readableStatus({ ...row, category: file.category }) !== query.status : ![row.status, row.outcome].some((value) => String(value ?? '') === query.status))) continue
         if (query.user && ![row.actorId, row.userId].some((v) => String(v || '').includes(query.user))) continue
         if (query.orderId && ![row.orderId, row.orderNo, row.razorpayOrderId, row.razorpayPaymentId, row.new?.orderNo, row.resourceId].some((v) => String(v || '').includes(query.orderId))) continue
         if (query.ip && row.ip !== query.ip) continue
@@ -200,7 +202,7 @@ async function read(query) {
         yield { ...row, category: file.category, file: file.name }
     }
   }
-  // Merge the six category streams for each day. Keep one head per category,
+  // Merge category streams for each day. Keep one head per category,
   // plus the requested page; do not load daily files or earlier pages into RAM.
   for (const date of [...new Set(list.map((file) => file.date))]) {
     const streams = list.filter((file) => file.date === date).map((file) => ({ iterator: matching(file) }))
@@ -217,7 +219,7 @@ async function read(query) {
       }
     } finally { for (const stream of streams) await stream.iterator.return() }
   }
-  return { rows, total, page, perPage, files: list, totalBytes, corruptRows }
+  return { rows, total, page, perPage, files: list, days: [...new Set(allFiles.filter(file => !query.category || file.category === query.category).map(file => file.date))].sort().reverse(), totalBytes, corruptRows }
 }
 let chain = Promise.resolve()
 parentPort.on('message', (message) => {

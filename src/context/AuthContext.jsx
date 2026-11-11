@@ -1,3 +1,4 @@
+import { recordWebsiteDebug } from '../lib/websiteMonitoring'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { authGet, authPatch } from '../lib/api'
 
@@ -39,10 +40,12 @@ export function AuthProvider({ children }) {
 
   const login = useCallback((nextUser) => {
     persist(toUserData(nextUser, nextUser.token || null))
+    recordWebsiteDebug('customer.session.started')
   }, [persist])
 
   const logout = useCallback(() => {
     persist(null)
+    recordWebsiteDebug('customer.session.ended')
   }, [persist])
 
   const updateProfile = useCallback(

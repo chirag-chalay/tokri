@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { writeSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { isMonitoringRequest, safeEndpoint, safePage } from '../../../shared/monitoring.js'
 import { categories, sanitize } from './sanitize.js'
 
 export const logContext = new AsyncLocalStorage()
@@ -132,6 +133,11 @@ function settle(message) {
   message.error ? call.reject(new Error(message.error)) : call.resolve(message.result)
 }
 export function log(category, event, details = {}) {
+  if (category === 'access') category = 'api' // Read old files; new access records are explicitly API records.
+  if (category === 'api' && ['customer.login', 'admin.login'].includes(event) && logContext.getStore() && !logContext.getStore().accessFinalized) {
+    logContext.getStore().accessSummary = { event, details: sanitize(details) }
+    return // One enriched request entry, rather than a second sign-in entry.
+  }
   let entry
   try {
     if (!categories.includes(category) || (category === 'debug' && Date.now() >= debugUntil)) return
@@ -177,6 +183,12 @@ process.once('exit', () => {
   for (const line of emergencyQueue) { try { writeSync(2, line) } catch { emergencyFailed++ } }
   if (emergencyOverflow) { try { writeSync(2, `${JSON.stringify({ event: 'monitoring.emergency.overflow', count: emergencyOverflow })}\n`) } catch { emergencyFailed++ } }
 })
+let debugGeneration = randomUUID(), expiryTimer
+const debugSubscribers = new Set(), debugClosers = new Set()
+export function websiteDebugState() { return { debugUntil: monitoringState().debugUntil, generation: debugGeneration } }
+export function subscribeWebsiteDebug(listener, close) { debugSubscribers.add(listener); if (close) debugClosers.add(close); return () => { debugSubscribers.delete(listener); if (close) debugClosers.delete(close) } }
+export function closeWebsiteStreams() { for (const close of [...debugClosers]) { try { close() } catch { /* release every stream */ } } }
+function publishDebugState() { for (const listener of debugSubscribers) { try { listener(websiteDebugState()) } catch { /* diagnostics cannot break admin controls */ } } }
 let processLoggingInstalled = false
 export function installProcessErrorLogging() {
   if (processLoggingInstalled) return
@@ -198,7 +210,11 @@ export function monitoringState() {
     retentionDays: logConfig.retentionDays, maxBytes: logConfig.maxBytes }
 }
 export function setDebug(enabled, minutes = 15) {
+  clearTimeout(expiryTimer)
   debugUntil = enabled ? Date.now() + positive(minutes, 15, 1, 60) * 60000 : 0
+  debugGeneration = randomUUID()
+  publishDebugState()
+  if (enabled) { expiryTimer = setTimeout(publishDebugState, Math.max(1, debugUntil - Date.now())); expiryTimer.unref() }
   log('audit', enabled ? 'debug.enabled' : 'debug.disabled', { debugUntil: monitoringState().debugUntil })
   return monitoringState()
 }
@@ -231,27 +247,44 @@ export async function workerCall(type, query = {}) {
   })
 }
 export function requestLogging(req, res, next) {
-  const context = { req, id: randomUUID() }
+  const context = { req, id: randomUUID(), telemetryRequest: String(req.originalUrl || req.url || '').startsWith('/api/v1/monitoring/') }
+  const silent = isMonitoringRequest(req.originalUrl || req.url)
+  const pathname = String(req.originalUrl || req.url || '').split('?')[0]
+  const apiRequest = pathname.startsWith('/api/') || pathname.includes('/api/')
+  if (apiRequest && !silent) res.setHeader?.('X-Tokri-Request-Id', context.id)
   logContext.run(context, () => {
     const start = performance.now()
     let completed = false
     const finish = (aborted = false) => logContext.run(context, () => {
       if (completed) return
       completed = true
-      const route = req.route?.path ? `${req.baseUrl || ''}${req.route.path}` : '[unmatched/static]'
+      if (silent) return // Viewing logs, SSE and telemetry never log themselves.
       const status = aborted ? 499 : res.statusCode
-      if (req.session?.adminUser && !context.auditRecorded && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.params?.pageName !== 'logs') {
+      const route = safeEndpoint(pathname) || req.route?.path || '[other endpoint]'
+      if (req.session?.adminUser && !context.auditRecorded && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
         log('audit', 'admin.action', { method: req.method, route, status: status < 400 ? 'success' : 'failure' })
       }
-      log('access', aborted ? 'request.aborted' : 'request.completed', { method: req.method, route, status, durationMs: Math.round(performance.now() - start) })
-      log('debug', 'request.timing', { method: req.method, route, status, durationMs: Math.round(performance.now() - start) })
+      if (apiRequest || context.accessSummary) {
+        context.accessFinalized = true
+        const summary = context.accessSummary
+        const fields = { ...context.accessError, ...summary?.details, method: req.method, route, httpStatus: status, status: summary?.details?.status || status, durationMs: Math.round(performance.now() - start) }
+        log('api', summary?.event || (aborted ? 'request.aborted' : 'request.completed'), fields)
+        log('debug', 'request.timing', fields)
+      } else if (status >= 400 && req.method === 'GET' && String(req.headers.accept || '').includes('text/html')) {
+        const page = safePage(pathname)
+        if (page && page.pagePath !== '/[other]') logContext.run({ id: context.id, req: {} }, () => log('error', 'website.response.failed', { page: page.pageLabel, pagePath: page.pagePath, status, source: 'website' }))
+      }
     })
     res.once('finish', () => finish())
     res.once('close', () => { if (!res.writableFinished) finish(true) })
     next()
   })
 }
+
 export async function closeMonitoring() {
+  clearTimeout(expiryTimer)
+  closeWebsiteStreams()
+  debugSubscribers.clear()
   await durableStore?.stop()
   for (const [id, call] of calls) if (call.reader) settle({ id, error: 'Monitoring is closing.' })
   const current = worker
@@ -264,6 +297,7 @@ export function installGracefulShutdown(server, disconnect = async () => {}) {
   const stop = () => {
     if (stopping) return
     stopping = true
+    closeWebsiteStreams()
     const deadline = setTimeout(() => process.exit(1), 30000)
     deadline.unref()
     server.close(async () => {
