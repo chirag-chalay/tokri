@@ -105,6 +105,7 @@ test('database observer records admin old/new values, creates accounts, and dedu
 test('retention, disk cap and symlink protection in the file worker', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokri-rotation-'))
   await fs.writeFile(path.join(dir, 'access-2020-01-01.log'), 'expired\n')
+  for (const category of ['website', 'api', 'debug']) await fs.writeFile(path.join(dir, `${category}-2020-01-01.log`), 'expired\n')
   const target = path.join(dir, 'outside.txt')
   await fs.writeFile(target, 'DO NOT CHANGE')
   await fs.symlink(target, path.join(dir, `error-${istDate()}.log`))
@@ -118,11 +119,16 @@ test('retention, disk cap and symlink protection in the file worker', async () =
   try {
     await call('flush')
     await assert.rejects(fs.stat(path.join(dir, 'access-2020-01-01.log')))
+    for (const category of ['website', 'api', 'debug']) await assert.rejects(fs.stat(path.join(dir, `${category}-2020-01-01.log`)))
     const failed = await call('write', { category: 'error', record: { timestamp: new Date().toISOString(), event: 'symlink' } })
     assert.equal(failed.failed, 1)
     assert.equal(await fs.readFile(target, 'utf8'), 'DO NOT CHANGE')
     for (let n = 0; n < 15; n++) await call('write', { category: 'access', record: { timestamp: new Date().toISOString(), event: 'x'.repeat(70) } })
     assert.ok((await fs.stat(path.join(dir, `access-${istDate()}.log`))).size <= 500)
+    for (const category of ['website', 'api', 'debug']) {
+      for (let n = 0; n < 5; n++) await call('write', { category, record: { timestamp: new Date().toISOString(), event: 'x'.repeat(70) } })
+      assert.ok((await fs.stat(path.join(dir, `${category}-${istDate()}.log`))).size <= 500)
+    }
   } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
 })
 test('AdminJS transport enforces fresh admin privileges and same-origin debug controls', async () => {
@@ -290,7 +296,11 @@ test('real daily file rotation crosses IST midnight without mixing categories', 
     await send('2026-11-09T18:29:59.000Z', 'payment')
     await send('2026-11-09T18:30:00.000Z', 'payment')
     await send('2026-11-09T18:30:01.000Z', 'audit')
-    assert.deepEqual((await fs.readdir(dir)).sort(), ['audit-2026-11-10.log', 'payment-2026-11-09.log', 'payment-2026-11-10.log'])
+    for (const category of ['website', 'api', 'debug']) {
+      await send('2026-11-09T18:29:59.000Z', category)
+      await send('2026-11-09T18:30:00.000Z', category)
+    }
+    assert.deepEqual((await fs.readdir(dir)).sort(), ['api-2026-11-09.log', 'api-2026-11-10.log', 'audit-2026-11-10.log', 'debug-2026-11-09.log', 'debug-2026-11-10.log', 'payment-2026-11-09.log', 'payment-2026-11-10.log', 'website-2026-11-09.log', 'website-2026-11-10.log'])
   } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
 })
 test('a stalled emergency stream has a bounded queue and reports overflow after recovery', async () => {

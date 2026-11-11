@@ -137,3 +137,20 @@ test('malformed and inherited-key event names use safe fallbacks without exposin
   const [row]=await enrichLogRows([{event:{token:'PRIVATE_TOKEN'},category:'audit'}],fixtureClient({},[]))
   assert.equal(row.presentation.action,'Recorded event')
 })
+
+
+test('website and API summaries describe recorded facts without invented names or response status', () => {
+  const view = (event, extra = {}) => presentLog({ category: 'debug', origin: 'browser', event, status: 'success', ...extra })
+  assert.equal(view('cart.added', { product: 'Apple Royal Gala' }).description, 'Customer added Apple Royal Gala to cart.')
+  assert.match(view('cart.added').description, /name was not recorded/)
+  assert.equal(view('website.navigation', { page: 'Checkout', category: 'website', status: 'observed' }).description, 'Customer opened the checkout page.')
+  assert.equal(view('frontend.api.failed', { route: '/api/v1/products/[record]', status: 'failure' }).description, 'Website failed to load a product.')
+  for (const event of ['frontend.page.failed', 'frontend.error', 'frontend.promise.failed', 'frontend.resource.failed', 'website.page.ready', 'cart.removed', 'cart.quantity.changed', 'cart.cleared', 'coupon.applied', 'coupon.removed', 'coupon.invalidated', 'delivery.selected', 'customer.session.started', 'customer.session.ended', 'backend.operation.failed']) {
+    const summary = view(event, { page: 'Checkout' })
+    assert.ok(!summary.description.includes('meaning and impact are not available'), event)
+    assert.ok(!summary.description.includes('undefined'), event)
+    assert.equal(summary.actor, 'Website visitor (identity not collected)')
+  }
+  assert.equal(view('frontend.api.failed', { status: 'failure' }).result, 'Failed')
+  assert.equal(view('website.navigation', { status: 'observed' }).result, 'Successful')
+})

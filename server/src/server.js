@@ -1,3 +1,4 @@
+import websiteMonitoring from './monitoring/website.js'
 import express from 'express'
 import { requestLogging, startCriticalOutbox, closeMonitoring, installProcessErrorLogging, installGracefulShutdown } from './monitoring/index.js'
 import { logError } from './monitoring/database.js'
@@ -92,6 +93,7 @@ app.use(
     origin: env.corsOrigins,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Phone'],
+    exposedHeaders: ['X-Tokri-Request-Id'],
   }),
 )
 
@@ -134,6 +136,8 @@ app.use(
 // AdminJS must be mounted BEFORE express.json() on overlapping paths
 const { admin, adminRouter } = await buildAdminRouter()
 app.use(admin.options.rootPath, adminRouter)
+
+app.use('/api/v1/monitoring', websiteMonitoring)
 
 // API routes use body parser (after AdminJS)
 const api = express.Router()

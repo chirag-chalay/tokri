@@ -1,4 +1,6 @@
 import '../index.css'
+import { Suspense } from 'react'
+import NextWebsiteMonitoring from './_components/NextWebsiteMonitoring'
 import { cookies, headers } from 'next/headers'
 import { indexingEnabled } from '../lib/server/indexing'
 import MarketingConsent from '../components/MarketingConsent'
@@ -38,7 +40,7 @@ export default async function RootLayout({ children }) {
         <link rel="stylesheet" href="/fonts/fonts.css" />
       </head>
       <body>
-        <div id="root">{children}<MarketingConsent /></div>
+        <div id="root"><Suspense fallback={null}><NextWebsiteMonitoring /></Suspense>{children}<MarketingConsent /></div>
         {renderNoScriptPixel && (
           <noscript>
             <img

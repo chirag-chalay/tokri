@@ -165,8 +165,10 @@ Open **Logs & Monitoring** in AdminJS. Every request reloads the operator's acti
 status and role; only `admin` / `super_admin` may view logs. Only the explicit
 `super_admin` role may enable or disable debug logging; ordinary admins have a
 read-only debug status indicator.
-The six daily JSON-lines categories are `access`, `error`, `audit`, `debug`,
-`payment` and `account`. Dates and the viewer use IST; stored event timestamps are
+New access records are separated into `website` (anonymous website visits) and
+`api` (backend requests). The other daily categories are `error`, `audit`, `debug`,
+`payment` and `account`; existing `access` files remain readable in Earlier access
+history. Dates and the viewer use IST; stored event timestamps are
 UTC ISO strings. The read-only viewer supports date/type/status/user ID/order/IP
 and text filters with server-side 50/100-row pages and daily file selection.
 The responsive viewer displays English summaries, approved labeled details and
@@ -180,6 +182,25 @@ resets OFF on restart. Controls require the AdminJS session, same-origin browser
 metadata and a custom header. The control sits below the profile area and derives
 its Enabled/Disabled status from the server deadline. Enable/disable events are persisted before the
 control response. Payloads, credentials, SQL and raw error stacks are excluded.
+
+Both React Router and the Next.js root layout report committed page visits.
+Queries, fragments, private order references and unknown paths are redacted;
+public product/article/page/category paths are shown only after catalog checks.
+Prefetches, API requests and query-only filter changes are not page visits.
+Browser observations are anonymous, explicitly identified as browser-reported,
+and cannot create payment or audit records. Unknown HTTP status stays unknown.
+
+One bounded SSE connection per visible tab distributes the backend debug deadline
+and generation. Streams disable compression/buffering; disable, expiry, disconnect
+or hidden tabs stop optional collection. There is no frontend-only toggle or
+polling loop. Debug captures navigation readiness, runtime/resource failures,
+sanitized API failures/timings, cart, sign-in sessions, coupon and delivery actions.
+No request/response bodies, arbitrary error messages or form values are collected.
+Client batches are bounded, best effort and never retried; public ingestion has
+origin checks, payload/event limits, generation checks, deduplication and rate caps.
+Monitoring reads and telemetry requests do not log themselves. Historical non-audit
+self-events are omitted from results without altering their files; audit history
+is retained. Critical audit/payment outbox delivery is independent of debug state.
 
 ### Critical event durability
 
