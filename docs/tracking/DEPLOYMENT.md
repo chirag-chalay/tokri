@@ -45,3 +45,11 @@ Existing browsers may need a hard refresh to use the new release. On the website
 Changing IDs requires editing the private backend environment, restarting `tokri-server`, and refreshing the website. Changes to GTM tags require publishing the container. A changed Next rewrite target requires rebuilding the frontend as shown above.
 
 For emergency rollback, disable the tracking switches in the private environment and restart the backend. The prior frontend build can be selected with `TOKRIII_NEXT_DIST_DIR=.next` when restarting `tokri-frontend`; save the intended PM2 state afterward. Keep the additive database schema and delivery audit trail in place. A full source rollback must also account for the generated Prisma client and the existing deployment procedure.
+
+## Search tracking correction
+
+On 12 November 2026, revision `e777075` was deployed from `marketingdimpal` to `.next.marketingdimpal-search-20261112`. The preceding frontend build remains available and its static chunks were retained.
+
+The search box loads results automatically after its debounce, so recording only Enter presses missed normal desktop/mobile use. Tracking now runs when the latest query's successful first result page is displayed. Pagination and repeated Enter presses do not create duplicates; clearing/changing a query invalidates stale responses. Short numeric and multilingual product terms are supported, while email/URL syntax and phone-like input are excluded.
+
+Focused verification: the local browser harness passed automatic search, Enter deduplication and sensitive-input filtering checks. The production build passed. One live search for `apple` produced exactly one `search` data-layer event and a Google Analytics HTTP 204 response; pressing Enter produced no second event. PM2 was saved after activation. This frontend-only correction required no new schema change, backend restart or GTM container import.
