@@ -1,6 +1,6 @@
 # GTM configuration for the tracking release
 
-An empty GTM container needs configuration before the website can deliver GA4 events. No file upload is required: configure the following tags, variables and triggers in the GTM Web container whose ID is in `server/.env`. A CAPI token is not a GTM variable.
+An empty GTM container needs configuration before the website can deliver GA4 events. A complete import file is available at [gtm/tokriii-gtm-container.json](gtm/tokriii-gtm-container.json); follow the [import steps](gtm/README.md) instead of creating the following objects manually. No file upload is required: configure the following tags, variables and triggers in the GTM Web container whose ID is in `server/.env`. A CAPI token is not a GTM variable.
 
 ## 1. Variables
 
