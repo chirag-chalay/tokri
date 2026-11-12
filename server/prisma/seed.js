@@ -1,24 +1,11 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import dotenv from 'dotenv'
-import path from 'path'
 import { readFile } from 'node:fs/promises'
-import { fileURLToPath } from 'url'
 
 dotenv.config()
 
 const prisma = new PrismaClient()
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-const { categories, categoryDetails } = await import(
-  path.join(__dirname, '../../src/data/categories.js')
-)
-const { bestSellers } = await import(path.join(__dirname, '../../src/data/bestSellers.js'))
-
-function parsePrice(price) {
-  const match = String(price).replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)
-  return match ? Number(match[1]) : 0
-}
 
 async function main() {
   console.log('Seeding Tokriii database...')
@@ -72,164 +59,6 @@ async function main() {
         manageUsers: true,
       },
     })
-  }
-
-  const categoryIdBySlug = {}
-
-  for (const [index, category] of categories.entries()) {
-    const details = categoryDetails[category.id] || {}
-
-    const record = await prisma.category.upsert({
-      where: { slug: category.id },
-      update: {
-        label: category.label,
-        title: details.title || category.label,
-        subtitle: details.subtitle || null,
-        description: details.description || null,
-        image: category.image,
-        sortOrder: index,
-        isActive: true,
-      },
-      create: {
-        slug: category.id,
-        label: category.label,
-        title: details.title || category.label,
-        subtitle: details.subtitle || null,
-        description: details.description || null,
-        image: category.image,
-        sortOrder: index,
-        isActive: true,
-      },
-    })
-
-    categoryIdBySlug[category.id] = record.id
-  }
-
-  const bestSellerSlugs = new Set(bestSellers.map((p) => p.id))
-
-  for (const product of bestSellers) {
-    await prisma.product.upsert({
-      where: { slug: product.id },
-      update: {
-        name: product.name,
-        priceValue: parsePrice(product.price),
-        badge: product.description || 'Best Seller',
-        image: product.image,
-        isBestSeller: true,
-        isActive: true,
-      },
-      create: {
-        slug: product.id,
-        name: product.name,
-        priceValue: parsePrice(product.price),
-        badge: product.description || 'Best Seller',
-        image: product.image,
-        isBestSeller: true,
-        isActive: true,
-        stock: 100,
-      },
-    })
-  }
-
-  for (const [slug, details] of Object.entries(categoryDetails)) {
-    const categoryId = categoryIdBySlug[slug]
-    if (!categoryId || !details.products) continue
-
-    for (const [index, product] of details.products.entries()) {
-      const isImported = slug === 'imported'
-      const isBestSeller = bestSellerSlugs.has(product.id)
-
-      const saved = await prisma.product.upsert({
-        where: { slug: product.id },
-        update: {
-          name: product.name,
-          priceValue: parsePrice(product.price),
-          oldPriceValue: product.oldPrice ? parsePrice(product.oldPrice) : null,
-          weight: product.weight || null,
-          image: product.image,
-          categoryId,
-          isImported,
-          isBestSeller: isBestSeller || undefined,
-          isActive: true,
-          sortOrder: index,
-        },
-        create: {
-          slug: product.id,
-          name: product.name,
-          priceValue: parsePrice(product.price),
-          oldPriceValue: product.oldPrice ? parsePrice(product.oldPrice) : null,
-          weight: product.weight || null,
-          image: product.image,
-          categoryId,
-          isImported,
-          isBestSeller,
-          isActive: true,
-          sortOrder: index,
-          stock: 100,
-        },
-      })
-      if (categoryId) {
-        await prisma.productCategory.upsert({
-          where: { productId_categoryId: { productId: saved.id, categoryId } },
-          create: { productId: saved.id, categoryId },
-          update: {},
-        })
-      }
-    }
-  }
-
-  const importedProducts = [
-    {
-      slug: 'imported-dragon-fruit-red',
-      name: 'Dragon Fruit - Red (1KG)',
-      priceValue: 899,
-      isImported: true,
-    },
-    {
-      slug: 'imported-kesar-mango',
-      name: 'Kesar Mango - 1 Dozen (12 PCS)',
-      priceValue: 699,
-      isImported: true,
-    },
-    {
-      slug: 'imported-strawberry-belgium',
-      name: 'Strawberry - Imported (Belgium)',
-      priceValue: 700,
-      isImported: true,
-    },
-  ]
-
-  const importedCategoryId = categoryIdBySlug.imported
-
-  for (const [index, product] of importedProducts.entries()) {
-    const saved = await prisma.product.upsert({
-      where: { slug: product.slug },
-      update: {
-        name: product.name,
-        priceValue: product.priceValue,
-        categoryId: importedCategoryId,
-        isImported: true,
-        isActive: true,
-        sortOrder: index,
-      },
-      create: {
-        slug: product.slug,
-        name: product.name,
-        priceValue: product.priceValue,
-        categoryId: importedCategoryId,
-        isImported: true,
-        isActive: true,
-        sortOrder: index,
-        stock: 100,
-      },
-    })
-    if (importedCategoryId) {
-      await prisma.productCategory.upsert({
-        where: { productId_categoryId: { productId: saved.id, categoryId: importedCategoryId } },
-        create: { productId: saved.id, categoryId: importedCategoryId },
-        update: {},
-      })
-    }
   }
 
   const reviews = [

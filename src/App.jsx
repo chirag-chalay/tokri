@@ -24,6 +24,7 @@ import { AddressProvider } from './context/AddressContext'
 import Footer from './components/Footer'
 import { trackPageView } from './lib/telemetry'
 import MarketingConsent from './components/MarketingConsent'
+import WebsiteMonitoring from './components/WebsiteMonitoring'
 
 const CMS_PAGE_PATHS = [
   '/about',
@@ -93,6 +94,7 @@ function AppShell({ migratedRoutes }) {
 
   return (
     <div className={showStickyCart ? 'pb-24 lg:pb-0' : ''}>
+      <WebsiteMonitoring pathname={location.pathname} locationKey={`${location.pathname}?${location.search.replace(/^\?/, '')}`} />
       <ScrollToTop />
       {!hideChrome && (
         <Header

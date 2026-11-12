@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { prisma } from '../lib/prisma.js'
 import { canManage } from './permissions.js'
 import { notifyOrderStatus } from '../services/push.js'
@@ -8,6 +9,7 @@ import {
   sendDeliveryPartnerAssignment,
   sendOrderConfirmation,
 } from '../services/msg91.js'
+import { orderPricesIncludeGst } from '../utils/tax.js'
 
 function parseAddress(address) {
   if (!address || typeof address !== 'object') return null
@@ -47,6 +49,7 @@ export function flattenOrder(order) {
     sgstTotal: String(order.sgstTotal || 0),
     igstTotal: String(order.igstTotal || 0),
     isInterState: Boolean(order.isInterState),
+    gstIncluded: orderPricesIncludeGst(order),
     grandTotal: String(order.grandTotal),
     couponCode: order.couponCode || '',
     deliveryOption: order.deliveryOption || '',
@@ -340,7 +343,7 @@ export const orderEditHandler = {
 
     const order = await loadOrder(request.params.recordId)
     if (status && previous?.status !== status) {
-      notifyOrderStatus(order, status).catch((error) => console.error('Failed to send push:', error))
+      notifyOrderStatus(order, status).catch((error) => logError(error, 'background'))
     }
 
     const becamePaid = order.paymentStatus === 'paid' && previous?.paymentStatus !== 'paid'
@@ -349,11 +352,11 @@ export const orderEditHandler = {
       sendOrderConfirmation(order, {
         phone: order.customer?.phone,
         name: order.customer?.name,
-      }).catch((error) => console.error('Failed to send order confirmation:', error))
+      }).catch((error) => logError(error, 'background'))
     }
     if (isConfirmedCheckoutOrder(order) && (becamePaid || partnerAssigned)) {
       sendDeliveryPartnerAssignment(order).catch((error) =>
-        console.error('Failed to notify delivery partner:', error),
+        logError(error, 'background'),
       )
     }
 

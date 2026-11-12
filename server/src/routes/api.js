@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import websiteMonitoring from '../monitoring/website.js'
 import { prisma } from '../lib/prisma.js'
 import { formatPublicSettings } from '../utils/settings.js'
 import { formatCategory, formatProduct, formatPage, formatBlog, formatBlogSummary } from '../utils/formatters.js'
@@ -12,6 +13,7 @@ import partnerRouter from './partner.js'
 import trackingRouter from './tracking.js'
 
 const router = Router()
+router.use('/monitoring', websiteMonitoring)
 
 router.get('/health', (_req, res) => {
   res.json({

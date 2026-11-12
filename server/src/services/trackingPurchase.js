@@ -1,3 +1,4 @@
+import { orderPricesIncludeGst } from '../utils/tax.js'
 import { createHash } from 'node:crypto'
 import { prisma } from '../lib/prisma.js'
 import { getPublicTrackingConfig } from './trackingConfig.js'
@@ -17,9 +18,10 @@ export function captureTrackingContext(value) {
 }
 export function purchaseSummary(order) {
   const id = purchaseIdentity(order.id)
+  const includedTax = orderPricesIncludeGst(order) ? Number(order.taxTotal || 0) : 0
   const itemDiscount = order.items.reduce((sum, item) => sum + Number(item.discount || 0), 0)
   const shippingDiscount = Math.max(0, Number(order.discount || 0) - itemDiscount)
-  return { eventId: id, transactionId: id, currency: 'INR', value: Number(order.grandTotal), merchandiseValue: Math.round(order.items.reduce((sum, item) => sum + Number(item.priceValue) * item.quantity - Number(item.discount || 0), 0) * 100) / 100, tax: Number(order.taxTotal), shipping: Math.max(0, Number(order.deliveryCharge) - shippingDiscount), items: order.items.map((item) => ({ id: item.product?.slug || item.productId || item.id, name: item.name, priceValue: Number(item.priceValue), quantity: item.quantity, discount: Number(item.discount || 0) / item.quantity })) }
+  return { eventId: id, transactionId: id, currency: 'INR', value: Number(order.grandTotal), merchandiseValue: Math.round((order.items.reduce((sum, item) => sum + Number(item.priceValue) * item.quantity - Number(item.discount || 0), 0) - includedTax) * 100) / 100, tax: Number(order.taxTotal), shipping: Math.max(0, Number(order.deliveryCharge) - shippingDiscount), items: order.items.map((item) => ({ id: item.product?.slug || item.productId || item.id, name: item.name, priceValue: Number(item.priceValue) - (includedTax ? Number(item.taxAmount || 0) / item.quantity : 0), quantity: item.quantity, discount: Number(item.discount || 0) / item.quantity })) }
 }
 export async function enqueuePurchase(orderId, { db = prisma, config = readMetaConversionsConfig() } = {}) {
   if (!config) return

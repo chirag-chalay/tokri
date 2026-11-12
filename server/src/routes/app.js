@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { Router } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { optionalCustomer } from '../middleware/customerAuth.js'
@@ -57,7 +58,7 @@ router.get('/bootstrap', optionalCustomer, async (req, res, next) => {
         cart = customerCart
         freeDelivery = deliveryStatus
       } catch (error) {
-        console.error('bootstrap cart/freeDelivery failed:', error)
+        logError(error, 'background')
       }
     }
 

@@ -1,12 +1,11 @@
 import { PrismaClient } from '@prisma/client'
+import { instrumentPrisma } from '../monitoring/database.js'
 
 const globalForPrisma = globalThis
-const CLIENT_GEN = 6
+const CLIENT_GEN = 7
 
 function createPrisma() {
-  const client = new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  })
+  const client = instrumentPrisma(new PrismaClient({ log: [] }))
   client.__tokriClientGen = CLIENT_GEN
   return client
 }
@@ -18,6 +17,8 @@ function getPrisma() {
     existing?.cart &&
     existing?.cartItem &&
     existing?.trackingDelivery &&
+    existing?.monitoringOutbox &&
+    existing?.monitoringOutboxBudget &&
     existing?.deviceToken
   ) {
     return existing

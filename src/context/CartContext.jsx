@@ -1,8 +1,9 @@
 import { trackCommerce } from '../lib/telemetry'
+import { recordWebsiteDebug } from '../lib/websiteMonitoring'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { useAddress } from './AddressContext'
-import { authDelete, authGet, authPost, authPut, fetchJson, PLACEHOLDER_IMAGE, postJson } from '../lib/api'
+import { authDelete, authGet, authPost, authPut, fetchJson, postJson } from '../lib/api'
 import {
   DEFAULT_DELIVERY,
   defaultOptionForAddress,
@@ -59,7 +60,7 @@ function readStoredCart() {
           priceValue,
           oldPrice: item.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null),
           oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
-          image: item.image || PLACEHOLDER_IMAGE,
+          image: item.image || '',
           weight: item.weight || '250 g',
           quantity,
           categorySlug: item.categorySlug || null,
@@ -87,7 +88,7 @@ function mapServerCartItem(item) {
     priceValue,
     oldPrice: item.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null),
     oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
-    image: item.image || PLACEHOLDER_IMAGE,
+    image: item.image || '',
     weight: item.weight || '250 g',
     quantity: Math.max(1, Number(item.quantity) || 1),
     categorySlug: item.category?.slug || item.categorySlug || null,
@@ -108,7 +109,7 @@ export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState(readStoredCart)
   const [showDrawer, setShowDrawer] = useState(false)
   const [deliveryConfig, setDeliveryConfig] = useState(DEFAULT_DELIVERY)
-  const [deliveryOption, setDeliveryOption] = useState('morning')
+  const [deliveryOption, setDeliveryOptionState] = useState('morning')
   const [freeDelivery, setFreeDelivery] = useState(null)
   const [quoteState, setQuoteState] = useState(null)
   const [quoteError, setQuoteError] = useState('')
@@ -117,6 +118,7 @@ export function CartProvider({ children }) {
   const quoteStateRef = useRef(null)
   const quoteInputRef = useRef(null)
   const inFlightQuotes = useRef(new Map())
+  const invalidQuoteRequest = useRef(null)
   const inFlightCoupons = useRef(new Map())
   const [coupon, setCoupon] = useState(() => { try { const code = sessionStorage.getItem('tokri_selected_coupon'); return code ? { code } : null } catch { return null } })
   const [couponError, setCouponError] = useState('')
@@ -266,10 +268,16 @@ export function CartProvider({ children }) {
   }, [user?.id, user?.token, isLoggedIn])
 
   useEffect(() => {
-    setDeliveryOption(defaultOptionForAddress(selectedAddress))
+    setDeliveryOptionState(defaultOptionForAddress(selectedAddress))
   }, [selectedAddress?.id, selectedAddress?.delivery?.defaultOption])
 
+  const chooseDeliveryOption = useCallback((option) => {
+    setDeliveryOptionState(option)
+    recordWebsiteDebug('delivery.selected', { deliveryOption: option })
+  }, [])
+
   const addItem = (product) => {
+    recordWebsiteDebug('cart.added', { productRef: product.slug || product.id, quantity: 1 })
     const priceValue = parsePrice(product.price ?? product.priceValue)
     const oldPriceValue = parsePrice(product.oldPriceValue ?? product.oldPrice)
     const oldPrice = product.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null)
@@ -304,7 +312,7 @@ export function CartProvider({ children }) {
           priceValue,
           oldPrice,
           oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
-          image: product.image || PLACEHOLDER_IMAGE,
+          image: product.image || '',
           weight: product.weight || '250 g',
           quantity: 1,
           categorySlug: categorySlugFrom(product),
@@ -321,6 +329,7 @@ export function CartProvider({ children }) {
     const item = cartItems.find((entry) => entry.id === productId)
     const change = item ? Math.max(1, item.quantity + delta) - item.quantity : 0
     if (change) trackCommerce(change > 0 ? 'add_to_cart' : 'remove_from_cart', { items: [{ ...item, quantity: Math.abs(change) }] })
+    if (item && delta) recordWebsiteDebug('cart.quantity.changed', { productRef: productId, quantity: Math.max(1, item.quantity + delta) })
     setCartItems((items) =>
       items
         .map((item) =>
@@ -333,10 +342,12 @@ export function CartProvider({ children }) {
   const removeItem = (productId) => {
     const item = cartItems.find((entry) => entry.id === productId)
     if (item) trackCommerce('remove_from_cart', { items: [item] })
+    if (item) recordWebsiteDebug('cart.removed', { productRef: productId })
     setCartItems((items) => items.filter((item) => item.id !== productId))
   }
 
   const clearCart = useCallback(() => {
+    if (cartItemsRef.current.length) recordWebsiteDebug('cart.cleared', { count: cartItemsRef.current.length })
     skipServerPush.current = true
     couponRequest.current += 1
     setCouponLoading(false)
@@ -418,10 +429,11 @@ export function CartProvider({ children }) {
   // One request path for automatic revalidation, focus refresh and payment checks.
   // Equivalent in-flight requests share a promise; cart revisions also distinguish
   // A -> B -> A changes so an old A response cannot become current again.
-  const refreshDeliveryQuote = useCallback(() => {
+  const refreshDeliveryQuote = useCallback(({ automatic = false } = {}) => {
     const input = quoteInputRef.current
     if (!input?.hasItems) return Promise.resolve(null)
     const requestKey = JSON.stringify([input.key, input.revision])
+    if (automatic && invalidQuoteRequest.current === requestKey) return Promise.resolve(null)
     const existing = inFlightQuotes.current.get(requestKey)
     if (existing) return existing
     const quoteId = ++quoteRequest.current
@@ -437,6 +449,7 @@ export function CartProvider({ children }) {
         if (!isCurrent()) return null
         // The server already priced the cart without an invalid coupon. Accept
         // that result under the cleared selection key without a second request.
+        invalidQuoteRequest.current = null
         const removed = data.couponStatus?.status === 'removed'
         const key = removed ? JSON.stringify({ ...JSON.parse(input.key), couponCode: null }) : input.key
         quoteStateRef.current = { key, data, revision: input.revision + (removed ? 1 : 0) }
@@ -455,6 +468,7 @@ export function CartProvider({ children }) {
           couponRequest.current += 1
           setCouponLoading(false)
           setCoupon(null)
+          recordWebsiteDebug('coupon.invalidated')
           // Auto-cleared when the cart no longer qualifies — no banner needed.
           setCouponError('')
         }
@@ -462,6 +476,7 @@ export function CartProvider({ children }) {
         return data
       } catch (error) {
         if (!isCurrent()) return null
+        if ([400, 404, 422].includes(error.status)) invalidQuoteRequest.current = requestKey
         setQuoteError(error.message || 'Could not calculate delivery charges.')
         throw error
       } finally {
@@ -477,19 +492,20 @@ export function CartProvider({ children }) {
     if (!hasItems) {
       quoteRequest.current += 1
       quoteStateRef.current = null
+      invalidQuoteRequest.current = null
       setQuoteState(null)
       setQuotePending(false)
       setCoupon(null)
       setCouponAction(null)
       return
     }
-    if (quoteStateRef.current?.key !== quoteKey || quoteStateRef.current?.revision !== cartRevision.current) refreshDeliveryQuote().catch(() => {})
+    if (quoteStateRef.current?.key !== quoteKey || quoteStateRef.current?.revision !== cartRevision.current) refreshDeliveryQuote({ automatic: true }).catch(() => {})
   }, [hasItems, quoteKey, refreshDeliveryQuote])
 
   // Revalidate live admin changes for an open cart, on tab focus and periodically.
   useEffect(() => {
     if (!hasItems) return undefined
-    const refresh = () => { refreshDeliveryQuote().catch(() => {}) }
+    const refresh = () => { refreshDeliveryQuote({ automatic: true }).catch(() => {}) }
     window.addEventListener('focus', refresh)
     const interval = window.setInterval(refresh, 30000)
     return () => { window.removeEventListener('focus', refresh); window.clearInterval(interval) }
@@ -526,6 +542,7 @@ export function CartProvider({ children }) {
           : await postJson('/checkout/preview-coupon', body)
         if (!isCurrent()) return null
         setCoupon(data.coupon)
+        if (data.coupon?.code) recordWebsiteDebug('coupon.applied')
         if (data.coupon?.code === input.payload.couponCode) refreshDeliveryQuote().catch(() => {})
         return data.coupon
       } catch (error) {
@@ -543,6 +560,7 @@ export function CartProvider({ children }) {
   }, [refreshDeliveryQuote])
 
   const removeCoupon = useCallback(() => {
+    if (quoteInputRef.current?.payload.couponCode) recordWebsiteDebug('coupon.removed')
     couponRequest.current += 1
     setCouponAction(quoteInputRef.current?.payload.couponCode || null)
     setCouponLoading(false)
@@ -571,7 +589,7 @@ export function CartProvider({ children }) {
         quoteError,
         refreshDeliveryQuote,
         deliveryOption: activeOption,
-        setDeliveryOption,
+        setDeliveryOption: chooseDeliveryOption,
         deliveryConfig,
         setDeliveryConfig,
         pinDelivery,

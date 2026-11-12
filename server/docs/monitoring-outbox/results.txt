@@ -1,0 +1,129 @@
+Tokriii critical monitoring outbox — 2026-11-10 IST
+Branch: feature/admin-logs-monitoring
+Readiness: READY FOR CONTROLLED STAGING VALIDATION, subject to the approved rollout prerequisites below.
+Real Razorpay sandbox: UNVERIFIED. All gateway behavior in this review was simulated.
+
+WHAT CHANGED
+The former file-only critical path is now a MySQL transactional outbox for payment
+and admin audit events. MonitoringOutbox contains only sanitized JSON. A separate
+MonitoringOutboxBudget row bounds retained logical bytes under concurrent producers.
+No broker, external service, new dependency or live database change was introduced.
+
+Critical ORM mutations and their audit/payment records commit in one InnoDB
+transaction. Rollback removes both. Callback and array transactions preserve the
+backend's ordering/result semantics. Ordinary scalar unique-key admin snapshots
+use locked reads, including concurrent price changes. Deletion has old values and
+new:null. Composite-key snapshot reads remain best effort.
+
+Provider attempts/results and webhook outcomes explicitly await outbox persistence.
+Auxiliary request-completion summaries enqueue asynchronously; actual database
+transitions have their own atomic records. Accounts/access/debug/errors retain the
+existing bounded asynchronous file path. Debug-control audit persistence completes
+before the control response.
+
+A background relay claims pending events with a 60-second lease, plans/persists a
+daily target date, writes/syncs the private file and directory, then acknowledges
+in MySQL. Stable IDs deduplicate repeated persistence and file replays. Bounded
+negative indexes accelerate exact file-ID checks; collisions never discard data.
+A truncated final JSON line is repaired before replay. Recovered old events retain
+the original timestamp and get a recoveredAt marker in a current daily file.
+
+Pending events are never removed by age or capacity cleanup. Delivered rows expire
+(default seven days) or are reclaimed first to make room. Retry delay is bounded
+at five minutes. A crash can leave an active lease; it is reclaimed automatically
+after expiry. Shutdown finishes current delivery and producer persistence, leaving
+the rest of the backlog durable rather than waiting for unbounded file I/O.
+
+FAIL-OPEN BOUNDARY
+File failures, queue pressure and process termination do not lose successfully
+persisted outbox events. If the outbox/database/schema/producer limit/byte budget
+itself cannot accept a NEW event, checkout is preserved and a sanitized emergency
+record plus health/capacity failure is emitted. That new event is NOT claimed as
+durable. Existing pending events remain intact. This is finite durable recovery,
+not an unlimited archive or a guarantee when all storage is unavailable.
+The dashboard warns on unavailability, retries, enqueue failures and high usage.
+
+PRISMA AND MIGRATION
+The actual workspace Prisma Client was regenerated from prisma/schema.prisma,
+version 6.19.3. MonitoringOutbox, MonitoringOutboxBudget and the previously missing
+Setting.expressMinimumOrderValue field are present. Latest integration tests use
+this workspace client directly, without the earlier temporary client override.
+
+prisma/sql/monitoring-outbox.sql is additive and idempotent. Both tables explicitly
+use InnoDB. Applied twice to a disposable baseline schema: no data-model difference
+against the checked-in Prisma schema. Runtime checks reject nontransactional
+managed-table engines without disrupting checkout. No startup DDL is performed.
+
+VERIFICATION — ALL PASS
+1. npm test: 16 unit/transport/storage scenarios pass. Two opt-in integration parent
+   entries skip in this command and were executed separately below.
+2. Durable outbox integration: 10 scenarios pass (11 TAP entries including parent):
+   - Actual SIGKILL after committed deletion/payment changes, before file delivery:
+     deletion, COD create/paid transition and failed-provider event recovered once.
+   - Actual SIGKILL after file/directory sync but before DB acknowledgment:
+     expired lease reclaimed; one physical file record after replay.
+   - Partial JSON append repaired and direct unsafe payload redacted in the database.
+   - Callback/array rollback removes mutation and outbox rows; concurrent prices
+     retain the actual previous value; successful arrays persist their event.
+   - Shutdown completes its active event; remaining backlog recovers on the next relay.
+   - Concurrent byte caps never exceeded; duplicate IDs do not reserve space twice;
+     old pending rows are never pruned; capacity failure is explicit.
+   - Missing outbox table: checkout mutation commits, reserved bytes compensated,
+     unhealthy state reported, table restored only in disposable database.
+   - Nontransactional engine refused; checkout remains functional.
+   - Old event recovered into a current daily file without immediate expiration.
+   - Full outbox leaves business data committed and delivered retention reclaims budget.
+   Crash lease expiry was advanced in the disposable DB rather than waiting a minute.
+3. Native AdminJS/browser/API integration: 11 scenarios pass (12 TAP entries):
+   sessions/roles/revocation, OTP registration, product create/edit/delete/bulk delete,
+   prices, coupons, settings, orders, admin creation, pagination 50/100 including
+   last 23 rows, date/search/status/user/order/IP filters, IST and debug controls.
+   Simulated online/COD payments, failures, invalid signatures, signed refunds,
+   unknown outcomes and concurrent replay verified. Refund execution behavior unchanged.
+   Outbox operational resources return 404; only authorized admins see health/logs.
+4. During a real log-directory failure, COD and online checkout, payment confirmation,
+   health and product deletion succeed. Critical records remain pending in MySQL
+   and replay after restoration. DB and file payloads contain no tested secrets/PII.
+5. All existing offline backend regressions pass and exit status is zero:
+   test-product-filters, test-features, test-verification, test-tax-features.
+   The live-capable test-upi-intent script was not run.
+6. File rotation/retention, logical disk caps, private modes, symlinks/web-root denial,
+   legacy-read redaction, queue/emergency bounds, fatal/SIGTERM handling and natural
+   worker exit pass. A tiny dedupe index forces collisions to prove no distinct loss.
+7. Schema migration applied twice; schema diff reports no difference; InnoDB confirmed.
+   JavaScript syntax, actual AdminJS component bundle/browser rendering and diff checks pass.
+
+A regression initially completed its assertions but timed out on process exit.
+The outbox-only file worker was inadvertently referenced after listener attachment;
+reference cleanup is fixed and the natural-exit test plus all four scripts now pass.
+No production behavior or test expectation was weakened to hide that failure.
+
+STAGING PREREQUISITES — NOT PERFORMED ON STAGING
+- Approval to apply prisma/sql/monitoring-outbox.sql via the existing DB migration process.
+- Build/regenerate Prisma Client against the deployed schema.
+- App DB principal has SELECT/INSERT/UPDATE/DELETE on both operational tables.
+- Managed business and outbox tables are InnoDB with normal durable DB operation.
+- LOG_OUTBOX_ENABLED=true, adequate LOG_OUTBOX_MAX_MB (default 64), stable unique
+  LOG_OUTBOX_DESTINATION for the persistent private LOG_DIRECTORY (one writer/volume).
+- Existing file cap/retention remain configured; budget covers managed logical bytes
+  plus a per-row allowance, not MySQL index/tablespace or filesystem allocation overhead.
+- After approved start, verify available outbox, no enqueue failures, draining backlog,
+  private file access and appropriate delivery/retry rate. Capacity warnings need response.
+- Use sandbox/simulated payments; real Razorpay test credentials remain unavailable.
+
+FILES
+New: src/monitoring/outbox.js, prisma/sql/monitoring-outbox.sql,
+     test/monitoring-outbox.test.js, this evidence directory.
+Updated: prisma/schema.prisma, src/monitoring/{database,index,worker,sanitize}.js,
+     src/lib/prisma.js, src/server.js, src/admin/{index,monitoring}.js,
+     src/admin/components/monitoring.jsx, src/services/razorpay.js,
+     src/routes/{checkout,webhooks}.js, tests/helpers, existing monitoring tests,
+     package.json, .env.example and README.md. Generated client is ignored build output.
+
+SAFETY
+Only freshly initialized MySQL on 127.0.0.1:33379 with an isolated temporary datadir
+was used. Browser/API/regression/recovery schemas were separate. Test bootstrap
+refuses normal/nonlocal database URLs, avoids the live .env, uses synthetic data,
+blocks external browser/provider requests and assigns an isolated logical log volume.
+No push, deployment, existing-service restart, SSH action or live DB modification.
+Pre-existing frontend/generated-bundle changes preserved. Changes remain local.

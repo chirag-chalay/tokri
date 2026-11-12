@@ -4,9 +4,9 @@ import { Link, useNavigate } from '../lib/navigation'
 import { ArrowLeft, ChevronRight, Minus, Plus } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'
-import { resolveAssetUrl } from '../lib/api'
 import CouponBox from '../components/CouponBox'
 import BillDetails from '../components/BillDetails'
+import CatalogImage from '../components/CatalogImage'
 
 const formatPrice = (value) =>
   `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
@@ -40,8 +40,8 @@ function MobileCartItem({ item, onDecrease, onIncrease }) {
 
   return (
     <article className="flex gap-3 rounded-2xl border border-line bg-panel px-4 py-4">
-      <img
-        src={resolveAssetUrl(item.image)}
+      <CatalogImage
+        src={item.image}
         alt={item.name}
         className="h-[72px] w-[72px] shrink-0 rounded-xl border border-line bg-panel-2 object-cover"
       />
@@ -231,8 +231,8 @@ function DesktopCartView({
                 key={item.id}
                 className="flex flex-col gap-4 rounded-[2rem] border border-line bg-panel p-5 sm:flex-row sm:items-center"
               >
-                <img
-                  src={resolveAssetUrl(item.image)}
+                <CatalogImage
+                  src={item.image}
                   alt={item.name}
                   className="h-28 w-28 rounded-3xl object-cover"
                 />

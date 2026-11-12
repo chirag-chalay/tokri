@@ -1,5 +1,9 @@
 import { processTrackingDeliveries } from './services/trackingPurchase.js'
+
+import websiteMonitoring from './monitoring/website.js'
 import express from 'express'
+import { requestLogging, startCriticalOutbox, closeMonitoring, installProcessErrorLogging, installGracefulShutdown } from './monitoring/index.js'
+import { logError } from './monitoring/database.js'
 import cors from 'cors'
 import fs from 'fs'
 import http from 'http'
@@ -16,6 +20,12 @@ import mediaRouter from './routes/media.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { prisma } from './lib/prisma.js'
 import { recoverPendingOnlinePayments } from './services/checkout.js'
+
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    'DATABASE_URL is not set. Create server/.env from server/.env.example and set it to your local MySQL connection string.',
+  )
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const uploadsPath = path.join(__dirname, '../uploads')
@@ -61,7 +71,7 @@ function proxyToNext(req, res) {
   )
 
   proxyReq.on('error', (error) => {
-    console.error('Next storefront proxy failed:', error.message)
+    logError(error, 'storefront-proxy')
     if (!res.headersSent) {
       res.status(502).type('text').send('Storefront is temporarily unavailable.')
     } else {
@@ -72,7 +82,9 @@ function proxyToNext(req, res) {
   req.pipe(proxyReq)
 }
 
+installProcessErrorLogging()
 const app = express()
+app.use(requestLogging)
 
 if (env.trustProxy) {
   app.set('trust proxy', 1)
@@ -83,6 +95,7 @@ app.use(
     origin: env.corsOrigins,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Phone'],
+    exposedHeaders: ['X-Tokri-Request-Id'],
   }),
 )
 
@@ -126,6 +139,8 @@ app.use(
 const { admin, adminRouter } = await buildAdminRouter()
 app.use(admin.options.rootPath, adminRouter)
 
+app.use('/api/v1/monitoring', websiteMonitoring)
+
 // API routes use body parser (after AdminJS)
 const api = express.Router()
 api.use(express.json({ limit: '2mb' }))
@@ -152,7 +167,8 @@ app.use(errorHandler)
 async function start() {
   try {
     await prisma.$connect()
-    app.listen(env.port, () => {
+    await startCriticalOutbox()
+    const listener = app.listen(env.port, () => {
       console.log(`Tokriii server listening on port ${env.port}`)
       console.log(`Public site: ${env.clientUrl}`)
       console.log(`Admin panel: ${env.appUrl}${env.adminPath}`)
@@ -169,12 +185,14 @@ async function start() {
           .then((ids) => {
             if (ids.length) console.log('Recovered Razorpay payments:', ids.join(', '))
           })
-          .catch((error) => console.error('Razorpay payment recovery failed:', error))
+          .catch((error) => logError(error, 'payment-recovery'))
       setTimeout(recover, 8000)
       setInterval(recover, 5 * 60 * 1000)
     })
+    installGracefulShutdown(listener, () => prisma.$disconnect())
   } catch (error) {
-    console.error('Failed to start server:', error)
+    logError(error, 'server-start')
+    await closeMonitoring().catch(() => {})
     process.exit(1)
   }
 }

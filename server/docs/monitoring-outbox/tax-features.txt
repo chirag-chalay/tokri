@@ -1,0 +1,57 @@
+========================================================
+🧪 RUNNING TAX MANAGEMENT & GST CHECKOUT/INVOICE TESTS
+========================================================
+  ✓ Found fresh fruit product: Banana (Taxable: false, GST: 0%)
+  ✓ All 4 dry fruit products exist in catalog
+
+--- Test 1: Only fruits → ₹0 GST ---
+  ✓ Order 1 Tax total is ₹0 (got ₹0)
+  ✓ Order 1 CGST is ₹0
+  ✓ Order 1 SGST is ₹0
+  ✓ Order 1 IGST is ₹0
+  ✓ All items in Order 1 have ₹0 taxAmount
+
+--- Test 2: Only dry fruits → 5% GST (Intra-state: CGST 2.5% + SGST 2.5%) ---
+  ✓ Order 2 subtotal is ₹1000
+  ✓ Order 2 Tax total is 5% = ₹50 (got ₹50)
+  ✓ Order 2 is intra-state (Delhi)
+  ✓ Order 2 CGST 2.5% is ₹25
+  ✓ Order 2 SGST 2.5% is ₹25
+  ✓ Order 2 IGST is ₹0
+
+--- Test 3: Mixed fruit + dry fruit cart → GST only on dry fruits ---
+  ✓ Fresh fruit item tax is ₹0
+  ✓ Cashew item tax is 5% = ₹30
+  ✓ Order 3 Tax total matches dry fruit tax only: ₹30
+
+--- Test 4: Inter-state order (Maharashtra) → IGST 5% ---
+  ✓ Order 4 is recognized as inter-state
+  ✓ Order 4 Tax total is ₹30
+  ✓ Order 4 CGST is ₹0
+  ✓ Order 4 SGST is ₹0
+  ✓ Order 4 IGST 5% is ₹30
+
+--- Test 5: Multiple dry fruits → correct per-item GST ---
+  ✓ Almond line tax matches: ₹25
+  ✓ Pistachio line tax matches: ₹70
+  ✓ Raisin line tax matches: ₹15
+  ✓ Order 5 tax total matches sum of line items: ₹110
+
+--- Test 6: Admin changes product GST → checkout immediately uses new rate ---
+  ✓ OrderItem stores applied rate of 12%
+  ✓ Order tax total immediately reflects 12% GST = ₹60
+
+--- Test 7: Order permanently stores applied tax rate/amount ---
+  ✓ Historical order still has 12% GST after catalog rate was changed back to 5%
+  ✓ Historical order still has ₹60 taxTotal
+
+--- Test 8: Invoice generation & matching totals ---
+  ✓ Invoice PDF generated successfully (4188 bytes, INV-TKR50370776957)
+  ✓ Order Grand Total (₹792) matches Items + Delivery + Handling + Tax - Discount
+
+--- Test 9: First 3 free deliveries offer works with GST ---
+  ✓ Free delivery status retrieved: {"quota":3,"used":6,"remaining":0,"isEligible":false}
+
+========================================================
+🎉 ALL TAX & GST FEATURE TESTS PASSED SUCCESSFULLY!
+========================================================

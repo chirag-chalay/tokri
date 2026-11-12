@@ -1,4 +1,5 @@
 import { captureTrackingContext, enqueuePurchase, purchaseSummary } from './trackingPurchase.js'
+import { logError } from '../monitoring/database.js'
 import { subtotal } from '../utils/money.js'
 import { calculateCheckoutPricing } from './pricing.js'
 import { prisma } from '../lib/prisma.js'
@@ -260,12 +261,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
         })
       } catch (error) {
         intentError = error.message || 'UPI could not be started.'
-        console.error('UPI intent was not created:', {
-          orderNo,
-          message: intentError,
-          razorpayStatus: error.razorpayStatus,
-          razorpayCode: error.razorpayCode,
-        })
+        logError(error, 'upi-intent')
       }
     }
   }
@@ -322,8 +318,8 @@ async function markOnlineOrderPaid(user, order, razorpayPaymentId) {
   if (result.count === 0) return updated
   enqueuePurchase(updated.id).catch(() => console.error('Tracking purchase enqueue failed'))
 
-  await clearCart(user.id).catch((error) => console.error('Failed to clear cart:', error))
-  notifyOrderStatus(updated, 'paid').catch((error) => console.error('Failed to send push:', error))
+  await clearCart(user.id).catch((error) => logError(error, 'background'))
+  notifyOrderStatus(updated, 'paid').catch((error) => logError(error, 'background'))
   notifyConfirmedOrder(updated, { phone: user.phone, name: user.name })
 
   return updated
@@ -457,7 +453,7 @@ export async function recoverPendingOnlinePayments({ lookbackHours = 24, limit =
       const result = await reconcileOnlineOrderFromRazorpay(order)
       if (result.status === 'paid') recovered.push(result.order.orderNo)
     } catch (error) {
-      console.error('Razorpay reconcile failed:', order.orderNo, error.message)
+      logError(error, 'payment-recovery')
     }
   }
   return recovered
@@ -581,9 +577,9 @@ export async function confirmCodOrder(user, { orderNo }) {
     await prisma.order.update({ where: { id: order.id }, data: { trackingContext: { ...order.trackingContext, codConfirmed: true, confirmedAt: Date.now() } } })
   }
   enqueuePurchase(order.id).catch(() => console.error('Tracking purchase enqueue failed'))
-  await clearCart(user.id).catch((error) => console.error('Failed to clear cart:', error))
+  await clearCart(user.id).catch((error) => logError(error, 'background'))
   notifyOrderStatus(order, order.status || 'pending').catch((error) =>
-    console.error('Failed to send push:', error),
+    logError(error, 'background'),
   )
   notifyConfirmedOrder(order, { phone: user.phone, name: user.name })
 

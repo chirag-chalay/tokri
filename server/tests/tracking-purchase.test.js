@@ -48,3 +48,14 @@ test('purchase shipping reflects a shipping coupon without reducing merchandise 
   assert.equal(purchaseSummary(o).shipping, 0)
   assert.equal(purchaseSummary(o).merchandiseValue, 34)
 })
+
+test('inclusive GST purchase reporting excludes tax while historical exclusive prices remain unchanged', () => {
+  const o = order()
+  Object.assign(o, { itemsTotal: 40, handlingCharge: 2, discount: 6, taxTotal: 4, grandTotal: 42 })
+  o.items[0].taxAmount = 4
+  assert.equal(purchaseSummary(o).merchandiseValue, 30)
+  assert.equal(purchaseSummary(o).items[0].priceValue, 18)
+  o.grandTotal = 46
+  assert.equal(purchaseSummary(o).merchandiseValue, 34)
+  assert.equal(purchaseSummary(o).items[0].priceValue, 20)
+})

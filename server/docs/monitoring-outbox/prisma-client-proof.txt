@@ -1,0 +1,4 @@
+Generated workspace Prisma Client: 6.19.3
+MonitoringOutbox.payload: PRESENT
+MonitoringOutboxBudget.usedBytes: PRESENT
+Setting.expressMinimumOrderValue: PRESENT

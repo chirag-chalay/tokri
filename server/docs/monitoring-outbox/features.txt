@@ -1,0 +1,62 @@
+
+=== RUNNING COMPREHENSIVE VERIFICATION TESTS ===
+
+[1] Testing initial status for new customer cmw9mcdqy0000f97erzsune20:
+  ✓ Quota is 3
+  ✓ Used count is 0
+  ✓ Remaining is 3
+  ✓ isEligible is true
+
+[2] Testing Order 1 (Morning delivery):
+  ✓ Order 1 has freeDeliveryApplied = true
+  ✓ Order 1 deliveryCharge is 0
+  ✓ Order 1 grandTotal excludes delivery charge
+  ✓ Used count is 1 after Order 1
+  ✓ Remaining is 2 after Order 1
+  ✓ isEligible is still true
+
+[3] Testing Order 2 (Express delivery; regular fee and minimum apply):
+  ✓ Express orders below the configured minimum are rejected
+  ✓ Express delivery does not use the Morning free-delivery offer
+  ✓ Express delivery uses its configured normal fee/threshold
+  ✓ Used count is 2 after Order 2
+  ✓ Remaining is 1 after Order 2
+
+[4] Testing Order 3 (Morning delivery):
+  ✓ Order 3 has freeDeliveryApplied = true
+  ✓ Order 3 deliveryCharge is 0
+  ✓ Used count is 3 after Order 3
+  ✓ Remaining is 0 after Order 3
+  ✓ isEligible is false after 3 orders
+
+[5] Testing Order 4 (Quota consumed -> normal delivery fee applies):
+  ✓ Order 4 has freeDeliveryApplied = false
+  ✓ Order 4 has normal delivery charge of 25
+  ✓ Order 4 grandTotal includes standard delivery charge
+
+[6] Testing cancellation excludes orders and restores eligibility below quota:
+  ✓ Cancelling one of four orders leaves three valid orders
+  ✓ Cancelling two of four orders leaves two valid orders
+  ✓ Remaining free deliveries increases back to 1
+  ✓ Customer is eligible again
+
+[7] Testing Order 5 after cancellation (Consumes the restored free delivery):
+  ✓ Order 5 gets free delivery
+  ✓ Order 5 delivery charge is 0
+  ✓ Used is now 3 again
+  ✓ Remaining is 0 again
+
+[8] Testing Order 6 (Exceeded quota again):
+  ✓ Order 6 has freeDeliveryApplied = false
+  ✓ Order 6 delivery charge is 25
+
+[9] Testing Invoice PDF Generation:
+  ✓ Invoice returns a valid Buffer
+  ✓ Invoice PDF size is substantial (4084 bytes)
+  ✓ Buffer starts with %PDF- header
+  ✓ Invoice number is correctly formatted (INV-TKR50369719179)
+
+[10] Testing Invoice Generation for Order 4 (Paid delivery):
+  ✓ Paid delivery invoice generated successfully
+
+=== ALL 10 TESTS PASSED SUCCESSFULLY! ===

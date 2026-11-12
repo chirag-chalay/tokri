@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { allocateDiscount, decimal, money, subtotal } from '../utils/money.js'
 import { prisma } from '../lib/prisma.js'
 
@@ -92,7 +93,7 @@ export async function getChargeRates(option = 'morning') {
     const settings = await prisma.setting.findUnique({ where: { id: 1 } })
     return ratesFromSettings(settings, option)
   } catch (error) {
-    console.error('Failed to load charge settings:', error)
+    logError(error, 'background')
     return defaultChargeRates(option)
   }
 }
@@ -100,9 +101,13 @@ export async function getChargeRates(option = 'morning') {
 export function calcItemTax(item, isInterState = false) {
   const isTaxable = Boolean(item.isTaxable ?? item.product?.isTaxable)
   const gstRate = Number(item.gstRate ?? item.product?.gstRate ?? 0)
-  const lineTaxableAmount = money(decimal(item.priceValue).times(item.quantity).minus(item.discount || 0))
+  const lineTotal = money(decimal(item.priceValue).times(item.quantity).minus(item.discount || 0))
+  const lineTaxableAmount = isTaxable && gstRate > 0
+    ? money(decimal(lineTotal).times(100).div(decimal(100).plus(gstRate)))
+    : lineTotal
   const taxAmount = isTaxable && gstRate > 0
-    ? money(decimal(lineTaxableAmount).times(gstRate).div(100)) : 0
+    ? money(decimal(lineTotal).minus(lineTaxableAmount))
+    : 0
 
   let cgstAmount = 0
   let sgstAmount = 0
@@ -119,6 +124,7 @@ export function calcItemTax(item, isInterState = false) {
 
   return {
     lineTaxableAmount,
+    lineTotal,
     isTaxable,
     gstRate,
     taxAmount,
@@ -146,7 +152,7 @@ export function calcCartTotals(items, rates = defaultChargeRates(), discount = 0
     discount: totalDiscount, merchandiseDiscount, shippingDiscount,
     taxTotal, cgstTotal: sum('cgstAmount'), sgstTotal: sum('sgstAmount'), igstTotal: sum('igstAmount'),
     isInterState, lineItems,
-    grandTotal: Math.max(0, money(decimal(itemsTotal).plus(deliveryCharge).plus(handlingCharge).plus(taxTotal).minus(totalDiscount))),
+    grandTotal: Math.max(0, money(decimal(itemsTotal).plus(deliveryCharge).plus(handlingCharge).minus(totalDiscount))),
     totalCount: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
   }
 }

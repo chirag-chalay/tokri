@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from '../../lib/navigation'
 import { ChevronDown, ChevronLeft, ChevronRight, Download, Package } from 'lucide-react'
-import { authGet, downloadOrderInvoice, resolveAssetUrl } from '../../lib/api'
+import { authGet, downloadOrderInvoice } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { formatDeliveryCharge, formatExpectedDeliveryDate } from '../../lib/delivery'
+import CatalogImage from '../CatalogImage'
 
 const formatPrice = (value) =>
   `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
@@ -118,8 +119,8 @@ function OrderCard({ order, defaultOpen = false }) {
                   <tr key={item.id} className="border-b border-line/60">
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={resolveAssetUrl(item.image)}
+                        <CatalogImage
+                          src={item.image}
                           alt={item.name}
                           className="h-12 w-12 rounded-lg border border-line object-cover"
                         />
@@ -155,7 +156,16 @@ function OrderCard({ order, defaultOpen = false }) {
               <span>Delivery charges</span>
               <span>{formatDeliveryCharge(order.deliveryCharge)}</span>
             </div>
-            {order.taxTotal > 0 && <div className="flex justify-between"><span>Taxes & GST</span><span>{formatPrice(order.taxTotal)}</span></div>}
+            {order.taxTotal > 0 ? order.gstIncluded ? order.isInterState ? (
+              <div className="flex justify-between"><span>IGST included</span><span>{formatPrice(order.igstTotal)}</span></div>
+            ) : (
+              <>
+                <div className="flex justify-between"><span>CGST included</span><span>{formatPrice(order.cgstTotal)}</span></div>
+                <div className="flex justify-between"><span>SGST included</span><span>{formatPrice(order.sgstTotal)}</span></div>
+              </>
+            ) : (
+              <div className="flex justify-between"><span>Taxes & GST</span><span>{formatPrice(order.taxTotal)}</span></div>
+            ) : null}
             {order.discount > 0 && (
               <div className="flex justify-between text-mint">
                 <span>{order.automaticDiscount ? `Automatic discount (${order.automaticDiscount.percentage}%)${order.couponCode ? ' + shipping coupon' : ''}` : order.couponCode ? `Coupon (${order.couponCode})` : 'Discount'}</span>

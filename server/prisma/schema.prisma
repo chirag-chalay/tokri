@@ -550,3 +550,29 @@ model TrackingDelivery {
   @@index([sessionId])
   @@index([sentAt, nextAttemptAt])
 }
+
+// Masked critical events only. No AdminJS resource exposes this operational table.
+model MonitoringOutbox {
+  id            String    @id @db.VarChar(36)
+  destination   String    @db.VarChar(64)
+  category      String    @db.VarChar(16)
+  payload       Json
+  bytes         Int
+  createdAt     DateTime  @default(now())
+  deliveredAt   DateTime?
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  leaseOwner    String?   @db.VarChar(36)
+  leaseUntil    DateTime?
+  fileDate      String?   @db.VarChar(10)
+  lastError     String?   @db.VarChar(64)
+
+  @@index([destination, deliveredAt, nextAttemptAt])
+  @@index([deliveredAt, createdAt])
+}
+
+// A single locked row bounds logical outbox bytes, including concurrent producers.
+model MonitoringOutboxBudget {
+  id        Int @id @default(1)
+  usedBytes Int @default(0)
+}

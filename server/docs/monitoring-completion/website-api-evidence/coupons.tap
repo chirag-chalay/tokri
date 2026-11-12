@@ -1,0 +1,84 @@
+TAP version 13
+# ₹699.99: none; unselected discount ₹0
+# ₹700: 5; unselected discount ₹0
+# ₹1099.99: 5; unselected discount ₹0
+# ₹1100: 5, 10; unselected discount ₹0
+# ₹1499.99: 5, 10; unselected discount ₹0
+# ₹1500: 5, 10, 15; unselected discount ₹0
+# ₹2000: 5, 10, 15; unselected discount ₹0
+# Subtest: Customer-selected coupons: isolated MySQL + checkout API
+    # Subtest: inclusive thresholds; all public offers visible; no automatic discounts even with retired config enabled
+    ok 1 - inclusive thresholds; all public offers visible; no automatic discounts even with retired config enabled
+      ---
+      duration_ms: 31.767876
+      type: 'test'
+      ...
+    # Subtest: each selected percentage; switching/remove/manual never stacks or upgrades; private codes hidden
+    ok 2 - each selected percentage; switching/remove/manual never stacks or upgrades; private codes hidden
+      ---
+      duration_ms: 5.918905
+      type: 'test'
+      ...
+    # Subtest: A/B below-minimum removal; no reapply; C valid coupon retained with recalculated savings
+    ok 3 - A/B below-minimum removal; no reapply; C valid coupon retained with recalculated savings
+      ---
+      duration_ms: 4.416797
+      type: 'test'
+      ...
+    # Subtest: quote ignores spoofed prices/discount; graceful empty cart; mobile cart zero discount
+    ok 4 - quote ignores spoofed prices/discount; graceful empty cart; mobile cart zero discount
+      ---
+      duration_ms: 59.928891
+      type: 'test'
+      ...
+    # Subtest: disabled/expired/future/exhausted/admin-edited coupons; login restriction; manual preview
+    ok 5 - disabled/expired/future/exhausted/admin-edited coupons; login restriction; manual preview
+      ---
+      duration_ms: 35.610051
+      type: 'test'
+      ...
+    # Subtest: dry/mixed/targeted GST; pre-discount express minimum; first-three delivery preserved
+    ok 6 - dry/mixed/targeted GST; pre-discount express minimum; first-three delivery preserved
+      ---
+      duration_ms: 26.006719
+      type: 'test'
+      ...
+    # Subtest: quote/COD/Razorpay/saved order/invoice totals; changed-total guard; historical snapshots
+    ok 7 - quote/COD/Razorpay/saved order/invoice totals; changed-total guard; historical snapshots
+      ---
+      duration_ms: 160.003334
+      type: 'test'
+      ...
+    # Subtest: concurrent global/single-use limit; atomic reservation; retries do not redeem twice
+    ok 8 - concurrent global/single-use limit; atomic reservation; retries do not redeem twice
+      ---
+      duration_ms: 26.472506
+      type: 'test'
+      ...
+    # Subtest: shipping coupons, category restrictions and strict final-order invalidation
+    ok 9 - shipping coupons, category restrictions and strict final-order invalidation
+      ---
+      duration_ms: 11.851506
+      type: 'test'
+      ...
+    # Subtest: admin validation and private-by-default visibility
+    ok 10 - admin validation and private-by-default visibility
+      ---
+      duration_ms: 0.730666
+      type: 'test'
+      ...
+    1..10
+ok 1 - Customer-selected coupons: isolated MySQL + checkout API
+  ---
+  duration_ms: 502.960647
+  type: 'test'
+  ...
+1..1
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 776.109035

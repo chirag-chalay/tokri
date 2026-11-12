@@ -1,4 +1,7 @@
 import AdminJS from 'adminjs'
+import { Router } from 'express'
+import { monitoringHandler } from './monitoring.js'
+import { log } from '../monitoring/index.js'
 import AdminJSExpress from '@adminjs/express'
 import * as AdminJSPrisma from '@adminjs/prisma'
 import bcrypt from 'bcryptjs'
@@ -129,7 +132,7 @@ const teamListHandler = {
   },
 }
 
-export async function buildAdminRouter() {
+export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } = {}) {
   await ensureSettingsRecord()
 
   const admin = new AdminJS({
@@ -138,6 +141,9 @@ export async function buildAdminRouter() {
     logoutPath: `${env.adminPath}/logout`,
     refreshTokenPath: `${env.adminPath}/refresh-token`,
     componentLoader,
+    pages: {
+      logs: { label: 'Logs & Monitoring', icon: 'Activity', component: Components.Monitoring, handler: monitoringHandler },
+    },
     dashboard: {
       component: Components.Dashboard,
       handler: async (request) => {
@@ -1193,17 +1199,23 @@ export async function buildAdminRouter() {
     ],
   })
 
-  if (env.nodeEnv !== 'production') {
+  if (watch) {
     admin.watch()
   }
+
+  const privateTables = Router()
+  privateTables.use((req, res, next) => {
+    if (/^\/(?:api\/)?resources\/MonitoringOutbox(?:Budget)?(?:\/|$)/.test(req.path)) return res.status(404).json({ message: 'Resource not found' })
+    return next()
+  })
 
   const adminRouter = AdminJSExpress.buildAuthenticatedRouter(
     admin,
     {
-      authenticate: async (identifier, password) => {
+      authenticate: async (identifier, password, { req }) => {
         const login = String(identifier || '').trim()
         const pass = String(password || '')
-        if (!login || !pass) return null
+        if (!login || !pass) { log('api', 'admin.login', { status: 'failure' }); return null }
 
         const user = await prisma.user.findFirst({
           where: {
@@ -1214,17 +1226,18 @@ export async function buildAdminRouter() {
           include: { permissions: true },
         })
 
-        if (!user?.password) return null
+        if (!user?.password) { log('api', 'admin.login', { status: 'failure' }); return null }
 
         const valid = await bcrypt.compare(pass, user.password)
-        if (!valid) return null
+        if (!valid) { log('api', 'admin.login', { status: 'failure' }); return null }
+        log('api', 'admin.login', { status: 'success', actorId: user.id, ip: req.ip })
 
         return serializeAdminUser(user)
       },
       cookieName: 'tokri_admin',
       cookiePassword: env.sessionSecret,
     },
-    null,
+    privateTables,
     {
       resave: false,
       saveUninitialized: false,

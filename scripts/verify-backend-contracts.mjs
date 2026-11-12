@@ -256,32 +256,32 @@ async function run() {
   // --------------------------------------------------------------------------
   console.log('\n--- SUITE 3: Tax Calculations, GST Rounding & Cart Totals ---')
 
-  // 3A. Taxable item (5% GST): Even amount (₹500)
+  // 3A. Taxable item with GST included in its ₹500 price.
   const taxItemEven = calcItemTax({ priceValue: 500, quantity: 1, isTaxable: true, gstRate: 5 })
   assert.equal(taxItemEven.isTaxable, true)
   assert.equal(taxItemEven.gstRate, 5)
-  assert.equal(taxItemEven.lineTaxableAmount, 500)
-  assert.equal(taxItemEven.taxAmount, 25.00)
-  assert.equal(taxItemEven.cgstAmount, 12.50)
-  assert.equal(taxItemEven.sgstAmount, 12.50)
+  assert.equal(taxItemEven.lineTaxableAmount, 476.19)
+  assert.equal(taxItemEven.taxAmount, 23.81)
+  assert.equal(taxItemEven.cgstAmount, 11.91)
+  assert.equal(taxItemEven.sgstAmount, 11.90)
   assert.equal(taxItemEven.igstAmount, 0)
   console.log('✓ 3A: Taxable item (5% GST on ₹500): PASS')
   passed++
 
-  // 3B. Taxable item with odd paise rounding (₹333 @ 5% GST = 16.65; CGST 8.33, SGST 8.32; decimal half-up)
+  // 3B. Taxable item with an odd-paise inclusive price (₹333 includes ₹15.86 GST).
   const taxItemOdd = calcItemTax({ priceValue: 333, quantity: 1, isTaxable: true, gstRate: 5 })
-  assert.equal(taxItemOdd.lineTaxableAmount, 333)
-  assert.equal(taxItemOdd.taxAmount, 16.65)
-  assert.equal(taxItemOdd.cgstAmount, 8.33)
-  assert.equal(taxItemOdd.sgstAmount, 8.32)
-  assert.equal(taxItemOdd.cgstAmount + taxItemOdd.sgstAmount, 16.65, 'CGST + SGST must exactly equal total tax')
+  assert.equal(taxItemOdd.lineTaxableAmount, 317.14)
+  assert.equal(taxItemOdd.taxAmount, 15.86)
+  assert.equal(taxItemOdd.cgstAmount, 7.93)
+  assert.equal(taxItemOdd.sgstAmount, 7.93)
+  assert.equal(taxItemOdd.cgstAmount + taxItemOdd.sgstAmount, 15.86, 'CGST + SGST must exactly equal total tax')
   console.log('✓ 3B: Tax rounding on odd paise: PASS')
   passed++
 
   // 3C. Inter-state Tax (IGST)
   const taxItemInterState = calcItemTax({ priceValue: 500, quantity: 1, isTaxable: true, gstRate: 5 }, true)
-  assert.equal(taxItemInterState.taxAmount, 25.00)
-  assert.equal(taxItemInterState.igstAmount, 25.00)
+  assert.equal(taxItemInterState.taxAmount, 23.81)
+  assert.equal(taxItemInterState.igstAmount, 23.81)
   assert.equal(taxItemInterState.cgstAmount, 0)
   assert.equal(taxItemInterState.sgstAmount, 0)
   console.log('✓ 3C: Inter-state tax (IGST): PASS')
@@ -306,10 +306,10 @@ async function run() {
   assert.equal(mixedTotals.itemsTotal, 1098, '500 + 299*2 = 1098')
   assert.equal(mixedTotals.deliveryCharge, 49, 'Configured morning fee is 49')
   assert.equal(mixedTotals.handlingCharge, 15, 'Configured handling fee is 15')
-  assert.equal(mixedTotals.taxTotal, 23.86, 'GST uses the discounted taxable line base')
+  assert.equal(mixedTotals.taxTotal, 22.73, 'GST is extracted from the discounted inclusive price')
   assert.equal(mixedTotals.discount, 50, 'Discount is 50')
-  // Grand total: 1098 + 49 + 15 + 23.86 - 50 = 1135.86
-  assert.equal(mixedTotals.grandTotal, 1135.86)
+  // Product prices already include GST: 1098 + 49 + 15 - 50 = 1112.
+  assert.equal(mixedTotals.grandTotal, 1112)
   console.log('✓ 3E: Mixed cart totals calculation: PASS')
   passed++
 

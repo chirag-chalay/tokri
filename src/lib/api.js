@@ -1,8 +1,3 @@
-export const PLACEHOLDER_IMAGE =
-  'data:image/svg+xml,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect fill="#f8fafc" width="100%" height="100%"/></svg>',
-  )
 const FETCH_TIMEOUT_MS = 15000
 
 function stripTrailingSlash(value) {
@@ -67,7 +62,7 @@ export async function postJson(path, body) {
   const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(data.message || `Request failed (${response.status})`)
+    throw Object.assign(new Error(data.message || `Request failed (${response.status})`), { status: response.status })
   }
 
   return data
@@ -96,7 +91,7 @@ export async function authPost(path, user, body) {
     body: JSON.stringify(body),
   })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.message || `Request failed (${response.status})`)
+  if (!response.ok) throw Object.assign(new Error(data.message || `Request failed (${response.status})`), { status: response.status })
   return data
 }
 
@@ -160,7 +155,7 @@ export async function downloadOrderInvoice(orderNo, user) {
 }
 
 export function resolveAssetUrl(value) {
-  if (!value) return PLACEHOLDER_IMAGE
+  if (!value) return ''
   let resolved = value
   if (/^(https?:|data:|blob:)/.test(value)) {
     resolved = value
@@ -198,7 +193,7 @@ export function installUploadFallback() {
       if (el.dataset.uploadFallbackTried === '1') {
         if (el.dataset.fallbackApplied !== '1') {
           el.dataset.fallbackApplied = '1'
-          el.src = PLACEHOLDER_IMAGE
+          el.hidden = true
         }
         return
       }
@@ -212,7 +207,7 @@ export function installUploadFallback() {
 
       if (el.dataset.fallbackApplied !== '1') {
         el.dataset.fallbackApplied = '1'
-        el.src = PLACEHOLDER_IMAGE
+        el.hidden = true
       }
     },
     true,

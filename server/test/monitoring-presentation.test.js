@@ -1,0 +1,156 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { presentLog, enrichLogRows, resultFor, displayText } from '../src/admin/monitoring-presentation.js'
+
+const audit = (event, extra = {}) => ({ event, category: 'audit', status: 'success', ...extra })
+test('product events describe real creation, deletion, prices, missing snapshots and failures', () => {
+  assert.equal(presentLog(audit('Product.create')).description, 'A new product was added to the store.')
+  assert.equal(presentLog(audit('Product.delete')).description, 'A product was removed from the store.')
+  const price = presentLog(audit('Product.update', { old: { priceValue: '500.00', stock: 10 }, new: { priceValue: '450.00', stock: 10 }, changedFields: ['priceValue'] }))
+  assert.equal(price.description, 'Product price changed from ₹500 to ₹450.')
+  assert.deepEqual(price.changes, [{ label: 'Product price', from: '₹500', to: '₹450' }])
+  const missing = presentLog(audit('Product.update', { new: { priceValue: '450' } }))
+  assert.equal(missing.description, 'The product was updated.')
+  assert.equal(missing.changes[0].from, null)
+  assert.equal(presentLog(audit('Product.update', { old: { priceValue: '450' }, new: { priceValue: 450 } })).changes.length, 0)
+  assert.equal(presentLog(audit('Product.delete', { status: 'failure' })).description, 'The product could not be removed.')
+  assert.equal(presentLog(audit('Product.delete', { status: 'failure' })).changes.length, 0)
+  assert.match(presentLog(audit('Product.deleteMany', { count: 0 })).description, /^0 records were removed/)
+  const settings = presentLog(audit('Setting.update', { old: { codEnabled: true, morningShippingFee: 49 }, new: { codEnabled: false, morningShippingFee: 29 } }))
+  assert.equal(settings.description, 'Store settings were updated.')
+  assert.deepEqual(settings.changes.find(change => change.label === 'Cash on delivery enabled'), { label: 'Cash on delivery enabled', from: 'Yes', to: 'No' })
+  assert.equal(presentLog(audit('Coupon.update', { new: { code: 'SAVE10', value: 10 } })).subject, 'Coupon: SAVE10')
+  assert.equal(presentLog(audit('Order.delete', { old: { orderNo: 'TK-OLD' } })).subject, 'Order TK-OLD')
+})
+test('payment descriptions require explicit payment evidence and never guess missing amounts or units', () => {
+  const payment = (event, extra) => presentLog({ category: 'payment', event, ...extra })
+  assert.equal(payment('order.payment.updated', { status: 'paid', amountInr: 1200 }).description, 'Payment of ₹1,200 was received successfully.')
+  assert.equal(payment('order.payment.updated', { status: 'failed', amountInr: 1200 }).description, 'Customer payment of ₹1,200 failed.')
+  assert.equal(payment('order.payment.created', { status: 'pending', paymentMode: 'cod' }).result, 'Pending')
+  assert.equal(payment('order.payment.updated', { status: 'paid', amount: 120000 }).description, 'Payment was received successfully.')
+  assert.equal(payment('order.payment.updated', { status: 'paid', amountInr: 0 }).description, 'Payment of ₹0 was received successfully.')
+  assert.match(payment('razorpay.order.create', { status: 'success' }).description, /does not by itself confirm/)
+  assert.match(payment('razorpay.lookup', { status: 'success', outcome: 'failed' }).description, /provider reported the payment as failed/)
+  assert.match(payment('checkout.request', { status: 'success' }).description, /alone does not confirm payment/)
+  assert.match(payment('checkout.callback', { status: 'failure' }).description, /does not establish whether money was collected/)
+  assert.equal(payment('webhook.completed', { status: 'success', outcome: 'unmatched' }).result, 'Warning')
+  assert.match(payment('webhook.completed', { status: 'success', outcome: 'unmatched' }).description, /no matching order/)
+  assert.match(payment('webhook.completed', { status: 'ignored' }).description, /No order update/)
+  for (const [outcome, status, phrase] of [['refund.created', 'pending', 'requested'], ['refund.processed', 'refunded', 'processed'], ['refund.failed', 'failed', 'failed']]) {
+    const view = payment('webhook.received', { outcome, status, amount: 120000 })
+    assert.match(view.description, /refund of ₹1,200/)
+    assert.ok(view.description.includes(phrase))
+  }
+})
+test('registrations, sign-in, errors, diagnostics and unknown events have accurate readable fallbacks', () => {
+  assert.equal(presentLog({ category: 'account', event: 'Customer.created', status: 'success' }).description, 'A new customer registered.')
+  assert.equal(presentLog({ category: 'account', event: 'User.created', status: 'success' }).description, 'A new administrator account was created.')
+  assert.equal(presentLog({ category: 'access', event: 'admin.login', status: 'success' }).description, 'An administrator signed in.')
+  assert.equal(presentLog({ category: 'access', event: 'customer.login', status: 'failure' }).description, 'A customer could not sign in.')
+  assert.match(presentLog({ category: 'error', event: 'operation.failed', source: 'database' }).description, /database.*does not record the customer impact/)
+  assert.match(presentLog({ category: 'error', event: 'process.fatal' }).description, /scheduled to stop/)
+  assert.match(presentLog({ category: 'debug', event: 'request.timing', status: 200, durationMs: 120 }).description, /120 milliseconds/)
+  assert.equal(presentLog(audit('debug.enabled', { status: undefined })).result, 'Successful')
+  const unknown = presentLog({ event: 'unrecognized.event', category: 'audit' })
+  assert.match(unknown.description, /meaning and impact are not available/)
+  assert.equal(unknown.actor, 'Name not recorded')
+  assert.equal(unknown.result, 'Warning')
+  assert.equal(unknown.outcomeNote, 'No outcome was recorded.')
+  assert.match(presentLog({ category: 'debug', event: 'unrecognized.debug' }).description, /does not explain its impact/)
+  assert.equal(resultFor({ status: 503 }), 'Failed')
+  assert.equal(resultFor({ status: 200 }), 'Successful')
+  assert.equal(resultFor({ status: 'attempt' }), 'Pending')
+  assert.equal(resultFor({ status: 'skipped' }), 'Warning')
+})
+const fixtureClient = (fixtures, calls) => Object.fromEntries(['user', 'customer', 'deliveryPartner', 'product', 'order'].map((model) => [model, { findMany: async (query) => { calls.push({ model, query }); return fixtures[model] || [] } }]))
+test('names are resolved in page batches using minimal selected fields; raw entries remain intact', async () => {
+  const calls = []
+  const client = fixtureClient({ user: [{ id: 'admin-1', name: 'Riya' }], customer: [{ id: 'customer-1', name: 'Meera' }], product: [{ id: 'product-1', name: 'Alphonso mango' }], order: [{ id: 'order-1', orderNo: 'TK-123' }] }, calls)
+  const rows = [audit('Product.update', { actorId: 'admin-1', resourceId: 'product-1', old: { priceValue: 500 }, new: { priceValue: 450 } }), { category: 'access', event: 'customer.login', actorId: 'customer-1', status: 'success' }, { category: 'payment', event: 'order.payment.updated', orderId: 'order-1', status: 'paid' }]
+  const before = structuredClone(rows)
+  const result = await enrichLogRows(rows, client)
+  assert.deepEqual(rows, before)
+  assert.equal(result[0].presentation.actor, 'Riya (Administrator)')
+  assert.equal(result[0].presentation.subject, 'Product: Alphonso mango')
+  assert.equal(result[1].presentation.actor, 'Meera (Customer)')
+  assert.equal(result[2].presentation.subject, 'Order TK-123')
+  assert.ok(result[0].presentation.identityNote.includes('current records'))
+  for (let i = 0; i < rows.length; i++) { const { presentation, ...technical } = result[i]; assert.deepEqual(technical, before[i]) }
+  assert.equal(calls.length, 5)
+  for (const { model, query } of calls) assert.deepEqual(query.select, model === 'order' ? { id: true, orderNo: true, customer: { select: { name: true } } } : { id: true, name: true })
+})
+test('missing, deleted, ambiguous, masked and unavailable identities are never invented', async () => {
+  const client = fixtureClient({ user: [{ id: 'same-id', name: 'Admin' }], customer: [{ id: 'same-id', name: 'Customer' }, { id: 'no-name', name: null }] }, [])
+  let result = await enrichLogRows([{ event: 'unknown', actorId: 'same-id' }, { event: 'customer.login', actorId: 'no-name' }, audit('Product.delete', { resourceId: 'deleted-product', old: { slug: 'mango', name: '[REDACTED]' } })], client)
+  assert.equal(result[0].presentation.actor, 'Name not recorded')
+  assert.equal(result[1].presentation.actor, 'Name not recorded')
+  assert.equal(result[2].presentation.subject, 'Product name not recorded')
+  client.user.findMany = async () => { throw new Error('Database unavailable') }
+  result = await enrichLogRows([{ event: 'admin.login', actorId: 'same-id' }], client)
+  assert.equal(result[0].presentation.actor, 'Name not recorded')
+  assert.equal(displayText('[REDACTED]'), '')
+  for (const secret of ['9876543210', '4482193650', 'a@example.com', 'Bearer TOPSECRET', 'otp=1234']) assert.ok(!displayText(secret).includes(secret))
+})
+
+test('readable panels show only approved scalar facts and explain known error codes without printing them', () => {
+  const view = presentLog({ category: 'error', event: 'operation.failed', source: 'database', code: 'P2002', status: 500, actorId: 'internal-customer-id', requestId: 'internal-request-id', reason: '{"token":"PRIVATE_TOKEN"}', errorKind: 'PRIVATE_ERROR', ip: '127.0.0.1', data: { password: 'PRIVATE_PASSWORD' } })
+  assert.equal(view.details.find(item => item.label === 'Why it failed').value, 'A value conflicts with an existing record.')
+  assert.equal(view.details.find(item => item.label === 'Area').value, 'Database')
+  for (const item of view.details) { assert.equal(typeof item.label, 'string'); assert.equal(typeof item.value, 'string') }
+  const displayed = Object.values(view).filter(value => typeof value === 'string').join(' ') + view.details.map(item => item.label+' '+item.value).join(' ')
+  for (const value of ['P2002', 'internal-customer-id', 'internal-request-id', 'PRIVATE_TOKEN', 'PRIVATE_ERROR', 'PRIVATE_PASSWORD', 'operation.failed']) assert.ok(!displayed.includes(value),value)
+  assert.equal(displayText('{"sensitive":"value"}'),'')
+  assert.equal(displayText('["sensitive"]'),'')
+})
+test('payment panels distinguish recorded amounts, refunds and missing facts', () => {
+  let view = presentLog({ category: 'payment', event: 'order.payment.updated', status: 'failed', amountInr: 1200, orderNo: 'TKR-001', reason: 'insufficient_funds', paymentMode: 'online' })
+  assert.equal(view.details.find(item => item.label==='Payment amount').value,'₹1,200')
+  assert.equal(view.details.find(item => item.label==='Order').value,'Order TKR-001')
+  assert.equal(view.details.find(item => item.label==='Why it failed').value,'The payment account did not have enough funds.')
+  view = presentLog({ category: 'payment', event: 'order.payment.updated', status: 'failed', amount: 120000, reason: 'PRIVATE_UNKNOWN_REASON' })
+  assert.equal(view.details.find(item => item.label==='Payment amount').value,'Not recorded for this event.')
+  assert.equal(view.details.find(item => item.label==='Why it failed').value,'The recorded information does not explain the cause.')
+  view = presentLog({ category: 'payment', event: 'webhook.received', status: 'refunded', outcome: 'refund.processed', amount: 120000 })
+  assert.equal(view.details.find(item => item.label==='Refund amount').value,'₹1,200')
+})
+test('readable changes include explicitly cleared values, labels and dates in IST', () => {
+  const view=presentLog(audit('Coupon.update',{old:{maxDiscount:100,role:'staff',expiresAt:'2026-11-10T12:00:00Z'},new:{maxDiscount:null,role:'super_admin',expiresAt:'2026-11-11T12:00:00Z'}}))
+  assert.deepEqual(view.changes.find(item=>item.label==='Maximum discount'),{label:'Maximum discount',from:'₹100',to:'Cleared'})
+  assert.equal(view.changes.find(item=>item.label==='Role').to,'Super Admin')
+  assert.match(view.changes.find(item=>item.label==='Expiry date').to,/IST$/)
+})
+test('order-linked customer names are current record names, not inferred actors or payment amounts', async () => {
+  const client=fixtureClient({order:[{id:'order-1',orderNo:'TKR-001',customer:{name:'Meera'}}]},[])
+  const [row]=await enrichLogRows([{category:'payment',event:'order.payment.updated',orderNo:'TKR-001',status:'paid'}],client)
+  assert.equal(row.presentation.actor,'Name not recorded')
+  assert.equal(row.presentation.subject,'Order TKR-001')
+  assert.equal(row.presentation.details.find(item=>item.label==='Customer').value,'Meera')
+  assert.equal(row.presentation.details.find(item=>item.label==='Payment amount').value,'Not recorded for this event.')
+})
+
+test('malformed and inherited-key event names use safe fallbacks without exposing data or failing the page', async () => {
+  for(const event of ['constructor.create','__proto__.update','toString.delete', { password: 'PRIVATE_VALUE' }]) {
+    const view=presentLog({category:'audit',event,status:'success',reason:'constructor',new:{role:'constructor'}})
+    assert.equal(view.action,'Recorded event')
+    assert.ok(view.description.includes('meaning and impact are not available'))
+  }
+  const [row]=await enrichLogRows([{event:{token:'PRIVATE_TOKEN'},category:'audit'}],fixtureClient({},[]))
+  assert.equal(row.presentation.action,'Recorded event')
+})
+
+
+test('website and API summaries describe recorded facts without invented names or response status', () => {
+  const view = (event, extra = {}) => presentLog({ category: 'debug', origin: 'browser', event, status: 'success', ...extra })
+  assert.equal(view('cart.added', { product: 'Apple Royal Gala' }).description, 'Customer added Apple Royal Gala to cart.')
+  assert.match(view('cart.added').description, /name was not recorded/)
+  assert.equal(view('website.navigation', { page: 'Checkout', category: 'website', status: 'observed' }).description, 'Customer opened the checkout page.')
+  assert.equal(view('frontend.api.failed', { route: '/api/v1/products/[record]', status: 'failure' }).description, 'Website failed to load a product.')
+  for (const event of ['frontend.page.failed', 'frontend.error', 'frontend.promise.failed', 'frontend.resource.failed', 'website.page.ready', 'cart.removed', 'cart.quantity.changed', 'cart.cleared', 'coupon.applied', 'coupon.removed', 'coupon.invalidated', 'delivery.selected', 'customer.session.started', 'customer.session.ended', 'backend.operation.failed']) {
+    const summary = view(event, { page: 'Checkout' })
+    assert.ok(!summary.description.includes('meaning and impact are not available'), event)
+    assert.ok(!summary.description.includes('undefined'), event)
+    assert.equal(summary.actor, 'Website visitor (identity not collected)')
+  }
+  assert.equal(view('frontend.api.failed', { status: 'failure' }).result, 'Failed')
+  assert.equal(view('website.navigation', { status: 'observed' }).result, 'Successful')
+})

@@ -1,3 +1,4 @@
+import { logError } from '../monitoring/database.js'
 import { listUserDeviceTokens, deleteDeviceTokens } from './devices.js'
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
@@ -73,7 +74,7 @@ export async function notifyUser(userId, { title, body, data = {} }) {
     if (invalid.length) await deleteDeviceTokens(invalid)
     return { sent: expoDevices.length - invalid.length }
   } catch (error) {
-    console.error('Push notification failed:', error)
+    logError(error, 'background')
     return { sent: 0, error: error.message }
   }
 }

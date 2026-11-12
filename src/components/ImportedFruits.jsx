@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchJson, normalizeProducts } from '../lib/api'
 import CartControl from './CartControl'
+import CatalogImage from './CatalogImage'
 
 const getSlidesPerView = (width) => {
   if (width >= 1280) return 8
@@ -56,11 +57,10 @@ function ProductCard({ product, onNavigate }) {
             {off}% OFF
           </span>
         )}
-        <img
+        <CatalogImage
           src={product.image}
           alt={product.name}
           className="h-full w-full object-cover transition group-hover:scale-105"
-          loading="lazy"
         />
       </div>
       <h3 className="line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-white">

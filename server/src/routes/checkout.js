@@ -1,4 +1,6 @@
 import { Router } from 'express'
+import { log, logDurable } from '../monitoring/index.js'
+import { logError } from '../monitoring/database.js'
 import { optionalCustomer, requireCustomer } from '../middleware/customerAuth.js'
 import {
   resolveCartItems,
@@ -19,6 +21,23 @@ import { assertAppReleaseAllowed } from '../services/appRelease.js'
 import { quoteCheckoutDelivery } from '../services/deliveryQuote.js'
 
 const router = Router()
+router.use((req, res, next) => {
+  if (req.method === 'POST' && !['/quote', '/preview-coupon'].includes(req.path)) {
+    let outcome, orderNo
+    const json = res.json.bind(res)
+    res.json = (body) => {
+      const status = body?.status || body?.paymentStatus || body?.order?.paymentStatus
+      outcome = ['paid', 'failed', 'pending', 'refunded'].includes(status) ? status : undefined
+      orderNo = body?.orderNo || body?.order?.orderNo
+      return json(body)
+    }
+    res.once('finish', () => log('payment', 'checkout.request', {
+      route: req.route?.path, status: res.statusCode < 400 ? outcome || 'success' : 'failure',
+      httpStatus: res.statusCode, orderNo: orderNo || req.body?.orderNo,
+    }))
+  }
+  next()
+})
 
 async function resolvePreviewItems(rawItems) {
   if (Array.isArray(rawItems) && rawItems.length === 0) return []
@@ -166,6 +185,7 @@ export async function handleRazorpayCheckoutCallback(req, res) {
   const razorpayOrderId = req.body?.razorpay_order_id
   const razorpayPaymentId = req.body?.razorpay_payment_id
   const razorpaySignature = req.body?.razorpay_signature
+  let outcome = 'skipped'
   try {
     if (razorpayOrderId && razorpayPaymentId && razorpaySignature) {
       await completeRazorpayCallback({
@@ -174,10 +194,13 @@ export async function handleRazorpayCheckoutCallback(req, res) {
         razorpaySignature,
         orderNo: orderNo || null,
       })
+      outcome = 'success'
     }
   } catch (error) {
-    console.error('Razorpay checkout callback failed:', error.message)
+    outcome = 'failure'
+    logError(error, 'checkout-callback')
   }
+  await logDurable('payment', 'checkout.callback', { status: outcome, orderNo })
   const target = orderNo
     ? `${env.clientUrl}/order/${encodeURIComponent(orderNo)}`
     : `${env.clientUrl}/account?section=orders`

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { log } from '../monitoring/index.js'
 import { env } from '../config/env.js'
 import { requireCustomer } from '../middleware/customerAuth.js'
 import { requestOtp, verifyOtp } from '../services/otp.js'
@@ -25,15 +26,18 @@ router.post('/send-otp', async (req, res, next) => {
 router.post('/verify-otp', async (req, res, next) => {
   try {
     const result = await verifyOtp(req.body?.phone, req.body?.otp)
+    req.customer = result.user
     if (result.user?.id) {
       result.user.freeDelivery = await getCustomerFreeDeliveryStatus(result.user.id)
     }
+    log('api', 'customer.login', { status: 'success' })
     res.json({
       ok: true,
       message: 'Login successful.',
       ...result,
     })
   } catch (error) {
+    log('api', 'customer.login', { status: 'failure' })
     next(error)
   }
 })
