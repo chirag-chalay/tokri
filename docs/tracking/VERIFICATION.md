@@ -19,7 +19,7 @@ The implementation is prepared on `marketingdimpal`. It has not been deployed, t
 
 | Check | Evidence |
 | --- | --- |
-| Tracking configuration, payloads, adapter isolation, consent and CAPI transport | 16 focused Node tests passed |
+| Tracking configuration, payloads, adapter isolation, consent and CAPI transport | 17 focused Node tests passed |
 | Persistent purchase lifecycle and API security | Isolated MySQL test passed: concurrent insertion yields one row; unconfirmed COD yields none; signed purchase summary works; unauthenticated request fails; intake rejects forged Purchase/nonce; session withdrawal deletes its pending event; worker marks delivery once; later paid COD collection creates no second row |
 | Existing commerce regression | 11 assertions/subtests passed in the existing manual coupon/checkout suite, including quoted/final totals, COD/Razorpay, invoice totals and concurrent coupon reservation |
 | Browser UI | Headless Chromium with all Google/Meta traffic intercepted: no tags before consent, exactly one acceptance PageView, purchase suppression on repeat, cookie settings withdrawal, persisted choice, analytics-only isolation |

@@ -41,3 +41,10 @@ test('worker leases events and preserves event identity on failed retry', async 
   await processTrackingDeliveries({ db, config, send: async (value) => assert.equal(value.event_id, 'same-event') })
   assert.ok(updates[1].data.sentAt instanceof Date)
 })
+
+test('purchase shipping reflects a shipping coupon without reducing merchandise twice', () => {
+  const o = order()
+  o.discount = 12
+  assert.equal(purchaseSummary(o).shipping, 0)
+  assert.equal(purchaseSummary(o).merchandiseValue, 34)
+})
