@@ -24,7 +24,7 @@ Google's [container import instructions](https://support.google.com/tagmanager/a
 | Tokri - Google tag | Initialization - All Pages | Configure the runtime GA4 destination; automatic page view disabled |
 | Tokri - Page view | `page_view` | Manual page tracking |
 | Tokri - Ecommerce | Seven allowlisted ecommerce event names | Products, cart, checkout, payment method and purchase |
-| Tokri - Search | `search` | Sanitized explicit submitted search |
+| Tokri - Search | `search` | Sanitized displayed search |
 
 All Google measurement tags require analytics consent. The consent tags have no consent requirement so withdrawal can always be applied. Template permissions only allow reading `tracking_consent` and writing the four configured consent types. No Custom HTML, arbitrary network access, cookie access or access tokens are included.
 

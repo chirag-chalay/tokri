@@ -9,8 +9,9 @@ const server = await createServer({ configFile: false, plugins: [react(), { name
 import React from 'react';
 import {createRoot} from 'react-dom/client';
 import Consent, {CookieSettings} from '/src/components/MarketingConsent.jsx';
+import SearchBox from '/src/components/SearchBox.jsx';
 import * as tracking from '/src/lib/telemetry.js';
-window.tracking=tracking; createRoot(document.getElementById('root')).render(React.createElement(React.Fragment, null, React.createElement(Consent), React.createElement(CookieSettings))); tracking.installAnalytics(); tracking.trackPageView('/__tracking-test');
+window.tracking=tracking; createRoot(document.getElementById('root')).render(React.createElement(React.Fragment, null, React.createElement(Consent), React.createElement(CookieSettings), React.createElement(SearchBox))); tracking.installAnalytics(); tracking.trackPageView('/__tracking-test');
 </script></body></html>`))
 }) } }], server: { host: '127.0.0.1', port: 15434, strictPort: true }, optimizeDeps: { include: ['react', 'react-dom/client'] } })
 let browser
@@ -25,6 +26,7 @@ try {
     if (url.hostname === 'www.googletagmanager.com' || url.hostname === 'connect.facebook.net') { vendors.push(url.href); return route.fulfill({ contentType: 'application/javascript', body: '' }) }
     if (url.hostname !== 'tokriii.com') return route.abort()
     if (url.pathname === '/api/v1/tracking/config') return route.fulfill({ json: { enabled: true, eventToken: 'test', allowedHosts: ['tokriii.com'], gtm: { enabled: true, containerId: 'GTM-ABC', measurementId: 'G-ABC' }, meta: { enabled: true, pixelId: '123456789' } } })
+    if (url.pathname === '/api/v1/search') return route.fulfill({ json: { query: url.searchParams.get('q'), products: [], suggestions: [], total: 0, hasMore: false } })
     if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 202, body: '' })
     const response = await route.fetch({ url: `http://127.0.0.1:15434${url.pathname}${url.search}` })
     return route.fulfill({ response })
@@ -40,6 +42,17 @@ try {
   await page.waitForFunction(() => window.dataLayer?.some((event) => event.event === 'page_view') && window.fbq?.queue?.some((event) => event[0] === 'trackSingle'))
   assert.equal(await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'page_view').length), 1)
   assert.equal(vendors.length, 2)
+  const search = page.getByRole('textbox', { name: 'Search products' })
+  await search.fill('apple')
+  await page.waitForFunction(() => window.dataLayer?.filter((event) => event.event === 'search' && event.search_term === 'apple').length === 1)
+  await search.press('Enter')
+  assert.equal(await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'search').length), 1)
+  await search.fill('dragon-fruit')
+  await page.waitForFunction(() => window.dataLayer?.some((event) => event.event === 'search' && event.search_term === 'dragon-fruit'))
+  assert.equal(await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'search').length), 2)
+  await search.fill('test@example.com')
+  await page.getByText('No products found for "test@example.com"', { exact: true }).waitFor()
+  assert.equal(await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'search').length), 2)
   await page.evaluate(async () => {
     const purchase = { transactionId: 'fixture-order', items: [{ id: 'apple', name: 'Apple', priceValue: 20, quantity: 1 }] }
     await window.tracking.trackCommerce('purchase', purchase, '11111111-1111-4111-8111-111111111111')
@@ -60,6 +73,6 @@ try {
   await page.waitForFunction(() => window.dataLayer?.some((event) => event.event === 'page_view'))
   assert.equal(await page.evaluate(() => typeof window.fbq), 'undefined')
   assert.deepEqual(pageErrors, [])
-  console.log('Browser consent checks PASS: no pre-consent tags, one acceptance PageView, duplicate purchase suppression, withdrawal, persisted choice, analytics-only isolation.')
+  console.log('Browser consent checks PASS: no pre-consent tags, one acceptance PageView, duplicate purchase suppression, withdrawal, persisted choice, analytics-only isolation, automatic search and Enter deduplication.')
   await context.close()
 } finally { await browser?.close(); await server.close() }

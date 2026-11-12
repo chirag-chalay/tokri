@@ -77,7 +77,7 @@ Create **Google Analytics: GA4 Event** named **Tokri - Search**:
 - Trigger: Custom Event, exact name `search`.
 - Consent: require `analytics_storage`.
 
-Search is emitted for an explicit Enter submission with a short alphabetic term; arbitrary free text and contact-like values are excluded.
+Search is emitted when the first page of results for a distinct debounced query is displayed, including zero-result searches. Enter and pagination do not create duplicate events. Product terms may include letters, short numbers, spaces, apostrophes and hyphens; contact-like input is excluded.
 
 ## 7. Preview and publish
 

@@ -92,7 +92,7 @@ Names below are the application/data-layer names and their destination mappings.
 | --- | --- | --- | --- |
 | Safe initial page and route change | `page_view` | `PageView` | Consented, validated intake |
 | Loaded product detail | `view_item` | `ViewContent` | Consented, validated intake |
-| Explicit submitted public search | `search` | `Search` | Consented, sanitized search only |
+| Successful first-page public search response | `search` | `Search` | Consented, sanitized search only |
 | Successful cart addition or positive quantity delta | `add_to_cart` | `AddToCart` | Consented, validated intake |
 | Successful cart removal or negative quantity delta | `remove_from_cart` | None initially | None initially |
 | Cart viewed | `view_cart` | None initially | None initially |

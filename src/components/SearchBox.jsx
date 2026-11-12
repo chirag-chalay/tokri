@@ -97,6 +97,7 @@ export default function SearchBox({ variant = 'desktop' }) {
   const scrollRef = useRef(null)
   const debounceRef = useRef(null)
   const requestIdRef = useRef(0)
+  const trackedQueryRef = useRef('')
 
   const runSearch = useCallback(async (term, pageToLoad) => {
     const id = ++requestIdRef.current
@@ -113,6 +114,11 @@ export default function SearchBox({ variant = 'desktop' }) {
       const normalized = (data.products || []).map(normalizeProduct)
       setProducts((prev) => (isFirst ? normalized : [...prev, ...normalized]))
       if (isFirst) {
+        const queryKey = term.trim().toLowerCase()
+        if (trackedQueryRef.current !== queryKey) {
+          trackedQueryRef.current = queryKey
+          trackSearch(term)
+        }
         setSuggestions((data.suggestions || []).map(normalizeProduct))
         setResultQuery(data.query || term)
         setTotal(data.total || 0)
@@ -137,8 +143,13 @@ export default function SearchBox({ variant = 'desktop' }) {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     const term = query.trim()
+    // A changed/cleared query makes any outstanding result obsolete.
+    requestIdRef.current += 1
 
     if (term.length < MIN_CHARS) {
+      trackedQueryRef.current = ''
+      setLoading(false)
+      setLoadingMore(false)
       setProducts([])
       setSuggestions([])
       setHasMore(false)
@@ -208,7 +219,6 @@ export default function SearchBox({ variant = 'desktop' }) {
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => { if (event.key === 'Enter') trackSearch(query) }}
           onFocus={() => {
             setFocused(true)
             if (query.trim().length >= MIN_CHARS) setOpen(true)

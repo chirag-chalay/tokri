@@ -129,6 +129,9 @@ export function checkoutTrackingContext() {
 }
 
 export function trackSearch(term) {
-  if (typeof term !== 'string' || !/^[a-zA-Z ]{2,60}$/.test(term)) return
-  void dispatch('search', { search_term: term }).catch(() => {})
+  if (typeof term !== 'string') return
+  const searchTerm = term.normalize('NFKC').trim().replace(/\s+/g, ' ')
+  // Permit product terms while excluding email/URL syntax and phone-like input.
+  if (!/^[\p{L}\p{M}\p{N} '\u2019-]{2,60}$/u.test(searchTerm) || /\p{N}{6,}/u.test(searchTerm) || /^\p{N}+$/u.test(searchTerm)) return
+  void dispatch('search', { search_term: searchTerm }).catch(() => {})
 }
