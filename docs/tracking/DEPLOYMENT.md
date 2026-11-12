@@ -81,3 +81,21 @@ npm --prefix server run db:check-columns
 ```
 
 Run it after generating the intended release's client and applying reviewed migrations, before restarting the backend. It reports missing mapped model/table columns and exits nonzero without changing the database. It is a presence check, not a replacement for reviewing types, indexes and migration behavior.
+
+## Meta Event Setup Tool investigation
+
+On 12 November 2026, the owner confirmed that “No events found on this Page” appeared in the Event Setup Tool overlay. The application's events are instrumented in code; the overlay's button/URL rule list is not the delivery audit for those calls. No duplicate overlay rules or second Pixel installation were added.
+
+Focused production evidence for Pixel `2135182350433128`:
+
+- Before marketing consent, the fresh homepage had no `fbq` loader or marketing consent cookie.
+- After selecting **Marketing only**, a browser with a normal Chrome user agent sent `PageView` to `www.facebook.com/tr/`; the response was HTTP 200. The SDK reported one event on the configured Pixel.
+- The corresponding CAPI intake returned HTTP 202. The same event ID (`6dd9ad2a-fa21-42fd-8218-341c62937153`) was marked delivered on its first attempt at `2026-11-12T18:41:54.983Z`. The sender only marks delivery after Meta returns `events_received: 1` without a provider error.
+- The queue had zero pending deliveries. Earlier delivered events included PageView, ViewContent, AddToCart and InitiateCheckout.
+- The initial automation run loaded the SDK/config but did not produce a browser collection request. The SDK includes bot detection; the subsequent normal-browser-profile check established actual browser transport receipt. The application's tracking code was unchanged.
+
+This verifies browser transport and server acceptance using a shared event ID. Events Manager reporting and account-side deduplication were not inspected. The temporary CAPI test-event code remains empty, so normal server deliveries should not be assumed to appear in the Test Events panel.
+
+To check browser events, open the correct Pixel/dataset's **Test events** view, visit the website, and choose **Allow all** or **Marketing only**. **Analytics only** does not enable Pixel/CAPI. The Event Setup Tool overlay does not need matching manual rules for the already instrumented commerce events; adding such rules could introduce duplicates.
+
+Scroll depth is not currently an application event in the implementation's event map. A homepage visit emits PageView after marketing consent; scrolling alone does not generate an application Pixel/CAPI scroll event.
