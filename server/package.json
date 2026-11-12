@@ -31,7 +31,8 @@
     "test:inclusive-gst": "node --test tests/inclusive-gst.test.js",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/monitoring-integration.test.js",
-    "test:outbox": "node --test test/monitoring-outbox.test.js"
+    "test:outbox": "node --test test/monitoring-outbox.test.js",
+    "db:check-columns": "node scripts/check-schema-columns.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

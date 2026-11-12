@@ -66,3 +66,18 @@ On 12 November 2026, revision `3662975` from `marketingdimpal` was deployed afte
 - The preceding frontend release and its static chunks remain available for rollback. Existing Google/Meta tracking enablement was retained.
 
 Focused live checks returned HTTP 200 for the homepage, API health, one-product catalog request, admin login, tracking configuration and monitoring status. Both services reported online. The generated admin bundle contained the monitoring controls/readable-details components; the authenticated admin page itself was not exercised. No orders, payments or customer logins were created for this deployment check.
+
+## Coupon schema repair
+
+After activation, the Coupon admin list and cart quote lookup exposed Prisma error P2022: production was missing the optional `Coupon.knowMoreHtml` field already expected by the generated client. This prerequisite was missed by the earlier table-specific deployment checks.
+
+The Coupon table was backed up privately, then the existing additive `20261105000000_coupon_know_more_html` migration was applied and recorded in Prisma migration history. SQL dump comparison verified all four pre-existing coupon records retained their values. The full Prisma Coupon list/count queries succeeded, and a read-only live cart quote for an active product returned HTTP 200 with numeric totals. No coupon records, orders or payments were created by verification; no service restart was required for the additive column repair.
+
+A metadata-only deployment preflight is now available:
+
+```bash
+npm --prefix server run build
+npm --prefix server run db:check-columns
+```
+
+Run it after generating the intended release's client and applying reviewed migrations, before restarting the backend. It reports missing mapped model/table columns and exits nonzero without changing the database. It is a presence check, not a replacement for reviewing types, indexes and migration behavior.
