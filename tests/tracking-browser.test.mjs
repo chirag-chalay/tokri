@@ -46,3 +46,14 @@ test('unsafe URLs and invalid commerce events do not send', async () => {
   assert.equal(b.scripts.length, 0)
   assert.equal(await b.adapter.trackCommerce('purchase', { items: [] }), false)
 })
+
+
+test('Tag Assistant preview can initialize tags without forwarding its debug flag', async () => {
+  const b = await browser({ analytics: true })
+  window.location = new URL('https://tokriii.com/shop?gtm_debug=x&utm_source=preview')
+  await b.adapter.trackPageView('/shop?gtm_debug=x&utm_source=preview')
+  assert.equal(b.scripts.length, 1)
+  const event = window.dataLayer.find((entry) => entry.event === 'page_view')
+  assert.equal(event.page_location, 'https://tokriii.com/shop?utm_source=preview')
+  assert.equal(JSON.stringify(event).includes('gtm_debug'), false)
+})

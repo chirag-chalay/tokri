@@ -55,3 +55,7 @@ The legacy `verify-meta-pixel` script entrypoints now run the runtime-configured
 4. Use dedicated test data/destinations to confirm actual GTM tag firing, GA4 DebugView receipt, Meta Test Events and Pixel/CAPI deduplication. Remove the temporary CAPI test code before normal reporting.
 
 See [SETUP_GUIDE.md](SETUP_GUIDE.md) for the release order, consent template code and operational limitations. Account-side container publishing and production activation are not implied by local code verification.
+
+## Tag Assistant follow-up
+
+The URL filter now accepts Tag Assistant's `gtm_debug` flag during Preview and removes it from event URLs. The focused adapter tests passed, including tag initialization with `gtm_debug=x`. The live `/api/v1/tracking/config` route was still unavailable during the follow-up, and the workspace tracking enable switches were false; importing the container alone does not activate the website.

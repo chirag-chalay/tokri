@@ -15,9 +15,16 @@ function safePath(path) {
     const url = new URL(path, window.location.origin)
     if (url.origin !== window.location.origin || /^\/order(?:\/|$)/.test(url.pathname) || /@|%40/.test(url.pathname)) return null
     for (const [key, value] of url.searchParams) {
+      // Tag Assistant adds this non-customer debug flag during Preview.
+      // Accept it for initialization but never forward it to analytics.
+      if (key === 'gtm_debug') {
+        if (!/^[a-z0-9_.-]{1,64}$/i.test(value)) return null
+        continue
+      }
       if (!['category', 'sort', 'page', 'view', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid'].includes(key.toLowerCase()) || !/^[a-z0-9_.-]{1,250}$/i.test(value)) return null
     }
-    // Discard query parameters rather than expose free text or identifiers.
+    url.searchParams.delete('gtm_debug')
+    // Preserve only the validated campaign/catalog query parameters.
     return `${url.pathname}${url.search}`
   } catch { return null }
 }
