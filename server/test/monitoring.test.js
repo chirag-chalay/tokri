@@ -14,7 +14,7 @@ process.env.LOG_OUTBOX_ENABLED = 'false'
 const { log, workerCall, closeMonitoring, setDebug, monitoringState, logContext, requestLogging } = await import('../src/monitoring/index.js')
 const { instrumentPrisma, logError } = await import('../src/monitoring/database.js')
 beforeEach(async () => { await workerCall('flush') })
-after(async () => { await closeMonitoring(); await fs.rm(directory, { recursive: true, force: true }) })
+after(async () => { await closeMonitoring(); await fs.rm(directory, { recursive: true, force: true }); await fs.rm(directory + '.settings', { recursive: true, force: true }) })
 
 test('redacts private fields at every level and snapshots only safe business values', () => {
   const value = sanitize({ old: { password: 'PASSWORD', email: 'EMAIL', phone: 'PHONE', otp: 'OTP', token: 'TOKEN', keySecret: 'SECRET', address: 'ADDRESS', card: 'CARD', unknown: 'HIDDEN' }, new: { priceValue: 100, paymentStatus: 'paid' } })
@@ -159,9 +159,11 @@ test('AdminJS transport enforces fresh admin privileges and same-origin debug co
     let response = await fetch(url)
     assert.equal(response.status, 200)
     assert.equal(response.headers.get('cache-control'), 'no-store')
-    assert.equal((await response.json()).canManageDebug, false)
+    assert.equal((await response.json()).canManageDebug, true)
     const deniedDebug = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' }, body: JSON.stringify({ action: 'enable', minutes: 5 }) })
-    assert.equal(deniedDebug.status, 403, 'ordinary admins cannot change debug, even with valid browser headers')
+    assert.equal(deniedDebug.status, 200, 'authorized regular admins may change debug with valid browser headers')
+    assert.ok(monitoringState().debugUntil)
+    await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' }, body: JSON.stringify({ action: 'disable' }) })
     assert.equal(monitoringState().debugUntil, null)
     const authorizedLookups = nameLookups
     user = { ...user, role: 'staff' }
@@ -177,6 +179,17 @@ test('AdminJS transport enforces fresh admin privileges and same-origin debug co
     assert.equal(response.status, 200)
     assert.ok((await response.json()).debugUntil)
     setDebug(false)
+    await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' }, body: JSON.stringify({ action: 'disable' }) })
+    const settingsDirectory = directory + '.settings', settingsBackup = settingsDirectory + '.test-backup'
+    await fs.rename(settingsDirectory, settingsBackup)
+    await fs.writeFile(settingsDirectory, 'blocked monitoring settings directory')
+    try {
+      response = await post({ 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' })
+      assert.notEqual(response.status, 200, 'a failed durable save is never reported as a successful toggle')
+      assert.equal(monitoringState().debugUntil, null)
+      const failure = await workerCall('read', { category: 'audit', search: 'debug.change.failed' })
+      assert.ok(failure.rows.some(row => row.failureReason === 'debug_storage'))
+    } finally { await fs.unlink(settingsDirectory); await fs.rename(settingsBackup, settingsDirectory) }
   } finally { prisma.user.findUnique = original; lookupModels.forEach((model, i) => { prisma[model].findMany = originalLookups[i] }); await new Promise((resolve) => server.close(resolve)); await prisma.$disconnect() }
 })
 test('rolled-back transactions publish no mutation events; commits publish once', async () => {

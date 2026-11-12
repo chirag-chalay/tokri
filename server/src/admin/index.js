@@ -1215,7 +1215,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
       authenticate: async (identifier, password, { req }) => {
         const login = String(identifier || '').trim()
         const pass = String(password || '')
-        if (!login || !pass) { log('api', 'admin.login', { status: 'failure' }); return null }
+        if (!login || !pass) { log('api', 'admin.login', { status: 'failure', failureReason: 'admin_credentials' }); return null }
 
         const user = await prisma.user.findFirst({
           where: {
@@ -1226,10 +1226,10 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
           include: { permissions: true },
         })
 
-        if (!user?.password) { log('api', 'admin.login', { status: 'failure' }); return null }
+        if (!user?.password) { log('api', 'admin.login', { status: 'failure', failureReason: 'admin_credentials' }); return null }
 
         const valid = await bcrypt.compare(pass, user.password)
-        if (!valid) { log('api', 'admin.login', { status: 'failure' }); return null }
+        if (!valid) { log('api', 'admin.login', { status: 'failure', failureReason: 'admin_credentials' }); return null }
         log('api', 'admin.login', { status: 'success', actorId: user.id, ip: req.ip })
 
         return serializeAdminUser(user)

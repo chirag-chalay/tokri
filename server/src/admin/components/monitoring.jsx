@@ -20,7 +20,7 @@ function DebugControls({ data, busy, unavailable, minutes, onMinutes, onAction }
       {data?.canManageDebug ? <div className="monitor-debug-actions">
         {!enabled ? <label htmlFor="monitor-debug-duration">Duration <select id="monitor-debug-duration" value={minutes} disabled={busy} onChange={(event) => onMinutes(event.target.value)}>{['5', '15', '30', '60'].map((value) => <option key={value} value={value}>{value} minutes</option>)}</select></label> : null}
         <button type="button" className="monitor-primary" disabled={busy} onClick={() => onAction(enabled ? 'disable' : 'enable')}>{enabled ? 'Disable debug logging' : 'Enable debug logging'}</button>
-      </div> : data ? <p className="monitor-muted">Only Super Admins can change debug logging.</p> : null}
+      </div> : data ? <p className="monitor-muted">Only authorized administrators can change debug logging.</p> : null}
     </aside>
   )
 }
@@ -36,6 +36,7 @@ function LogRow({ row }) {
       <td data-label="What happened" className="monitor-event">
         <strong>{view.action || 'Recorded event'}</strong>
         <p className="monitor-description">{view.description || 'An event was recorded. Further information is not available.'}</p>
+        {view.details?.find(detail => detail.label === 'Why it failed') ? <p className="monitor-reason"><strong>Reason: </strong>{view.details.find(detail => detail.label === 'Why it failed').value}</p> : null}
         {view.context ? <p className="monitor-context">{view.context}</p> : null}
         {view.subject && view.subject !== 'Not recorded' ? <p className="monitor-context">{view.subject}</p> : null}
         {view.changes?.length ? <div className="monitor-changes" aria-label="Recorded changes">{view.changes.map((change) => <div className="monitor-change" key={change.label}>
@@ -44,9 +45,7 @@ function LogRow({ row }) {
           <div><span>Updated</span>{change.to}</div>
         </div>)}</div> : null}
         {view.outcomeNote ? <p className="monitor-muted">{view.outcomeNote}</p> : null}
-        <details className="monitor-details"><summary>View details</summary>
-          <dl>{view.details?.length ? view.details.map((detail) => <div key={detail.label}><dt>{detail.label}</dt><dd>{detail.value}</dd></div>) : <div><dt>Available information</dt><dd>Further details were not recorded.</dd></div>}</dl>
-        </details>
+        <dl className="monitor-facts" aria-label="Event information">{view.details?.filter(detail => detail.label !== 'Why it failed').map((detail) => <div key={detail.label}><dt>{detail.label}</dt><dd>{detail.value}</dd></div>)}</dl>
       </td>
       <td data-label="Result" className="monitor-result"><span className={`monitor-badge is-${result.toLowerCase()}`}>{result}</span></td>
     </tr>
@@ -64,12 +63,14 @@ export default function Monitoring() {
   const [minutes, setMinutes] = useState('15')
   const [refresh, setRefresh] = useState(0)
   const sequence = useRef(0)
+  const debugSnapshot = useRef({ version: 0, until: null })
   useEffect(() => {
     const id = ++sequence.current
+    const debugVersion = debugSnapshot.current.version
     setBusy(true)
     setError('')
     api.getPage({ pageName: 'logs', params: { ...active, page } })
-      .then((response) => { if (id === sequence.current) setData(response.data) })
+      .then((response) => { if (id === sequence.current) setData(debugSnapshot.current.version !== debugVersion ? { ...response.data, debugUntil: debugSnapshot.current.until } : response.data) })
       .catch(() => { if (id === sequence.current) { setData(null); setError('Unable to load monitoring. Check your admin access or try again.') } })
       .finally(() => { if (id === sequence.current) setBusy(false) })
     return () => { sequence.current++ }
@@ -79,6 +80,17 @@ export default function Monitoring() {
     window.addEventListener('focus', reload)
     return () => window.removeEventListener('focus', reload)
   }, [])
+  useEffect(() => {
+    const stream = new EventSource('/api/v1/monitoring/stream')
+    stream.onmessage = (event) => {
+      try {
+        const state = JSON.parse(event.data)
+        debugSnapshot.current = { version: debugSnapshot.current.version + 1, until: state.debugUntil }
+        setData(current => current ? { ...current, debugUntil: state.debugUntil } : current)
+      } catch { /* Keep the last server deadline; it still expires locally. */ }
+    }
+    return () => stream.close()
+  }, [])
   async function debug(action) {
     if (debugBusy) return
     setDebugBusy(true)
@@ -87,7 +99,7 @@ export default function Monitoring() {
       const response = await api.getPage({ pageName: 'logs', method: 'POST', headers: { 'X-Tokri-Monitoring': '1' }, data: { action, minutes } })
       setData((current) => current ? { ...current, ...response.data } : current)
       setRefresh((value) => value + 1)
-    } catch { setError('Unable to change debug logging. Only an active Super Admin can use this control.') }
+    } catch { setError('The debug change could not be confirmed. Check your admin access or ask the technical team to check monitoring storage.') }
     finally { setDebugBusy(false) }
   }
   function chooseCategory(category) {
@@ -119,6 +131,7 @@ export default function Monitoring() {
         .monitor-resultbar{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
         .monitor-context{font-size:12px;color:#62766b}
         .monitor-description{color:#16352c;line-height:1.6}
+        .monitor-reason{padding:7px 10px;border-left:3px solid #b6414b;background:#fff5f5;color:#862c35;font-size:13px;line-height:1.6}
         .monitor-debug{flex:0 0 340px;max-width:100%;padding:14px 16px;border:1px solid #dce5df;border-radius:8px;background:white}
         .monitor-debug-heading{display:flex;justify-content:space-between;gap:10px;align-items:center}
         .monitor-debug-actions{display:flex;justify-content:flex-end;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-top:12px}
@@ -128,33 +141,28 @@ export default function Monitoring() {
         .tokri-monitoring button:hover:not(:disabled){background:#eaf5ee}
         .tokri-monitoring button.monitor-primary{background:#23704d;color:white;border-color:#23704d}
         .tokri-monitoring button:disabled{opacity:.5;cursor:default}
-        .tokri-monitoring summary{cursor:pointer;color:#41665a;font-size:12px}
         .tokri-monitoring :is(button,input,select,summary):focus-visible{outline:2px solid #24734b;outline-offset:2px}
         .monitor-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}
         .monitor-filter{display:grid;gap:4px;font-size:12px}
         .monitor-filter-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
-        .monitor-details dl{margin:10px 0 0;display:grid;gap:8px}
-        .monitor-details dl>div{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:12px}
-        .monitor-details dt{color:#62766b;font-size:12px}
-        .monitor-details dd{margin:0;overflow-wrap:anywhere}
         .monitor-alert{border-left:3px solid #b06c10;padding:6px 12px;background:#fff6e4;color:#795217;margin:10px 0}
         .monitor-table-wrap{background:white;border:1px solid #e2e9e4;border-radius:8px;overflow:hidden}
         .monitor-table{width:100%;border-collapse:collapse;text-align:left;table-layout:fixed}
         .monitor-table th{background:#f1f6f3;color:#41665a;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:12px}
-        .monitor-table th:nth-child(1){width:16%}.monitor-table th:nth-child(2){width:13%}.monitor-table th:nth-child(3){width:17%}.monitor-table th:nth-child(4){width:43%}.monitor-table th:nth-child(5){width:11%}
+        .monitor-table th:nth-child(1){width:140px}.monitor-table th:nth-child(2){width:120px}.monitor-table th:nth-child(3){width:140px}.monitor-table th:nth-child(5){width:100px}
         .monitor-table td{padding:12px;border-bottom:1px solid #e5ece8;vertical-align:top;overflow-wrap:anywhere;min-width:0}
         .monitor-table tr:last-child td{border-bottom:0}
         .monitor-date{font-size:12px}.monitor-date small{display:block;color:#62766b;margin-top:3px}
         .monitor-badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
         .is-successful{background:#e8f5ec;color:#22643c}.is-failed{background:#fdeced;color:#a12635}.is-warning{background:#fff4db;color:#825b07}.is-pending{background:#eaf0fb;color:#315a91}.is-neutral{background:#eef2f0;color:#4b6257}
-        .monitor-details{margin-top:8px}.monitor-details[open]{padding:10px;background:#f4f7f5;border-radius:6px}
+        .monitor-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;margin:12px 0 0;font-size:12px}
+        .monitor-facts>div{min-width:0}.monitor-facts dt{color:#62766b}.monitor-facts dd{margin:1px 0 0;overflow-wrap:anywhere;color:#16352c}
         .monitor-changes{margin:10px 0;display:grid;gap:6px}
         .monitor-change{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 12px;background:#f5f8f6;border-radius:6px;padding:8px 10px;font-size:12px}
         .monitor-change>strong{grid-column:1/-1}.monitor-change span{display:block;color:#62766b;font-size:11px}
         .monitor-pagination{display:flex;align-items:center;gap:10px;padding-top:16px;flex-wrap:wrap}
-        .monitor-files{margin-top:20px}.monitor-files ul{list-style:none;padding:0;display:flex;gap:8px;flex-wrap:wrap}
         @media(max-width:1100px){.monitor-header{gap:16px}.monitor-debug{flex-basis:310px}.monitor-table th,.monitor-table td{padding:10px}}
-        @media(max-width:760px){
+        @media(max-width:1100px){
           .tokri-monitoring{padding:16px}.tokri-monitoring h1{font-size:22px}
           .monitor-header{flex-direction:column;gap:18px}.monitor-debug{order:-1;flex-basis:auto;width:100%;align-self:flex-end}
           .monitor-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -163,7 +171,7 @@ export default function Monitoring() {
           .monitor-table td{display:block;border:0;padding:0;font-size:13px}
           .monitor-date{grid-column:1}.monitor-result{grid-column:2;grid-row:1}.monitor-category{grid-column:1/-1;grid-row:2}.monitor-person{grid-column:1/-1;grid-row:3}.monitor-event{grid-column:1/-1;grid-row:4}
           .monitor-person:before{content:attr(data-label) ': ';font-size:12px;color:#62766b}
-          .monitor-details dl>div{grid-template-columns:minmax(0,1fr);gap:1px}
+          .monitor-facts{grid-template-columns:minmax(0,1fr);gap:7px}
         }
       `}</style>
       <header className="monitor-header">

@@ -21,6 +21,10 @@ app.use('/api/v1/monitoring', createWebsiteMonitoringRouter(client))
 app.get('/api/v1/products', (_req, res) => res.json([]))
 app.get('/api/v1/checkout/quote', (_req, res) => { logError(Object.assign(new Error('password=PRIVATE_PASSWORD'), { code: 'P2002', status: 400 }), 'api'); res.status(400).json({ message: 'Invalid request.' }) })
 app.get('/api/v1/auth/verify-otp', (_req, res) => { log('api', 'customer.login', { status: 'success' }); res.json({ ok: true }) })
+app.post('/tokri-backoffice/api/resources/Product/records/unit-product/edit', (req, res) => {
+  req.session = { adminUser: { id: 'unit-admin' } }
+  res.json({ notice: { type: 'error' }, record: { errors: { priceValue: { message: 'PRIVATE_ADMIN_NOTICE' } } } })
+})
 app.get('/api/pages/logs', (_req, res) => res.json({}))
 app.get('/checkout', (_req, res) => res.type('html').send('checkout'))
 const server = await new Promise(resolve => { const current = app.listen(0, '127.0.0.1', () => resolve(current)) })
@@ -89,6 +93,12 @@ test('API errors are sanitized, correlated and auth outcome emits one access ent
   assert.equal((await rows({ category: 'api', search: 'customer.login' })).total, 1)
   const matches = (await rows({ category: 'api' })).rows.filter(row => row.route === '/api/v1/auth/verify-otp')
   assert.equal(matches.length, 1)
+  await fetch(`${origin}/tokri-backoffice/api/resources/Product/records/unit-product/edit`, { method: 'POST' })
+  const rejected = (await rows({ category: 'api', status: 'Failed', search: 'unit-product' })).rows[0]
+  assert.equal(rejected.httpStatus, 200)
+  assert.equal(rejected.model, 'Product'); assert.equal(rejected.operation, 'update')
+  assert.equal(rejected.failureReason, 'admin_validation')
+  assert.ok(!JSON.stringify(rejected).includes('PRIVATE_ADMIN_NOTICE'))
 })
 test('monitoring endpoints and HTML requests do not duplicate visits or log themselves', async () => {
   setDebug(true, 1)

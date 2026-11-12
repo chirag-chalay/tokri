@@ -33,6 +33,7 @@ export function readableStatus(row) {
   const status = String(row.status ?? '').toLowerCase()
   if (row.outcome === 'unmatched') return 'Warning'
   if (['failed', 'failure', 'error', 'cancelled', 'canceled'].includes(status) || Number(status) >= 400 || row.category === 'error' && !['skipped', 'ignored'].includes(status)) return 'Failed'
+  if (status === '202') return 'Pending'
   if (['success', 'successful', 'paid', 'captured', 'refunded', 'processed', 'delivered', 'matched'].includes(status) || Number(status) >= 200 && Number(status) < 400 || row.event === 'website.navigation' && status === 'observed') return 'Successful'
   if (['pending', 'attempt', 'created', 'authorized', 'processing'].includes(status)) return 'Pending'
   if (['debug.enabled', 'debug.disabled'].includes(row.event)) return 'Successful'

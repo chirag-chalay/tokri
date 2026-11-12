@@ -42,6 +42,8 @@ export function recordWebsiteDebug(event, details = {}) {
   try {
     if (!enabled() || !browserEvents.has(event) || event === 'website.navigation' || !currentPage) return
     const row = { id: uuid(), event, path: currentPage.pagePath }
+    if (['failure', 'pending'].includes(details.operationStatus)) row.operationStatus = details.operationStatus
+    if (/^[a-z_]{1,50}$/.test(details.failureReason || '')) row.failureReason = details.failureReason
     if (Number.isInteger(details.status) && details.status >= 100 && details.status <= 599) row.status = details.status
     if (Number.isFinite(details.durationMs) && details.durationMs >= 0 && details.durationMs <= 300000) row.durationMs = Math.round(details.durationMs)
     for (const key of ['quantity', 'count']) if (Number.isInteger(details[key]) && details[key] >= 0 && details[key] <= 10000) row[key] = details[key]
@@ -94,7 +96,7 @@ function attachDebug() {
     const start = performance.now(), method = String(init?.method || input?.method || 'GET').toUpperCase()
     try {
       const response = await Reflect.apply(original, this, arguments)
-      if (endpoint) recordWebsiteDebug(response.ok ? 'frontend.api.completed' : 'frontend.api.failed', { endpoint, method, status: response.status, durationMs: performance.now() - start, relatedRequestId: response.headers.get('X-Tokri-Request-Id') || undefined })
+      if (endpoint) recordWebsiteDebug(response.ok && response.headers.get('X-Tokri-Operation-Status') !== 'failure' ? 'frontend.api.completed' : 'frontend.api.failed', { endpoint, method, status: response.status, durationMs: performance.now() - start, relatedRequestId: response.headers.get('X-Tokri-Request-Id') || undefined, failureReason: response.headers.get('X-Tokri-Failure-Reason') || undefined, operationStatus: response.headers.get('X-Tokri-Operation-Status') || undefined })
       else if (!response.ok) recordWebsiteDebug('frontend.page.failed', { path: url.pathname, status: response.status, durationMs: performance.now() - start })
       return response // Do not read, clone or delay the response body.
     } catch (error) {
@@ -130,7 +132,7 @@ function connect() {
       until = Date.parse(state.debugUntil); generation = state.generation
       disconnectDebug = attachDebug()
       expiryTimer = setTimeout(stopDebug, Math.max(1, until - Date.now()))
-      recordWebsiteDebug('website.page.ready', { durationMs: Math.round(performance.now()) })
+      recordWebsiteDebug('website.page.ready')
     } catch { stopDebug() }
   }
   connection.onerror = () => {

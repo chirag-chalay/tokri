@@ -1,0 +1,78 @@
+TAP version 13
+# Subtest: durable critical outbox recovery, idempotence, quota and fail-open behavior
+    # Subtest: committed product deletion and payment changes survive SIGKILL before any file delivery
+    ok 1 - committed product deletion and payment changes survive SIGKILL before any file delivery
+      ---
+      duration_ms: 265.50436
+      type: 'test'
+      ...
+    # Subtest: file fsync followed by SIGKILL before database acknowledgment replays without duplicate rows
+    ok 2 - file fsync followed by SIGKILL before database acknowledgment replays without duplicate rows
+      ---
+      duration_ms: 241.496898
+      type: 'test'
+      ...
+    # Subtest: partial append is repaired; retries retain original event IDs and safe values
+    ok 3 - partial append is repaired; retries retain original event IDs and safe values
+      ---
+      duration_ms: 28.179708
+      type: 'test'
+      ...
+    # Subtest: callback/array rollback removes business mutations and their outbox events together
+    ok 4 - callback/array rollback removes business mutations and their outbox events together
+      ---
+      duration_ms: 44.125975
+      type: 'test'
+      ...
+    # Subtest: shutdown finishes its active delivery and leaves the remaining backlog recoverable
+    ok 5 - shutdown finishes its active delivery and leaves the remaining backlog recoverable
+      ---
+      duration_ms: 47.766764
+      type: 'test'
+      ...
+    # Subtest: concurrent producer quotas are exact, duplicate enqueues do not charge twice, pending rows are never pruned
+    ok 6 - concurrent producer quotas are exact, duplicate enqueues do not charge twice, pending rows are never pruned
+      ---
+      duration_ms: 157.781858
+      type: 'test'
+      ...
+    # Subtest: a missing outbox table cannot roll back checkout; byte reservations are compensated
+    ok 7 - a missing outbox table cannot roll back checkout; byte reservations are compensated
+      ---
+      duration_ms: 26.930312
+      type: 'test'
+      ...
+    # Subtest: nontransactional tables are rejected without breaking checkout
+    ok 8 - nontransactional tables are rejected without breaking checkout
+      ---
+      duration_ms: 45.266871
+      type: 'test'
+      ...
+    # Subtest: an old pending event is recovered into a current daily file without expiring immediately
+    ok 9 - an old pending event is recovered into a current daily file without expiring immediately
+      ---
+      duration_ms: 14.248686
+      type: 'test'
+      ...
+    # Subtest: outbox capacity failures do not roll back a valid checkout mutation; delivered retention frees budget
+    ok 10 - outbox capacity failures do not roll back a valid checkout mutation; delivered retention frees budget
+      ---
+      duration_ms: 32.974146
+      type: 'test'
+      ...
+    1..10
+ok 1 - durable critical outbox recovery, idempotence, quota and fail-open behavior
+  ---
+  duration_ms: 986.331662
+  type: 'test'
+  ...
+# SIGKILL recovery: deletion, COD create/paid transition and failed provider event all recovered once
+1..1
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1045.304111

@@ -4,6 +4,7 @@ import { createInterface } from 'node:readline'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { presentLog } from '../admin/monitoring-presentation.js'
 import { isMonitoringRequest, readableStatus } from '../../../shared/monitoring.js'
 import { categories, sanitize, istDate } from './sanitize.js'
 
@@ -198,7 +199,10 @@ async function read(query) {
         if (query.user && ![row.actorId, row.userId].some((v) => String(v || '').includes(query.user))) continue
         if (query.orderId && ![row.orderId, row.orderNo, row.razorpayOrderId, row.razorpayPaymentId, row.new?.orderNo, row.resourceId].some((v) => String(v || '').includes(query.orderId))) continue
         if (query.ip && row.ip !== query.ip) continue
-        if (query.search && !JSON.stringify(row).toLowerCase().includes(query.search.toLowerCase())) continue
+        if (query.search) {
+          const needle = query.search.toLowerCase()
+          if (!JSON.stringify(row).toLowerCase().includes(needle) && !JSON.stringify(presentLog({ ...row, category: file.category })).toLowerCase().includes(needle)) continue
+        }
         yield { ...row, category: file.category, file: file.name }
     }
   }

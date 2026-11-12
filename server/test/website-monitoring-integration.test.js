@@ -85,7 +85,17 @@ test('website monitoring across React Router and Next.js, live debug controls an
       for (const event of ['frontend.api.failed', 'frontend.error', 'frontend.promise.failed', 'request.timing']) assert.ok(debug.some(row => row.event === event), event)
       const failure = debug.find(row => row.event === 'frontend.api.failed')
       assert.ok(failure.relatedRequestId)
+      assert.equal(failure.failureReason, 'product_missing')
       assert.ok((await rows({ category: 'api' })).some(row => row.requestId === failure.relatedRequestId))
+      await page.evaluate(async () => {
+        await fetch('/api/v1/auth/verify-otp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '9999900413', otp: '0000' }) })
+        await fetch('/api/v1/checkout/preview-coupon', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: 'PRIVATE_COUPON', items: [{ slug: 'apple', quantity: 1 }] }) })
+      })
+      await waitFor(async () => (await rows({ category: 'debug' })).some(row => row.event === 'frontend.api.failed' && row.failureReason?.startsWith('otp_')), 'safe sign-in failure explanation missing')
+      await waitFor(async () => (await rows({ category: 'debug' })).some(row => row.event === 'frontend.api.failed' && row.failureReason === 'coupon_invalid'), 'safe coupon failure explanation missing')
+      await page.route('**/api/v1/checkout/confirm-intent', route => route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'x-tokri-operation-status': 'failure', 'x-tokri-failure-reason': 'insufficient_funds' }, body: JSON.stringify({ status: 'failed' }) }))
+      await page.evaluate(() => fetch('/api/v1/checkout/confirm-intent', { method: 'POST' }))
+      await waitFor(async () => (await rows({ category: 'debug' })).some(row => row.event === 'frontend.api.failed' && row.httpStatus === 200 && row.failureReason === 'insufficient_funds'), 'HTTP 200 business failure was incorrectly presented as success')
     })
     await check('cart quantity, coupon and delivery interactions are captured without recording private values', async () => {
       await page.goto('http://127.0.0.1:5222/cart', { waitUntil: 'domcontentloaded' })
@@ -99,7 +109,7 @@ test('website monitoring across React Router and Next.js, live debug controls an
       assert.ok(debug.some(row => row.event === 'cart.quantity.changed'))
       assert.ok(debug.some(row => row.event === 'delivery.selected'))
       const data = JSON.stringify(captured)
-      for (const secret of [token, customer.phone, 'PRIVATE_QUERY', 'PRIVATE_PASSWORD', 'PRIVATE_OTP', 'PRIVATE_REJECTION']) assert.ok(!data.includes(secret), secret)
+      for (const secret of [token, customer.phone, 'PRIVATE_QUERY', 'PRIVATE_PASSWORD', 'PRIVATE_OTP', 'PRIVATE_REJECTION', 'PRIVATE_COUPON']) assert.ok(!data.includes(secret), secret)
     })
     await check('live disable removes optional collectors immediately and rejects stale batches', async () => {
       const state = await fetch('http://127.0.0.1:33380/api/v1/monitoring/status').then(response => response.json())

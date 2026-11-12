@@ -1,0 +1,28 @@
+
+> tokri@0.0.0 build
+> vite build
+
+vite v8.0.8 building client environment for production...
+[2K
+transforming...Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✓ 1808 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             1.41 kB │ gzip:   0.57 kB
+dist/assets/tokri-mark-Cfz_1Kp8.png        26.89 kB
+dist/assets/tokri-logo-BzA2zeHw.png        91.06 kB
+dist/assets/exotic-fruits-C_7qDoGf.png    162.11 kB
+dist/assets/fresh-fruits-BQgCYYzZ.png     165.19 kB
+dist/assets/imported-fruits-DJAFm23T.png  169.08 kB
+dist/assets/mango-CjKa2sAd.png            588.86 kB
+dist/assets/index-Whik7Zur.css             84.29 kB │ gzip:  16.44 kB
+dist/assets/index-BF75LdPE.js             564.17 kB │ gzip: 159.16 kB
+
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.44s

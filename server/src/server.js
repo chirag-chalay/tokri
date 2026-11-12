@@ -93,7 +93,7 @@ app.use(
     origin: env.corsOrigins,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Phone'],
-    exposedHeaders: ['X-Tokri-Request-Id'],
+    exposedHeaders: ['X-Tokri-Request-Id', 'X-Tokri-Failure-Reason', 'X-Tokri-Operation-Status'],
   }),
 )
 

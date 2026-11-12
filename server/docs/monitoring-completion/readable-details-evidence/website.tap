@@ -1,0 +1,67 @@
+TAP version 13
+# [AdminJS]: There is no property of the name: "deliveryPartnerId". Check out the "editProperties" in the resource: "Order"
+# Subtest: website monitoring across React Router and Next.js, live debug controls and readable UI
+    # Subtest: authenticated Super Admin control session and website debug OFF by default
+    ok 1 - authenticated Super Admin control session and website debug OFF by default
+      ---
+      duration_ms: 3657.866133
+      type: 'test'
+      ...
+    # Subtest: React Router navigation is recorded once without query strings or API/HTML duplicates
+    ok 2 - React Router navigation is recorded once without query strings or API/HTML duplicates
+      ---
+      duration_ms: 1257.305741
+      type: 'test'
+      ...
+    # Subtest: live enable activates frontend diagnostics, real cart actions and sanitized frontend/backend failures
+    ok 3 - live enable activates frontend diagnostics, real cart actions and sanitized frontend/backend failures
+      ---
+      duration_ms: 3826.615848
+      type: 'test'
+      ...
+    # Subtest: cart quantity, coupon and delivery interactions are captured without recording private values
+    ok 4 - cart quantity, coupon and delivery interactions are captured without recording private values
+      ---
+      duration_ms: 1321.151892
+      type: 'test'
+      ...
+    # Subtest: live disable removes optional collectors immediately and rejects stale batches
+    ok 5 - live disable removes optional collectors immediately and rejects stale batches
+      ---
+      duration_ms: 1685.032423
+      type: 'test'
+      ...
+    # Subtest: Next.js route commits log once while prefetch/RSC work does not count as visits
+    ok 6 - Next.js route commits log once while prefetch/RSC work does not count as visits
+      ---
+      duration_ms: 6799.818268
+      type: 'test'
+      ...
+    # Subtest: frontend deadline stops diagnostics without waiting for another control request
+    ok 7 - frontend deadline stops diagnostics without waiting for another control request
+      ---
+      duration_ms: 1088.093814
+      type: 'test'
+      ...
+# [AdminJS]: There is no property of the name: "deliveryPartnerId". Check out the "editProperties" in the resource: "Order"
+    # Subtest: readable category UI, daily selection, status filters and responsive evidence
+    ok 8 - readable category UI, daily selection, status filters and responsive evidence
+      ---
+      duration_ms: 1240.877642
+      type: 'test'
+      ...
+    1..8
+ok 1 - website monitoring across React Router and Next.js, live debug controls and readable UI
+  ---
+  duration_ms: 22847.387674
+  type: 'test'
+  ...
+1..1
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 22961.453332

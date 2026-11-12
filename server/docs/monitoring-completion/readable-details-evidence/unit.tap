@@ -1,0 +1,279 @@
+
+> tokri-server@1.0.0 test
+> node --test test/*.test.js
+
+TAP version 13
+# Subtest: debug controls persist across instances, synchronize and keep a private bounded deadline
+ok 1 - debug controls persist across instances, synchronize and keep a private bounded deadline
+  ---
+  duration_ms: 239.589346
+  type: 'test'
+  ...
+# Subtest: safe event facts select confirmed scalar values without reading customer input or messages
+ok 2 - safe event facts select confirmed scalar values without reading customer input or messages
+  ---
+  duration_ms: 4.019323
+  type: 'test'
+  ...
+# Subtest: isolated MySQL + real AdminJS/browser + simulated Razorpay regression
+ok 3 - isolated MySQL + real AdminJS/browser + simulated Razorpay regression # SKIP
+  ---
+  duration_ms: 1.046795
+  type: 'test'
+  ...
+# Subtest: durable critical outbox recovery, idempotence, quota and fail-open behavior
+ok 4 - durable critical outbox recovery, idempotence, quota and fail-open behavior # SKIP
+  ---
+  duration_ms: 1.536013
+  type: 'test'
+  ...
+# Subtest: product events describe real creation, deletion, prices, missing snapshots and failures
+ok 5 - product events describe real creation, deletion, prices, missing snapshots and failures
+  ---
+  duration_ms: 11.178549
+  type: 'test'
+  ...
+# Subtest: payment descriptions require explicit payment evidence and never guess missing amounts or units
+ok 6 - payment descriptions require explicit payment evidence and never guess missing amounts or units
+  ---
+  duration_ms: 2.423228
+  type: 'test'
+  ...
+# Subtest: registrations, sign-in, errors, diagnostics and unknown events have accurate readable fallbacks
+ok 7 - registrations, sign-in, errors, diagnostics and unknown events have accurate readable fallbacks
+  ---
+  duration_ms: 1.463176
+  type: 'test'
+  ...
+# Subtest: names are resolved in page batches using minimal selected fields; raw entries remain intact
+ok 8 - names are resolved in page batches using minimal selected fields; raw entries remain intact
+  ---
+  duration_ms: 2.489122
+  type: 'test'
+  ...
+# Subtest: missing, deleted, ambiguous, masked and unavailable identities are never invented
+ok 9 - missing, deleted, ambiguous, masked and unavailable identities are never invented
+  ---
+  duration_ms: 2.567398
+  type: 'test'
+  ...
+# Subtest: readable panels show only approved scalar facts and explain known error codes without printing them
+ok 10 - readable panels show only approved scalar facts and explain known error codes without printing them
+  ---
+  duration_ms: 1.08723
+  type: 'test'
+  ...
+# Subtest: payment panels distinguish recorded amounts, refunds and missing facts
+ok 11 - payment panels distinguish recorded amounts, refunds and missing facts
+  ---
+  duration_ms: 0.889209
+  type: 'test'
+  ...
+# Subtest: readable changes include explicitly cleared values, labels and dates in IST
+ok 12 - readable changes include explicitly cleared values, labels and dates in IST
+  ---
+  duration_ms: 9.59126
+  type: 'test'
+  ...
+# Subtest: order-linked customer names are current record names, not inferred actors or payment amounts
+ok 13 - order-linked customer names are current record names, not inferred actors or payment amounts
+  ---
+  duration_ms: 1.63046
+  type: 'test'
+  ...
+# Subtest: malformed and inherited-key event names use safe fallbacks without exposing data or failing the page
+ok 14 - malformed and inherited-key event names use safe fallbacks without exposing data or failing the page
+  ---
+  duration_ms: 3.020018
+  type: 'test'
+  ...
+# Subtest: website and API summaries describe recorded facts without invented names or response status
+ok 15 - website and API summaries describe recorded facts without invented names or response status
+  ---
+  duration_ms: 1.025505
+  type: 'test'
+  ...
+# Subtest: cart calculation uses only recorded totals, including nested historical facts
+ok 16 - cart calculation uses only recorded totals, including nested historical facts
+  ---
+  duration_ms: 0.841359
+  type: 'test'
+  ...
+# Subtest: failure descriptions explain confirmed causes and never derive them from status alone
+ok 17 - failure descriptions explain confirmed causes and never derive them from status alone
+  ---
+  duration_ms: 0.412945
+  type: 'test'
+  ...
+# Subtest: redacts private fields at every level and snapshots only safe business values
+ok 18 - redacts private fields at every level and snapshots only safe business values
+  ---
+  duration_ms: 166.226818
+  type: 'test'
+  ...
+# Subtest: daily dates follow IST across midnight
+ok 19 - daily dates follow IST across midnight
+  ---
+  duration_ms: 2.493619
+  type: 'test'
+  ...
+# Subtest: debug is off by default, requires enable, expires within capped duration and disables
+ok 20 - debug is off by default, requires enable, expires within capped duration and disables
+  ---
+  duration_ms: 253.066482
+  type: 'test'
+  ...
+# Subtest: server pages 50/100 rows with filters and private daily files
+ok 21 - server pages 50/100 rows with filters and private daily files
+  ---
+  duration_ms: 727.720628
+  type: 'test'
+  ...
+# {"event":"monitoring.delivery.failed","category":"access","reason":"noncritical-events-dropped","record":{"count":1,"event":"monitoring.queue.saturated","eventId":"edeea198-3d0c-4976-b260-03366c3e82d5","timestamp":"2026-11-11T10:49:01.996Z"}}
+# Subtest: queue saturation drops logs instead of blocking or growing indefinitely
+ok 22 - queue saturation drops logs instead of blocking or growing indefinitely
+  ---
+  duration_ms: 6.410811
+  type: 'test'
+  ...
+# Subtest: database observer records admin old/new values, creates accounts, and deduplicates errors
+ok 23 - database observer records admin old/new values, creates accounts, and deduplicates errors
+  ---
+  duration_ms: 380.051108
+  type: 'test'
+  ...
+# Subtest: retention, disk cap and symlink protection in the file worker
+ok 24 - retention, disk cap and symlink protection in the file worker
+  ---
+  duration_ms: 145.91465
+  type: 'test'
+  ...
+# Subtest: AdminJS transport enforces fresh admin privileges and same-origin debug controls
+ok 25 - AdminJS transport enforces fresh admin privileges and same-origin debug controls
+  ---
+  duration_ms: 2146.859393
+  type: 'test'
+  ...
+# Subtest: rolled-back transactions publish no mutation events; commits publish once
+ok 26 - rolled-back transactions publish no mutation events; commits publish once
+  ---
+  duration_ms: 278.521311
+  type: 'test'
+  ...
+# Subtest: Razorpay failures and verified refund webhooks log safe outcomes without provider payloads
+ok 27 - Razorpay failures and verified refund webhooks log safe outcomes without provider payloads
+  ---
+  duration_ms: 512.341235
+  type: 'test'
+  ...
+# Subtest: critical queue slots survive access bursts and overflow emits a redacted emergency record
+ok 28 - critical queue slots survive access bursts and overflow emits a redacted emergency record
+  ---
+  duration_ms: 298.557628
+  type: 'test'
+  ...
+# Subtest: storage failures and forced process exit expose critical records without crashing callers
+ok 29 - storage failures and forced process exit expose critical records without crashing callers
+  ---
+  duration_ms: 1472.905308
+  type: 'test'
+  ...
+# Subtest: status filtering matches outcomes and corrupted rows are exposed
+ok 30 - status filtering matches outcomes and corrupted rows are exposed
+  ---
+  duration_ms: 375.19826
+  type: 'test'
+  ...
+# Subtest: real daily file rotation crosses IST midnight without mixing categories
+ok 31 - real daily file rotation crosses IST midnight without mixing categories
+  ---
+  duration_ms: 147.701311
+  type: 'test'
+  ...
+# Subtest: a stalled emergency stream has a bounded queue and reports overflow after recovery
+ok 32 - a stalled emergency stream has a bounded queue and reports overflow after recovery
+  ---
+  duration_ms: 2.670051
+  type: 'test'
+  ...
+# Subtest: durable file delivery deduplicates IDs without dropping distinct events on index collisions
+ok 33 - durable file delivery deduplicates IDs without dropping distinct events on index collisions
+  ---
+  duration_ms: 217.038691
+  type: 'test'
+  ...
+# Subtest: recent customer logins lead mixed-category pages, with bounded reverse UTF-8 reads
+ok 34 - recent customer logins lead mixed-category pages, with bounded reverse UTF-8 reads
+  ---
+  duration_ms: 195.831442
+  type: 'test'
+  ...
+# Subtest: website monitoring across React Router and Next.js, live debug controls and readable UI
+ok 35 - website monitoring across React Router and Next.js, live debug controls and readable UI # SKIP
+  ---
+  duration_ms: 1.520965
+  type: 'test'
+  ...
+# Subtest: routes strip sensitive paths, query values and dynamic API identities
+ok 36 - routes strip sensitive paths, query values and dynamic API identities
+  ---
+  duration_ms: 169.321066
+  type: 'test'
+  ...
+# Subtest: website visits are anonymous, deduplicated and separate from backend API traffic
+ok 37 - website visits are anonymous, deduplicated and separate from backend API traffic
+  ---
+  duration_ms: 363.566578
+  type: 'test'
+  ...
+# Subtest: optional events reject OFF, stale generations and expired deadlines; critical audits remain independent
+ok 38 - optional events reject OFF, stale generations and expired deadlines; critical audits remain independent
+  ---
+  duration_ms: 290.624047
+  type: 'test'
+  ...
+# Subtest: debug subscribers see backend changes and are released without affecting controls
+ok 39 - debug subscribers see backend changes and are released without affecting controls
+  ---
+  duration_ms: 18.270037
+  type: 'test'
+  ...
+# Subtest: API errors are sanitized, correlated and auth outcome emits one access entry
+ok 40 - API errors are sanitized, correlated and auth outcome emits one access entry
+  ---
+  duration_ms: 524.502571
+  type: 'test'
+  ...
+# Subtest: monitoring endpoints and HTML requests do not duplicate visits or log themselves
+ok 41 - monitoring endpoints and HTML requests do not duplicate visits or log themselves
+  ---
+  duration_ms: 412.418923
+  type: 'test'
+  ...
+# Subtest: public ingestion cannot forge critical records, leak extra fields, exceed limits or accept foreign origins
+ok 42 - public ingestion cannot forge critical records, leak extra fields, exceed limits or accept foreign origins
+  ---
+  duration_ms: 90.618415
+  type: 'test'
+  ...
+# Subtest: old self-event files remain intact but are omitted from viewer results; audit history remains readable
+ok 43 - old self-event files remain intact but are omitted from viewer results; audit history remains readable
+  ---
+  duration_ms: 268.753956
+  type: 'test'
+  ...
+# Subtest: status filters use the same canonical category as the visible status badge
+ok 44 - status filters use the same canonical category as the visible status badge
+  ---
+  duration_ms: 251.719709
+  type: 'test'
+  ...
+1..44
+# tests 44
+# suites 0
+# pass 41
+# fail 0
+# cancelled 0
+# skipped 3
+# todo 0
+# duration_ms 7604.77853

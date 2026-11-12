@@ -1,4 +1,5 @@
 import '../config/env.js'
+import { createDebugSettings } from './debug-settings.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { Worker } from 'node:worker_threads'
 import { randomUUID } from 'node:crypto'
@@ -6,6 +7,7 @@ import path from 'node:path'
 import { writeSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { isMonitoringRequest, safeEndpoint, safePage } from '../../../shared/monitoring.js'
+import { safeFailureFacts, checkoutFacts, checkoutPaymentFacts, adminActionFacts } from './event-facts.js'
 import { categories, sanitize } from './sanitize.js'
 
 export const logContext = new AsyncLocalStorage()
@@ -19,7 +21,10 @@ export const logConfig = {
 let durableStore
 export function configureDurableLogging(store) { durableStore = store }
 export async function persistCriticalLogs() { await durableStore?.flushPending() }
-export async function startCriticalOutbox() { await durableStore?.start() }
+export async function startCriticalOutbox() {
+  try { await initializeDebugSettings() } catch { /* Default OFF if optional settings cannot be opened. */ }
+  await durableStore?.start()
+}
 export async function outboxHealth() { return durableStore ? durableStore.health() : { enabled: false, available: false } }
 export function reportRecordUndelivered(category, entry, reason) { fallback(category, entry, reason) }
 export async function deliverOutboxRecord(category, entry, options) { return workerCall('deliver', { category, record: entry, ...options }) }
@@ -44,7 +49,8 @@ const workerOptions = () => ({ workerData: logConfig, execArgv: process.execArgv
 export function prepareLogRecord(category, event, details = {}) {
   const context = logContext.getStore()
   const req = context?.req
-  return { ...sanitize({ ...details, event, requestId: context?.id,
+  const failure = details.status === 'failure' || details.status === 'failed' || Number(details.httpStatus) >= 400 || category === 'error'
+  return { ...sanitize({ ...(failure ? { failureReason: context?.accessError?.failureReason, code: context?.accessError?.code } : {}), ...details, event, requestId: context?.id,
     actorId: req?.session?.adminUser?.id || req?.customer?.id || req?.partner?.id || details.actorId,
     ip: req?.ip || details.ip }), eventId: randomUUID(), timestamp: new Date().toISOString() }
 }
@@ -209,12 +215,48 @@ export function monitoringState() {
     dropped, failed, emergency, emergencyFailed, emergencyPending: emergencyQueue.length, prunedFiles, prunedBytes, repairedTails, degraded: Boolean(dropped || failed || emergency),
     retentionDays: logConfig.retentionDays, maxBytes: logConfig.maxBytes }
 }
-export function setDebug(enabled, minutes = 15) {
+let debugSettings, settingsReady
+function applyDebugState(state) {
   clearTimeout(expiryTimer)
-  debugUntil = enabled ? Date.now() + positive(minutes, 15, 1, 60) * 60000 : 0
-  debugGeneration = randomUUID()
-  publishDebugState()
-  if (enabled) { expiryTimer = setTimeout(publishDebugState, Math.max(1, debugUntil - Date.now())); expiryTimer.unref() }
+  const changed = debugUntil !== state.until || debugGeneration !== state.generation
+  debugUntil = state.until
+  debugGeneration = state.generation
+  if (changed) publishDebugState()
+  if (debugUntil > Date.now()) { expiryTimer = setTimeout(publishDebugState, Math.max(1, debugUntil - Date.now())); expiryTimer.unref() }
+}
+export async function initializeDebugSettings() {
+  if (!settingsReady) settingsReady = createDebugSettings(`${logConfig.directory}.settings`, applyDebugState).then(store => { debugSettings = store }).catch(error => { settingsReady = undefined; throw error })
+  await settingsReady
+}
+export async function changeDebugSettings(enabled, minutes = 15) {
+  try {
+    // Journal intent before the filesystem change. A process interruption can
+    // leave an unconfirmed attempt, but cannot silently apply an unaudited
+    // enable. Completion is recorded separately only after the synced save.
+    const intent = prepareLogRecord('audit', 'debug.change.requested', { status: 'pending', enabled: Boolean(enabled) })
+    if (logContext.getStore()) logContext.getStore().auditRecorded = true
+    let recorded
+    if (durableStore?.enabled) recorded = await durableStore.append('audit', intent)
+    else {
+      try { await deliverOutboxRecord('audit', intent); recorded = true }
+      catch { reportRecordUndelivered('audit', intent, 'debug-intent-storage-unavailable'); recorded = false }
+    }
+    if (!recorded && enabled) throw Object.assign(new Error('Critical audit storage is unavailable.'), { code: 'DEBUG_AUDIT_UNAVAILABLE' })
+    await initializeDebugSettings()
+    await debugSettings.save(enabled, positive(minutes, 15, 1, 60))
+  } catch (error) {
+    const failureReason = error.code === 'DEBUG_AUDIT_UNAVAILABLE' ? 'debug_audit' : ['EACCES', 'EPERM'].includes(error.code) ? 'debug_permissions' : error.code === 'ENOSPC' ? 'debug_disk_full' : 'debug_storage'
+    log('audit', 'debug.change.failed', { status: 'failure', failureReason })
+    await persistCriticalLogs()
+    throw new Error('The debug setting could not be saved. Check monitoring storage and permissions.')
+  }
+  log('audit', enabled ? 'debug.enabled' : 'debug.disabled', { debugUntil: monitoringState().debugUntil })
+  return monitoringState()
+}
+// In-memory control retained for isolated instrumentation tests. Admin actions use
+// changeDebugSettings, which persists the deadline before reporting success.
+export function setDebug(enabled, minutes = 15) {
+  applyDebugState({ until: enabled ? Date.now() + positive(minutes, 15, 1, 60) * 60000 : 0, generation: randomUUID() })
   log('audit', enabled ? 'debug.enabled' : 'debug.disabled', { debugUntil: monitoringState().debugUntil })
   return monitoringState()
 }
@@ -247,11 +289,44 @@ export async function workerCall(type, query = {}) {
   })
 }
 export function requestLogging(req, res, next) {
-  const context = { req, id: randomUUID(), telemetryRequest: String(req.originalUrl || req.url || '').startsWith('/api/v1/monitoring/') }
+  const context = { req, id: randomUUID(), adminAction: ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) ? adminActionFacts(req.originalUrl || req.url) : {}, telemetryRequest: String(req.originalUrl || req.url || '').startsWith('/api/v1/monitoring/') }
   const silent = isMonitoringRequest(req.originalUrl || req.url)
   const pathname = String(req.originalUrl || req.url || '').split('?')[0]
   const apiRequest = pathname.startsWith('/api/') || pathname.includes('/api/')
   if (apiRequest && !silent) res.setHeader?.('X-Tokri-Request-Id', context.id)
+  if (apiRequest && !silent && typeof res.json === 'function') {
+    const json = res.json
+    res.json = function (body) {
+      // Inspect only approved scalar facts; never serialize a response/body.
+      try {
+        if (req.session?.adminUser && context.adminAction.model && !context.adminAction.resourceId) {
+          const id = body?.record?.id || body?.record?.params?.id
+          if (typeof id === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(id)) context.adminAction.resourceId = id
+        }
+        if (req.session?.adminUser && context.adminAction.model && (body?.notice?.type === 'error' || body?.record?.errors && Object.keys(body.record.errors).length)) {
+          context.accessOutcome = 'failure'
+          context.accessError = { ...context.accessError, ...(body?.record?.errors && Object.keys(body.record.errors).length ? { failureReason: 'admin_validation' } : safeFailureFacts(body.notice)) }
+        }
+        if (res.statusCode >= 400) {
+          const facts = safeFailureFacts(body)
+          context.accessError = { ...context.accessError, ...facts }
+          if (facts.failureReason) res.setHeader('X-Tokri-Failure-Reason', facts.failureReason)
+        } else if (/\/checkout\/(?:quote|preview-coupon)$/.test(pathname)) context.accessFacts = checkoutFacts(body)
+        else if (req.method === 'POST' && pathname.startsWith('/api/v1/checkout/')) {
+          context.accessFacts = { ...checkoutFacts(body), ...checkoutPaymentFacts(body) }
+          // A successful confirmation handler has already resolved this order
+          // for the authenticated customer. Some failed-provider responses omit
+          // the order reference, so retain its validated application format.
+          if (context.accessFacts.paymentStatus && !context.accessFacts.orderNo && /^TKR\d{8,20}$/.test(req.body?.orderNo || '')) context.accessFacts.orderNo = req.body.orderNo
+          if (context.accessFacts.paymentStatus === 'failed') context.accessOutcome = 'failure'
+          else if (context.accessFacts.paymentStatus === 'pending') context.accessOutcome = 'pending'
+          if (context.accessOutcome) res.setHeader('X-Tokri-Operation-Status', context.accessOutcome)
+          if (context.accessFacts.failureReason) res.setHeader('X-Tokri-Failure-Reason', context.accessFacts.failureReason)
+        }
+      } catch { /* Observation must never change the response. */ }
+      return Reflect.apply(json, this, arguments)
+    }
+  }
   logContext.run(context, () => {
     const start = performance.now()
     let completed = false
@@ -262,12 +337,12 @@ export function requestLogging(req, res, next) {
       const status = aborted ? 499 : res.statusCode
       const route = safeEndpoint(pathname) || req.route?.path || '[other endpoint]'
       if (req.session?.adminUser && !context.auditRecorded && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-        log('audit', 'admin.action', { method: req.method, route, status: status < 400 ? 'success' : 'failure' })
+        log('audit', 'admin.action', { ...context.adminAction, ...context.accessError, method: req.method, route, status: context.accessOutcome || (status < 400 ? 'success' : 'failure') })
       }
       if (apiRequest || context.accessSummary) {
         context.accessFinalized = true
         const summary = context.accessSummary
-        const fields = { ...context.accessError, ...summary?.details, method: req.method, route, httpStatus: status, status: summary?.details?.status || status, durationMs: Math.round(performance.now() - start) }
+        const fields = { ...(req.session?.adminUser ? context.adminAction : {}), ...context.accessFacts, ...(status >= 400 || context.accessOutcome === 'failure' ? context.accessError : {}), ...summary?.details, method: req.method, route, httpStatus: status, status: context.accessOutcome || summary?.details?.status || status, durationMs: Math.round(performance.now() - start) }
         log('api', summary?.event || (aborted ? 'request.aborted' : 'request.completed'), fields)
         log('debug', 'request.timing', fields)
       } else if (status >= 400 && req.method === 'GET' && String(req.headers.accept || '').includes('text/html')) {
@@ -282,6 +357,7 @@ export function requestLogging(req, res, next) {
 }
 
 export async function closeMonitoring() {
+  debugSettings?.close(); debugSettings = undefined; settingsReady = undefined
   clearTimeout(expiryTimer)
   closeWebsiteStreams()
   debugSubscribers.clear()
