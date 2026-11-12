@@ -1,6 +1,6 @@
 # Tracking implementation and verification
 
-The implementation is prepared on `marketingdimpal`. It has not been deployed, the production schema has not been changed, and the private environment switches have not been enabled. The supplied credentials were not sent to external services during verification.
+This document records local predeployment verification on `marketingdimpal`. Subsequent production activation and its limited live checks are recorded in [DEPLOYMENT.md](DEPLOYMENT.md). The local tests below did not send supplied credentials to external services.
 
 ## Delivered behavior
 

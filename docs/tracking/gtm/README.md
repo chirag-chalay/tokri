@@ -32,7 +32,7 @@ Meta Pixel and CAPI are supplied by the website/backend implementation and are i
 
 ## Validation and deployment status
 
-The JSON was checked locally for tag/trigger/variable references, embedded template consistency, consent default/update behavior, event allowlisting and exclusion of the actual private CAPI credentials. Scripts also passed lint. It has not been imported into your GTM account; its import preview is the final account-side validation, not a locally simulated result.
+The JSON was checked locally for tag/trigger/variable references, embedded template consistency, consent default/update behavior, event allowlisting and exclusion of the actual private CAPI credentials. Scripts also passed lint. Actual GTM import acceptance was unverified during artifact generation. During subsequent activation the published container was observed with the Tokri configuration; see [DEPLOYMENT.md](../DEPLOYMENT.md). Account-interface reporting remains a separate check.
 
 Importing a container does not deploy the website/backend or apply the required database migration. If Preview shows no events while tracking flags are disabled or the code is not deployed, that is expected. Follow [SETUP_GUIDE.md](../SETUP_GUIDE.md) for release order; do not restart the new backend before applying its schema migration.
 
