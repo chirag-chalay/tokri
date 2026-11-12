@@ -2,7 +2,7 @@ import { Router } from 'express'
 import websiteMonitoring from '../monitoring/website.js'
 import { prisma } from '../lib/prisma.js'
 import { formatPublicSettings } from '../utils/settings.js'
-import { formatCategory, formatProduct, formatPage, formatBlog, formatBlogSummary } from '../utils/formatters.js'
+import { formatCategory, formatProduct, formatPage, formatBlog, formatBlogSummary, toPublicAssetUrl } from '../utils/formatters.js'
 import { PRODUCT_CATEGORY_INCLUDE, categoryProductWhere } from '../utils/catalog.js'
 import { reverseGeocode } from '../services/geocode.js'
 import authRouter from './auth.js'
@@ -247,7 +247,7 @@ router.get('/reviews', async (_req, res, next) => {
       take: 20,
     })
 
-    res.json(reviews)
+    res.json(reviews.map((review) => ({ ...review, image: toPublicAssetUrl(review.image) })))
   } catch (error) {
     next(error)
   }

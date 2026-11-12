@@ -1,3 +1,4 @@
+import { publicAssetOrigin } from '../../../shared/assets.js'
 import dotenv from 'dotenv'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,16 +16,12 @@ const clientUrl = stripTrailingSlash(process.env.CLIENT_URL || 'http://localhost
 const appUrl = stripTrailingSlash(process.env.APP_URL || clientUrl)
 const apiUrl = stripTrailingSlash(process.env.API_URL || `http://localhost:${port}`)
 
-// Uploads public host. Prefer explicit PUBLIC_ASSET_URL, otherwise same host as API.
-// Staging (server.tokriii.com) and production (tokriii.com) each serve their own /uploads.
-function resolvePublicAssetUrl() {
-  if (process.env.PUBLIC_ASSET_URL) {
-    return stripTrailingSlash(process.env.PUBLIC_ASSET_URL)
-  }
-  return apiUrl
-}
-
-const publicAssetUrl = resolvePublicAssetUrl()
+// Uploads are hosted by the public site; the API may use a separate hostname.
+const publicAssetUrl = publicAssetOrigin({
+  publicAssetUrl: process.env.PUBLIC_ASSET_URL,
+  clientUrl,
+  apiUrl,
+})
 
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map((origin) => stripTrailingSlash(origin.trim())).filter(Boolean)

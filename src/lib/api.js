@@ -1,3 +1,4 @@
+import { normalizeBrowserAsset } from '../../shared/assets.js'
 const FETCH_TIMEOUT_MS = 15000
 
 function stripTrailingSlash(value) {
@@ -156,6 +157,7 @@ export async function downloadOrderInvoice(orderNo, user) {
 
 export function resolveAssetUrl(value) {
   if (!value) return ''
+  value = normalizeBrowserAsset(value, typeof window !== 'undefined' ? window.location.hostname : '')
   let resolved = value
   if (/^(https?:|data:|blob:)/.test(value)) {
     resolved = value

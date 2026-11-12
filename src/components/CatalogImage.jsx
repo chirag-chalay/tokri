@@ -1,8 +1,10 @@
 'use client'
 
+import { normalizeBrowserAsset } from '../../shared/assets.js'
 import { useState } from 'react'
 
 export default function CatalogImage({ src, alt = '', className = '', loading = 'lazy' }) {
+  src = normalizeBrowserAsset(src, typeof window !== 'undefined' ? window.location.hostname : '')
   const [failedSrc, setFailedSrc] = useState('')
 
   if (!src || failedSrc === src) {

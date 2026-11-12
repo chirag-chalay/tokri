@@ -1,29 +1,17 @@
+import { normalizeUploadUrl, normalizeUploadHtml } from '../../../shared/assets.js'
 import { env } from '../config/env.js'
 import { formatCategoryRef, productCategoryList } from './catalog.js'
 
-const KNOWN_UPLOAD_HOSTS = new Set(['tokriii.com', 'www.tokriii.com', 'server.tokriii.com'])
-
 export function toPublicAssetUrl(value) {
   if (!value) return null
-  const raw = String(value)
+  const normalized = normalizeUploadUrl(String(value), env.publicAssetUrl)
+  return normalized.startsWith('/') && !normalized.startsWith('//')
+    ? `${env.publicAssetUrl}${normalized}`
+    : normalized
+}
 
-  // Absolute upload URLs: normalize to the configured public asset host for this environment.
-  if (/^(https?:|data:|blob:)/i.test(raw)) {
-    try {
-      const url = new URL(raw)
-      if (url.pathname.startsWith('/uploads/') && KNOWN_UPLOAD_HOSTS.has(url.hostname)) {
-        return `${env.publicAssetUrl}${url.pathname}${url.search}`
-      }
-    } catch {
-      // keep raw
-    }
-    return raw
-  }
-
-  if (raw.startsWith('/')) {
-    return `${env.publicAssetUrl}${raw}`
-  }
-  return raw
+export function toPublicAssetHtml(value) {
+  return normalizeUploadHtml(value, env.publicAssetUrl)
 }
 
 export function formatProduct(product) {
@@ -37,7 +25,7 @@ export function formatProduct(product) {
     id: product.slug,
     slug: product.slug,
     name: product.name,
-    description: product.description,
+    description: toPublicAssetHtml(product.description),
     price: formatCurrency(priceValue),
     priceValue,
     oldPrice: oldPriceValue ? formatCurrency(oldPriceValue) : null,
@@ -92,7 +80,7 @@ export function formatPage(page) {
   return {
     slug: page.slug,
     title: page.title,
-    body: page.body || '',
+    body: toPublicAssetHtml(page.body) || '',
     updatedAt: page.updatedAt,
   }
 }
@@ -102,7 +90,7 @@ export function formatBlogSummary(post) {
     slug: post.slug,
     title: post.title,
     excerpt: post.excerpt || '',
-    coverImage: post.coverImage || '',
+    coverImage: toPublicAssetUrl(post.coverImage) || '',
     author: post.author || 'Tokriii',
     category: post.category || '',
     publishedAt: post.publishedAt || post.createdAt,
@@ -112,7 +100,7 @@ export function formatBlogSummary(post) {
 export function formatBlog(post) {
   return {
     ...formatBlogSummary(post),
-    body: post.body || '',
+    body: toPublicAssetHtml(post.body) || '',
   }
 }
 

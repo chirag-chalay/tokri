@@ -1,3 +1,4 @@
+import { toPublicAssetHtml } from '../utils/formatters.js'
 import { decimal, money, subtotal } from '../utils/money.js'
 import { prisma } from '../lib/prisma.js'
 import {
@@ -326,7 +327,7 @@ export async function checkoutCouponOffers(
         estimatedSavings,
         applied: eligible && coupon.code === selectedCode,
         reason,
-        knowMoreHtml: coupon.knowMoreHtml || null,
+        knowMoreHtml: toPublicAssetHtml(coupon.knowMoreHtml) || null,
       }
     }),
   )
