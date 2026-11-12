@@ -1,3 +1,4 @@
+import { failureReasons } from './event-facts.js'
 import { Router, json } from 'express'
 import { randomUUID } from 'node:crypto'
 import { env } from '../config/env.js'
@@ -75,6 +76,7 @@ export function createWebsiteMonitoringRouter(client = prisma) {
         if (product) { data.product = product.name; if (page.pagePath === '/product/[product]') data.pagePath = `/product/${product.slug}` }
         const prefix = ['/blog/', '/p/', '/category/'].find(value => page.pagePath.startsWith(value))
         if (prefix && publicPages.has(prefix + row.pageRef)) data.pagePath = prefix + row.pageRef
+        if (Object.hasOwn(failureReasons, row.failureReason)) data.failureReason = row.failureReason
         if (['initial', 'client', 'back_forward'].includes(row.navigationType)) data.navigationType = row.navigationType
         if (Number.isInteger(row.status) && row.status >= 100 && row.status <= 599) data.httpStatus = row.status
         if (['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(row.method)) data.method = row.method
@@ -85,7 +87,7 @@ export function createWebsiteMonitoringRouter(client = prisma) {
         if (['morning', 'express'].includes(row.deliveryOption)) data.deliveryOption = row.deliveryOption
         if (['product image', 'image', 'script', 'stylesheet'].includes(row.resourceKind)) data.resourceKind = row.resourceKind
         if (/^[a-f0-9-]{36}$/i.test(row.relatedRequestId || '')) data.relatedRequestId = row.relatedRequestId
-        data.status = row.event.includes('failed') || row.event === 'frontend.error' || (data.httpStatus >= 400) ? 'failure' : row.event === 'website.navigation' && !data.httpStatus ? 'observed' : 'success'
+        data.status = row.event.includes('failed') || row.event === 'frontend.error' || (data.httpStatus >= 400) ? 'failure' : row.operationStatus === 'pending' ? 'pending' : row.event === 'website.navigation' && !data.httpStatus ? 'observed' : 'success'
         // Never persist client IP, customer identity, cookies, form values, error
         // messages, stack traces, URLs with queries, or arbitrary event metadata.
         logContext.run({ id: randomUUID(), req: {} }, () => log(row.event === 'website.navigation' ? 'website' : 'debug', row.event, data))

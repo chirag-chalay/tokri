@@ -162,9 +162,8 @@ npm run dev
 ## Admin Logs & Monitoring
 
 Open **Logs & Monitoring** in AdminJS. Every request reloads the operator's active
-status and role; only `admin` / `super_admin` may view logs. Only the explicit
-`super_admin` role may enable or disable debug logging; ordinary admins have a
-read-only debug status indicator.
+status and role; only active `admin` / `super_admin` users may view logs or change
+debug logging. Customers, staff and inactive/revoked accounts cannot use controls.
 New access records are separated into `website` (anonymous website visits) and
 `api` (backend requests). The other daily categories are `error`, `audit`, `debug`,
 `payment` and `account`; existing `access` files remain readable in Earlier access
@@ -172,16 +171,42 @@ history. Dates and the viewer use IST; stored event timestamps are
 UTC ISO strings. The read-only viewer supports date/type/status/user ID/order/IP
 and text filters with server-side 50/100-row pages and daily file selection.
 The responsive viewer displays English summaries, approved labeled details and
-Previous/Updated values. It never renders raw event JSON, technical event names
+Previous/Updated values directly in each row, with no collapsed details to open.
+Confirmed failure reasons appear immediately below the description; missing causes
+are explicitly unknown. Search matches the same readable descriptions and facts.
+It never renders raw event JSON, transport paths/methods, technical event names
 or internal identity references. Original masked files remain on the server.
 Current names are resolved in bounded, read-only page lookups; missing amounts,
 names and causes are never inferred from current payment/order state.
 
-Debug starts OFF, supports manual 5/15/30/60-minute activation, stops at expiry and
-resets OFF on restart. Controls require the AdminJS session, same-origin browser
+Debug defaults OFF and supports manual 5/15/30/60-minute activation. Its original
+deadline survives restart and is never extended by restoration; expired settings
+stay OFF. Controls require the AdminJS session, same-origin browser
 metadata and a custom header. The control sits below the profile area and derives
 its Enabled/Disabled status from the server deadline. Enable/disable events are persisted before the
 control response. Payloads, credentials, SQL and raw error stacks are excluded.
+Each control change journals an unconfirmed request before applying the setting,
+then records its outcome. Enabling is refused if the critical intent cannot be
+stored; an interrupted operation never receives an invented success outcome.
+
+The small control file is `${LOG_DIRECTORY}.settings/.debug-settings.json`
+(`server/logs.settings/.debug-settings.json` by default). Its directory must be
+owned by the server user with mode 0700; the atomic, synced file uses 0600.
+Filesystem notifications synchronize server processes sharing this directory;
+the existing status stream updates other admin sessions. Invalid, unsafe or
+expired state fails closed. Separate hosts need shared storage for these controls.
+Ordinary API requests do not perform settings-file reads or writes. Log retention
+does not remove the control file. No database migration is required.
+
+Existing API records now retain allowlisted totals/counts, server-confirmed coupon
+selection and safe failure classifications. No request/response body is serialized.
+Explicit checkout payment failures are interpreted as failed even when HTTP is 200;
+safe outcome/reason headers let optional browser diagnostics reflect that outcome
+without reading sensitive response bodies. Unknown reasons are never inferred from
+status codes or arbitrary provider messages. Historical log files are unchanged.
+Backoffice action metadata also identifies the attempted resource/action without
+storing form values. AdminJS error notices and validation responses remain Failed
+even if their HTTP response is 200; a failed response never implies saved changes.
 
 Both React Router and the Next.js root layout report committed page visits.
 Queries, fragments, private order references and unknown paths are redacted;

@@ -18,6 +18,8 @@ dist-ssr
 # Server
 server/.env
 server/node_modules
+# Private runtime debug controls (deadline/generation), separate from log history.
+server/logs.settings/
 server/uploads/**
 !server/uploads/.gitkeep
 *.sql

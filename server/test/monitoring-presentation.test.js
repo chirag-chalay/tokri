@@ -89,6 +89,7 @@ test('missing, deleted, ambiguous, masked and unavailable identities are never i
   result = await enrichLogRows([{ event: 'admin.login', actorId: 'same-id' }], client)
   assert.equal(result[0].presentation.actor, 'Name not recorded')
   assert.equal(displayText('[REDACTED]'), '')
+  assert.equal(displayText('a@example.com'), '')
   for (const secret of ['9876543210', '4482193650', 'a@example.com', 'Bearer TOPSECRET', 'otp=1234']) assert.ok(!displayText(secret).includes(secret))
 })
 
@@ -109,7 +110,7 @@ test('payment panels distinguish recorded amounts, refunds and missing facts', (
   assert.equal(view.details.find(item => item.label==='Why it failed').value,'The payment account did not have enough funds.')
   view = presentLog({ category: 'payment', event: 'order.payment.updated', status: 'failed', amount: 120000, reason: 'PRIVATE_UNKNOWN_REASON' })
   assert.equal(view.details.find(item => item.label==='Payment amount').value,'Not recorded for this event.')
-  assert.equal(view.details.find(item => item.label==='Why it failed').value,'The recorded information does not explain the cause.')
+  assert.equal(view.details.find(item => item.label==='Why it failed').value,'The action failed, but the system did not record a specific reason.')
   view = presentLog({ category: 'payment', event: 'webhook.received', status: 'refunded', outcome: 'refund.processed', amount: 120000 })
   assert.equal(view.details.find(item => item.label==='Refund amount').value,'₹1,200')
 })
@@ -144,7 +145,7 @@ test('website and API summaries describe recorded facts without invented names o
   assert.equal(view('cart.added', { product: 'Apple Royal Gala' }).description, 'Customer added Apple Royal Gala to cart.')
   assert.match(view('cart.added').description, /name was not recorded/)
   assert.equal(view('website.navigation', { page: 'Checkout', category: 'website', status: 'observed' }).description, 'Customer opened the checkout page.')
-  assert.equal(view('frontend.api.failed', { route: '/api/v1/products/[record]', status: 'failure' }).description, 'Website failed to load a product.')
+  assert.equal(view('frontend.api.failed', { route: '/api/v1/products/[record]', status: 'failure' }).description, 'Product information was requested, but it could not be loaded.')
   for (const event of ['frontend.page.failed', 'frontend.error', 'frontend.promise.failed', 'frontend.resource.failed', 'website.page.ready', 'cart.removed', 'cart.quantity.changed', 'cart.cleared', 'coupon.applied', 'coupon.removed', 'coupon.invalidated', 'delivery.selected', 'customer.session.started', 'customer.session.ended', 'backend.operation.failed']) {
     const summary = view(event, { page: 'Checkout' })
     assert.ok(!summary.description.includes('meaning and impact are not available'), event)
@@ -153,4 +154,25 @@ test('website and API summaries describe recorded facts without invented names o
   }
   assert.equal(view('frontend.api.failed', { status: 'failure' }).result, 'Failed')
   assert.equal(view('website.navigation', { status: 'observed' }).result, 'Successful')
+})
+
+test('cart calculation uses only recorded totals, including nested historical facts', () => {
+  const row = { category: 'api', event: 'request.completed', route: '/api/v1/checkout/quote', method: 'POST', status: 200, data: { totals: { productCount: 4, itemsTotal: 2018, discount: 302.7, grandTotal: 1730.3 }, couponCode: 'DIWALI15' } }
+  const view = presentLog(row)
+  assert.equal(view.description, "Customer's shopping cart total was calculated successfully.")
+  assert.equal(view.context, '')
+  for (const [label, value] of [['Products', '4'], ['Subtotal', '₹2,018'], ['Discount', '₹302.7'], ['Final amount', '₹1,730.3'], ['Coupon', 'DIWALI15']]) assert.equal(view.details.find(item => item.label === label)?.value, value)
+  assert.ok(!view.details.some(item => ['Endpoint', 'Request method'].includes(item.label)))
+  const missing = presentLog({ category: 'api', event: 'request.completed', route: row.route, status: 200 })
+  assert.ok(!missing.details.some(item => item.label === 'Final amount'))
+})
+test('failure descriptions explain confirmed causes and never derive them from status alone', () => {
+  for (const [route, failureReason, phrase] of [['/api/v1/checkout/create-order', 'location_unserviceable', 'not serviceable'], ['/api/v1/auth/verify-otp', 'otp_incorrect', 'did not match'], ['/api/v1/products/[record]', 'product_unavailable', 'no longer available']]) {
+    const view = presentLog({ category: 'api', event: 'request.completed', route, status: 400, failureReason })
+    assert.match(view.details.find(item => item.label === 'Why it failed').value, new RegExp(phrase))
+  }
+  const unknown = presentLog({ category: 'api', event: 'request.completed', route: '/api/v1/checkout/create-order', status: 400, reason: 'PRIVATE_PAYLOAD' })
+  assert.equal(unknown.description, 'Customer could not proceed to checkout.')
+  assert.equal(unknown.details.find(item => item.label === 'Why it failed').value, 'The action failed, but the system did not record a specific reason.')
+  assert.ok(!JSON.stringify(unknown).includes('PRIVATE_PAYLOAD'))
 })

@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma.js'
 import { isSuperAdmin } from './permissions.js'
 import { enrichLogRows } from './monitoring-presentation.js'
 import { categories } from '../monitoring/sanitize.js'
-import { logContext, outboxHealth, persistCriticalLogs, monitoringState, setDebug, workerCall } from '../monitoring/index.js'
+import { logContext, outboxHealth, persistCriticalLogs, monitoringState, changeDebugSettings, workerCall } from '../monitoring/index.js'
 
 export async function monitoringHandler(request, _response, context) {
   // Re-read privileges so revoked/deactivated sessions cannot view logs or enable debug.
@@ -11,9 +11,9 @@ export async function monitoringHandler(request, _response, context) {
   if (!admin?.isActive || !isSuperAdmin(admin)) throw new ForbiddenError('Only active admins may access monitoring.')
   _response?.setHeader?.('Cache-Control', 'no-store')
   const query = request.query || {}
-  const canManageDebug = admin.role === 'super_admin'
+  const canManageDebug = isSuperAdmin(admin)
   if (String(request.method).toLowerCase() === 'post') {
-    if (!canManageDebug) throw new ForbiddenError('Only Super Admins can change debug logging.')
+    if (!canManageDebug) throw new ForbiddenError('Only authorized admins can change debug logging.')
     // Custom pages use the existing authenticated AdminJS transport. Require same-origin
     // browser fetch metadata, plus a non-simple header to prevent cross-site form posts.
     const headers = logContext.getStore()?.req?.headers || request.headers || {}
@@ -22,7 +22,7 @@ export async function monitoringHandler(request, _response, context) {
     }
     const action = request.payload?.action
     if (!['enable', 'disable'].includes(action)) throw new ValidationError({}, { message: 'Invalid debug action.' })
-    setDebug(action === 'enable', request.payload?.minutes)
+    await changeDebugSettings(action === 'enable', request.payload?.minutes)
     await persistCriticalLogs()
   }
   const filters = Object.fromEntries(['date', 'category', 'status', 'user', 'orderId', 'ip', 'search', 'page', 'perPage'].map((key) => [key, String(query[key] || '').slice(0, 100)]))
