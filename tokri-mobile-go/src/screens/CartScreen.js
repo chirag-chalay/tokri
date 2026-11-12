@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native'
-import { Image } from 'expo-image'
+import RemoteImage from '../components/RemoteImage'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import LoadingView from '../components/LoadingView'
@@ -338,7 +338,7 @@ export default function CartScreen({ navigation }) {
           >
             {items.map((item) => (
               <View key={item.slug} style={styles.row}>
-                <Image source={{ uri: resolveAssetUrl(item.image) || item.image }} style={styles.image} contentFit="cover" />
+                <RemoteImage uri={resolveAssetUrl(item.image) || item.image} style={styles.image} />
                 <View style={styles.info}>
                   <Text style={styles.name}>{item.name}</Text>
                   {item.weight ? <Text style={styles.weight}>{item.weight}</Text> : null}
@@ -412,7 +412,11 @@ export default function CartScreen({ navigation }) {
                         <Text style={styles.optionTitle}>
                           {copy.title}
                           {comingSoon ? ' (coming soon)' : ''}
-                          {!comingSoon ? quoteLoading ? ' — Calculating…' : ` — ${formatPrice(copy.deliveryFee)}` : ''}
+                          {!comingSoon
+                            ? quoteLoading && copy.deliveryFee == null
+                              ? ' — Calculating…'
+                              : ` — ${formatPrice(copy.deliveryFee)}`
+                            : ''}
                         </Text>
                         {copy.subtitle ? <Text style={styles.optionSub}>{copy.subtitle}</Text> : null}
                         {copy.minimumMessage ? <Text style={styles.optionSub}>{copy.minimumMessage}</Text> : null}
@@ -440,8 +444,14 @@ export default function CartScreen({ navigation }) {
               <BillRow
                 icon="bicycle-outline"
                 label="Delivery charges"
-                value={quoteLoading ? 'Calculating…' : deliveryCharge > 0 ? formatPrice(deliveryCharge) : 'FREE'}
-                free={!quoteLoading && !deliveryCharge}
+                value={
+                  !quote && quoteLoading
+                    ? 'Calculating…'
+                    : deliveryCharge > 0
+                      ? formatPrice(deliveryCharge)
+                      : 'FREE'
+                }
+                free={Boolean(quote) && !deliveryCharge}
               />
               {selectedQuote?.freeAboveMessage ? (
                 <Text style={styles.freeNudge}>
@@ -475,7 +485,9 @@ export default function CartScreen({ navigation }) {
 
               <View style={styles.grandRow}>
                 <Text style={styles.grandLabel}>Grand total</Text>
-                <Text style={styles.grandValue}>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</Text>
+                <Text style={styles.grandValue}>
+                  {!quote && quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}
+                </Text>
               </View>
 
               {totalSavings > 0 ? (
@@ -533,7 +545,9 @@ export default function CartScreen({ navigation }) {
                 disabled={paying || couponLoading || quoteLoading || !quote || !selectedQuote?.minimumMet}
               >
                 <View>
-                  <Text style={styles.placeAmount}>{quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}</Text>
+                  <Text style={styles.placeAmount}>
+                    {!quote && quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}
+                  </Text>
                   <Text style={styles.placeTotal}>TOTAL</Text>
                 </View>
                 {paying ? (

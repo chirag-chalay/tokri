@@ -10,10 +10,10 @@ import {
   Text,
   View,
 } from 'react-native'
-import { Image } from 'expo-image'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from '../components/Icon'
 import LoadingView from '../components/LoadingView'
+import RemoteImage from '../components/RemoteImage'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { authGet, formatPrice, normalizeOrder } from '../lib/api'
 import { formatOrderWhen, paymentLabel } from '../lib/orders'
@@ -120,7 +120,7 @@ export default function OrdersScreen({ navigation }) {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbs}>
                 {(item.items || []).map((product) => (
                   <View key={product.id || product.slug} style={styles.thumb}>
-                    <Image source={{ uri: product.image }} style={styles.thumbImage} contentFit="cover" />
+                    <RemoteImage uri={product.image} style={styles.thumbImage} />
                   </View>
                 ))}
               </ScrollView>
