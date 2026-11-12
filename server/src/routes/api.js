@@ -9,6 +9,7 @@ import accountRouter from './account.js'
 import checkoutRouter from './checkout.js'
 import appRouter from './app.js'
 import partnerRouter from './partner.js'
+import trackingRouter from './tracking.js'
 
 const router = Router()
 
@@ -35,6 +36,7 @@ router.use('/account', accountRouter)
 router.use('/checkout', checkoutRouter)
 router.use('/app', appRouter)
 router.use('/partner', partnerRouter)
+router.use('/tracking', trackingRouter)
 
 router.get('/geo/reverse', async (req, res, next) => {
   try {

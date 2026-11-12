@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import { trackCommerce } from '../lib/telemetry'
 import { Link, useNavigate } from '../lib/navigation'
 import { ArrowLeft, ChevronRight, Minus, Plus } from 'lucide-react'
 import { useCart } from '../context/CartContext'
@@ -311,6 +313,14 @@ function DesktopCartView({
 }
 
 export default function CartPage() {
+  const seenCart = useRef(false)
+  const trackingCart = useCart()
+  useEffect(() => {
+    if (!seenCart.current && trackingCart.cartItems.length) {
+      seenCart.current = true
+      trackCommerce('view_cart', { items: trackingCart.cartItems })
+    }
+  }, [trackingCart.cartItems])
   const navigate = useNavigate()
   const { hasDeliveryAddress, openPicker } = useAddress()
   const {

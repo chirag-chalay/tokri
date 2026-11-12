@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis
-const CLIENT_GEN = 5
+const CLIENT_GEN = 6
 
 function createPrisma() {
   const client = new PrismaClient({
@@ -17,6 +17,7 @@ function getPrisma() {
     existing?.__tokriClientGen === CLIENT_GEN &&
     existing?.cart &&
     existing?.cartItem &&
+    existing?.trackingDelivery &&
     existing?.deviceToken
   ) {
     return existing

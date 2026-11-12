@@ -1,3 +1,4 @@
+import { trackCommerce } from '../lib/telemetry'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from '../lib/navigation'
 import { useAuth } from '../context/AuthContext'
@@ -74,6 +75,15 @@ export default function OrderSuccessPage() {
     userRef.current = user
     helpersRef.current = { clearCart, refreshFreeDelivery }
   }, [user, clearCart, refreshFreeDelivery])
+
+  useEffect(() => {
+    if (phase !== 'success' || !token || !orderNo) return
+    let cancelled = false
+    authGet(`/tracking/purchase/${encodeURIComponent(orderNo)}`, userRef.current)
+      .then((purchase) => { if (!cancelled) trackCommerce('purchase', purchase, purchase.eventId) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [phase, token, orderNo])
 
   const markConfirmed = (data) => {
     confirmedRef.current = true

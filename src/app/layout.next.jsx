@@ -1,5 +1,5 @@
 import '../index.css'
-import { cookies, headers } from 'next/headers'
+import { headers } from 'next/headers'
 import { indexingEnabled } from '../lib/server/indexing'
 import MarketingConsent from '../components/MarketingConsent'
 
@@ -25,12 +25,6 @@ export async function generateMetadata() {
 }
 
 export default async function RootLayout({ children }) {
-  const requestHeaders = await headers()
-  const hostname = String(requestHeaders.get('host') || '').toLowerCase().split(':')[0]
-  const productionHost = hostname === 'tokriii.com' || hostname === 'www.tokriii.com'
-  const consent = (await cookies()).get('tokriii_marketing_consent')?.value === 'granted'
-  const renderNoScriptPixel = productionHost && consent
-
   return (
     <html lang="en">
       <head>
@@ -39,18 +33,7 @@ export default async function RootLayout({ children }) {
       </head>
       <body>
         <div id="root">{children}<MarketingConsent /></div>
-        {renderNoScriptPixel && (
-          <noscript>
-            <img
-              alt=""
-              height="1"
-              width="1"
-              style={{ display: 'none' }}
-              referrerPolicy="origin"
-              src="https://www.facebook.com/tr?id=891089060757681&ev=PageView&noscript=1"
-            />
-          </noscript>
-        )}
+
       </body>
     </html>
   )

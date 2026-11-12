@@ -1,3 +1,4 @@
+import TrackingProduct from '../components/TrackingProduct'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Clock, Leaf, ShieldCheck } from 'lucide-react'
@@ -154,6 +155,7 @@ export default function ProductDetail() {
 
   return (
     <main className="product-detail bg-canvas pb-16 pt-6">
+      <TrackingProduct product={product} />
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <nav className="mb-6 text-sm text-muted">
           <Link to="/" className="text-mint hover:underline">

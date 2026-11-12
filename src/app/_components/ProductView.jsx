@@ -1,3 +1,4 @@
+import TrackingProduct from '../../components/TrackingProduct'
 import Link from 'next/link'
 import { Clock, Leaf, ShieldCheck } from 'lucide-react'
 import ProductDetailsBlock from '../../components/ProductDetailsBlock'
@@ -18,6 +19,7 @@ export default function ProductView({ product, relatedProducts }) {
 
   return (
     <main className="product-detail bg-canvas pb-16 pt-6">
+      <TrackingProduct product={product} />
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <nav className="mb-6 text-sm text-muted">
           <Link href="/" className="text-mint hover:underline">

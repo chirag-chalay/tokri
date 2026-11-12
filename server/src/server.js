@@ -1,3 +1,4 @@
+import { processTrackingDeliveries } from './services/trackingPurchase.js'
 import express from 'express'
 import cors from 'cors'
 import fs from 'fs'
@@ -161,6 +162,8 @@ async function start() {
       } else {
         console.log(`Storefront dist: ${hasDist ? distPath : 'not found (API-only root)'}`)
       }
+      const deliverTracking = () => processTrackingDeliveries().catch(() => console.error('Tracking delivery processing failed'))
+      setInterval(deliverTracking, 30000).unref()
       const recover = () =>
         recoverPendingOnlinePayments()
           .then((ids) => {

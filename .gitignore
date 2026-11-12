@@ -40,3 +40,6 @@ tokri.sql
 
 # UI Parity Audit Screenshots
 docs/ui-parity-audit/screenshots/
+
+# Isolated tracking verification build
+.next.tracking-verification/

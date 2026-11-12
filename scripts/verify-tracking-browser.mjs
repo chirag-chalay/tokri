@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict'
+import { createServer } from 'vite'
+import react from '@vitejs/plugin-react'
+import { chromium } from 'playwright-core'
+const server = await createServer({ configFile: false, plugins: [react(), { name: 'tracking-harness', configureServer(vite) { vite.middlewares.use(async (req, res, next) => {
+  if (req.url !== '/__tracking-test') return next()
+  res.setHeader('Content-Type', 'text/html')
+  res.end(await vite.transformIndexHtml('/__tracking-test', `<html><body><div id="root"></div><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import Consent, {CookieSettings} from '/src/components/MarketingConsent.jsx';
+import * as tracking from '/src/lib/telemetry.js';
+window.tracking=tracking; createRoot(document.getElementById('root')).render(React.createElement(React.Fragment, null, React.createElement(Consent), React.createElement(CookieSettings))); tracking.installAnalytics(); tracking.trackPageView('/__tracking-test');
+</script></body></html>`))
+}) } }], server: { host: '127.0.0.1', port: 15434, strictPort: true }, optimizeDeps: { include: ['react', 'react-dom/client'] } })
+let browser
+try {
+  await server.listen()
+  browser = await chromium.launch({ executablePath: process.env.CHROME_BIN || '/home/tokriii/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome', headless: true })
+  const context = await browser.newContext()
+  await context.routeWebSocket('**/*', () => {})
+  const vendors = []
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.hostname === 'www.googletagmanager.com' || url.hostname === 'connect.facebook.net') { vendors.push(url.href); return route.fulfill({ contentType: 'application/javascript', body: '' }) }
+    if (url.hostname !== 'tokriii.com') return route.abort()
+    if (url.pathname === '/api/v1/tracking/config') return route.fulfill({ json: { enabled: true, eventToken: 'test', allowedHosts: ['tokriii.com'], gtm: { enabled: true, containerId: 'GTM-ABC', measurementId: 'G-ABC' }, meta: { enabled: true, pixelId: '123456789' } } })
+    if (url.pathname.startsWith('/api/')) return route.fulfill({ status: 202, body: '' })
+    const response = await route.fetch({ url: `http://127.0.0.1:15434${url.pathname}${url.search}` })
+    return route.fulfill({ response })
+  })
+  const page = await context.newPage()
+  const pageErrors = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+
+  await page.goto('https://tokriii.com/__tracking-test')
+  await page.getByRole('button', { name: 'Allow all', exact: true }).waitFor()
+  assert.equal(vendors.length, 0)
+  await page.getByRole('button', { name: 'Allow all', exact: true }).click()
+  await page.waitForFunction(() => window.dataLayer?.some((event) => event.event === 'page_view') && window.fbq?.queue?.some((event) => event[0] === 'trackSingle'))
+  assert.equal(await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'page_view').length), 1)
+  assert.equal(vendors.length, 2)
+  await page.evaluate(async () => {
+    const purchase = { transactionId: 'fixture-order', items: [{ id: 'apple', name: 'Apple', priceValue: 20, quantity: 1 }] }
+    await window.tracking.trackCommerce('purchase', purchase, '11111111-1111-4111-8111-111111111111')
+    await window.tracking.trackCommerce('purchase', purchase, '11111111-1111-4111-8111-111111111111')
+  })
+  assert.equal(await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'purchase').length), 1)
+  await page.getByRole('button', { name: 'Cookie settings', exact: true }).click()
+  await page.getByRole('button', { name: 'Reject', exact: true }).click()
+  const views = await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'page_view').length)
+  await page.evaluate(() => window.tracking.trackPageView('/shop'))
+  assert.equal(await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'page_view').length), views)
+  await page.reload()
+  await page.waitForFunction(() => window.tracking)
+  assert.equal(await page.getByRole('button', { name: 'Allow all', exact: true }).count(), 0)
+  await context.clearCookies()
+  await page.reload()
+  await page.getByRole('button', { name: 'Analytics only', exact: true }).click()
+  await page.waitForFunction(() => window.dataLayer?.some((event) => event.event === 'page_view'))
+  assert.equal(await page.evaluate(() => typeof window.fbq), 'undefined')
+  assert.deepEqual(pageErrors, [])
+  console.log('Browser consent checks PASS: no pre-consent tags, one acceptance PageView, duplicate purchase suppression, withdrawal, persisted choice, analytics-only isolation.')
+  await context.close()
+} finally { await browser?.close(); await server.close() }

@@ -89,7 +89,7 @@ router.use(async (req, res, next) => {
 
 router.post('/create-order', async (req, res, next) => {
   try {
-    const result = await createCheckoutOrder(req.customer, req.body, {
+    const result = await createCheckoutOrder(req.customer, { ...req.body, tracking: /^Bearer /i.test(req.headers.authorization || '') ? req.body?.tracking : undefined }, {
       ip: req.ip,
       userAgent: req.get('user-agent'),
     })

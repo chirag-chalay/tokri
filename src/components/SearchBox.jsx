@@ -1,3 +1,4 @@
+import { trackSearch } from '../lib/telemetry'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from '../lib/navigation'
 import { Search, X } from 'lucide-react'
@@ -207,6 +208,7 @@ export default function SearchBox({ variant = 'desktop' }) {
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter') trackSearch(query) }}
           onFocus={() => {
             setFocused(true)
             if (query.trim().length >= MIN_CHARS) setOpen(true)

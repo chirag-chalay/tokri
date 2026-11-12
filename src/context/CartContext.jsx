@@ -1,3 +1,4 @@
+import { trackCommerce } from '../lib/telemetry'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { useAddress } from './AddressContext'
@@ -275,6 +276,7 @@ export function CartProvider({ children }) {
     const isTaxable = Boolean(product.isTaxable)
     const gstRate = Number(product.gstRate ?? 0)
     const hsnCode = product.hsnCode || '0808'
+    trackCommerce('add_to_cart', { items: [{ ...product, priceValue, quantity: 1 }] })
     setCartItems((items) => {
       const existing = items.find((item) => item.id === product.id)
       if (existing) {
@@ -316,6 +318,9 @@ export function CartProvider({ children }) {
   }
 
   const updateQuantity = (productId, delta) => {
+    const item = cartItems.find((entry) => entry.id === productId)
+    const change = item ? Math.max(1, item.quantity + delta) - item.quantity : 0
+    if (change) trackCommerce(change > 0 ? 'add_to_cart' : 'remove_from_cart', { items: [{ ...item, quantity: Math.abs(change) }] })
     setCartItems((items) =>
       items
         .map((item) =>
@@ -326,6 +331,8 @@ export function CartProvider({ children }) {
   }
 
   const removeItem = (productId) => {
+    const item = cartItems.find((entry) => entry.id === productId)
+    if (item) trackCommerce('remove_from_cart', { items: [item] })
     setCartItems((items) => items.filter((item) => item.id !== productId))
   }
 

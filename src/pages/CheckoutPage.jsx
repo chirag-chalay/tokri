@@ -1,5 +1,6 @@
+import { checkoutTrackingContext, trackCommerce } from '../lib/telemetry'
 import DiscountDetails from '../components/DiscountDetails'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from '../lib/navigation'
 import { Plus } from 'lucide-react'
 import Swal from 'sweetalert2'
@@ -40,6 +41,14 @@ export default function CheckoutPage() {
     refreshDeliveryQuote,
     refreshFreeDelivery,
   } = useCart()
+
+  const checkoutTracked = useRef(false)
+  useEffect(() => {
+    if (!checkoutTracked.current && cartItems.length) {
+      checkoutTracked.current = true
+      trackCommerce('begin_checkout', { items: cartItems })
+    }
+  }, [cartItems])
 
   const [addresses, setAddresses] = useState([])
   const [selectedAddressId, setSelectedAddressId] = useState('')
@@ -238,7 +247,9 @@ export default function CheckoutPage() {
       if (!currentOption?.minimumMet) {
         throw new Error(currentOption?.minimumMessage || 'This delivery option is not available for this order.')
       }
+      trackCommerce('add_payment_info', { items: cartItems, paymentType: paymentMode })
       const checkout = await authPost('/checkout/create-order', user, {
+        tracking: checkoutTrackingContext(),
         items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
         addressId: selectedAddressId,
         paymentMode,
@@ -255,6 +266,10 @@ export default function CheckoutPage() {
         await authPost('/checkout/confirm-cod', user, { orderNo })
       }
 
+      if (checkout.trackingPurchase) {
+        // Fire after backend confirmation, without delaying order success UI.
+        trackCommerce('purchase', checkout.trackingPurchase, checkout.trackingPurchase.eventId)
+      }
       refreshFreeDelivery?.()
       navigate(`/order/${orderNo}`, {
         replace: true,

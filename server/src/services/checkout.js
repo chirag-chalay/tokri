@@ -1,3 +1,4 @@
+import { captureTrackingContext, enqueuePurchase, purchaseSummary } from './trackingPurchase.js'
 import { subtotal } from '../utils/money.js'
 import { calculateCheckoutPricing } from './pricing.js'
 import { prisma } from '../lib/prisma.js'
@@ -114,7 +115,7 @@ export async function getCheckoutConfig(customer) {
   }
 }
 
-export async function createCheckoutOrder(user, { items: rawItems, addressId, address: addressSnapshot, paymentMode = 'online', couponCode, upiApp, deliveryOption, expectedGrandTotal }, meta = {}) {
+export async function createCheckoutOrder(user, { items: rawItems, addressId, address: addressSnapshot, paymentMode = 'online', couponCode, upiApp, deliveryOption, expectedGrandTotal, tracking }, meta = {}) {
   const sourceItems =
     Array.isArray(rawItems) && rawItems.length > 0
       ? rawItems
@@ -204,6 +205,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     const created = await tx.order.create({
       data: {
         orderNo,
+        ...(captureTrackingContext(tracking) ? { trackingContext: captureTrackingContext(tracking) } : {}),
         customer: { connect: { id: user.id } },
         status: 'pending',
         paymentStatus: 'pending',
@@ -270,6 +272,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
 
   return {
     totals,
+    ...(order.trackingContext ? { trackingPurchase: purchaseSummary({ ...order, items: order.items.map((item) => ({ ...item, product: { slug: cartItems.find((entry) => entry.product.id === item.productId)?.slug } })) }) } : {}),
     order: {
       id: order.id,
       orderNo: order.orderNo,
@@ -317,6 +320,7 @@ async function markOnlineOrderPaid(user, order, razorpayPaymentId) {
 
   const updated = await prisma.order.findUnique({ where: { id: order.id } })
   if (result.count === 0) return updated
+  enqueuePurchase(updated.id).catch(() => console.error('Tracking purchase enqueue failed'))
 
   await clearCart(user.id).catch((error) => console.error('Failed to clear cart:', error))
   notifyOrderStatus(updated, 'paid').catch((error) => console.error('Failed to send push:', error))
@@ -572,6 +576,11 @@ export async function confirmCodOrder(user, { orderNo }) {
 
   if (!order) throw Object.assign(new Error('Order not found.'), { status: 404 })
 
+  if (order.paymentMode !== 'cod') throw Object.assign(new Error('This order is not cash on delivery.'), { status: 400 })
+  if (order.trackingContext && !order.trackingContext.codConfirmed) {
+    await prisma.order.update({ where: { id: order.id }, data: { trackingContext: { ...order.trackingContext, codConfirmed: true, confirmedAt: Date.now() } } })
+  }
+  enqueuePurchase(order.id).catch(() => console.error('Tracking purchase enqueue failed'))
   await clearCart(user.id).catch((error) => console.error('Failed to clear cart:', error))
   notifyOrderStatus(order, order.status || 'pending').catch((error) =>
     console.error('Failed to send push:', error),

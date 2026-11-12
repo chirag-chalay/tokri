@@ -205,6 +205,7 @@ model CouponRedemption {
 }
 
 model Order {
+  trackingContext Json?
   id                     String           @id @default(cuid())
   orderNo                String           @unique
   customerId             String?
@@ -534,4 +535,18 @@ model ProductTax {
   updatedAt    DateTime @updatedAt
 
   @@index([productId])
+}
+
+model TrackingDelivery {
+  id String @id
+  sessionId String?
+  pixelId String
+  payload Json
+  attempts Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  sentAt DateTime?
+  leaseUntil DateTime?
+  createdAt DateTime @default(now())
+  @@index([sessionId])
+  @@index([sentAt, nextAttemptAt])
 }

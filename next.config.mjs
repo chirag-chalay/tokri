@@ -2,6 +2,7 @@ const apiTarget = process.env.TOKRIII_API_PROXY_TARGET || 'http://127.0.0.1:5223
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: process.env.TOKRIII_NEXT_DIST_DIR || '.next',
   pageExtensions: ['next.jsx', 'next.js'],
   images: { disableStaticImages: true },
   async headers() {
