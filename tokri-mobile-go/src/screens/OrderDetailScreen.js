@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Clipboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { Image } from 'expo-image'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from '../components/Icon'
 import LoadingView from '../components/LoadingView'
+import RemoteImage from '../components/RemoteImage'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { authGet, formatPrice, normalizeOrder } from '../lib/api'
 import { formatOrderWhen, paymentLabel, statusLabel } from '../lib/orders'
@@ -100,7 +100,7 @@ export default function OrderDetailScreen({ navigation, route }) {
         </Text>
         {(order.items || []).map((item) => (
           <View key={item.id || item.slug} style={styles.itemRow}>
-            <Image source={{ uri: item.image }} style={styles.itemImage} contentFit="cover" />
+            <RemoteImage uri={item.image} style={styles.itemImage} />
             <View style={styles.itemInfo}>
               <Text style={styles.itemName} numberOfLines={2}>
                 {item.name}

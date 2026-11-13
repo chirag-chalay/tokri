@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Animated, Dimensions, Pressable, ScrollView, Share, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Image } from 'expo-image'
 import LoadingView from '../components/LoadingView'
 import ProductCard from '../components/ProductCard'
+import RemoteImage from '../components/RemoteImage'
 import Icon from '../components/Icon'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { fetchJson, formatPrice, normalizeProduct, resolveAssetUrl } from '../lib/api'
@@ -139,7 +139,7 @@ export default function ProductScreen({ route, navigation }) {
       contentContainerStyle={[styles.content, { paddingBottom: footerHeight + (items.length ? 36 : 4) }]}
     >
       <View>
-        <Image source={{ uri: product.image }} style={styles.image} contentFit="cover" />
+        <RemoteImage uri={product.image} style={styles.image} />
         <View style={[styles.imageBar, { top: insets.top + 10 }]}>
           <Pressable style={styles.roundBtn} onPress={goBack} hitSlop={8}>
             <Icon name="chevron-down" size={22} color="#111827" />
@@ -199,11 +199,10 @@ export default function ProductScreen({ route, navigation }) {
       >
         <View style={styles.previewRow}>
           {previewItems.map((item, index) => (
-            <Image
+            <RemoteImage
               key={item.slug || item.id || index}
-              source={{ uri: resolveAssetUrl(item.image) || item.image }}
+              uri={resolveAssetUrl(item.image) || item.image}
               style={[styles.previewImage, index > 0 && { marginLeft: -14 }]}
-              contentFit="cover"
             />
           ))}
         </View>

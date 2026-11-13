@@ -19,6 +19,7 @@ module.exports = {
     slug: 'tokriii',
     version: '1.0.6',
     orientation: 'portrait',
+    // App icon: website favicon mark (fruit "o") on brand green — used by iOS + Android legacy.
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
     newArchEnabled: true,
@@ -47,6 +48,7 @@ module.exports = {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       versionCode: 9,
       usesCleartextTraffic: true,
+      // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#022c22',
@@ -67,8 +69,9 @@ module.exports = {
       [
         'expo-splash-screen',
         {
+          // Website wordmark (src/assets/tokri-logo.png) — contain keeps aspect ratio.
           image: './assets/splash-icon.png',
-          imageWidth: 280,
+          imageWidth: 260,
           resizeMode: 'contain',
           backgroundColor: '#022c22',
         },

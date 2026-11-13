@@ -112,33 +112,52 @@ export function CartProvider({ children }) {
   if (quoteKeyRef.current !== quoteKey) { quoteKeyRef.current = quoteKey; cartRevision.current += 1 }
   const couponRequest = useRef(0)
   const quoteRequest = useRef(0)
-  const quote = quoteState?.key === quoteKey ? quoteState.data : null
-  const quoteLoading = cart.items.length > 0 && !quote
+  const cartSyncRef = useRef(0)
+  // Exact match required to place order; keep last quote for display while refreshing.
+  const quoteSynced = quoteState?.key === quoteKey ? quoteState.data : null
+  const quote = quoteSynced || (cart.items.length ? quoteState?.data : null) || null
+  const quoteLoading = cart.items.length > 0 && !quoteSynced
 
   useEffect(() => {
-    if (!cart.items.length) { setCoupon(null); return undefined }
-    let ignore = false
-    const quoteId = ++quoteRequest.current
-    const body = {
-      items: cart.items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
-      deliveryOption: rates.option || deliveryOption,
-      couponCode: coupon?.code || null,
-      addressId: selectedAddress?.id,
-      address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
+    if (!cart.items.length) {
+      setCoupon(null)
+      setQuoteState(null)
+      return undefined
     }
-    const request = isLoggedIn && token
-      ? authPost('/checkout/quote', token, body)
-      : postJson('/checkout/quote', body)
-    request.then((data) => {
-      if (ignore) return
-      if (quoteKeyRef.current !== quoteKey || quoteId !== quoteRequest.current) return null
-      setQuoteState({ key: quoteKey, data })
-      if (data.couponStatus?.status === 'removed') { couponRequest.current += 1; setCouponLoading(false); setCoupon(null); setCouponError(data.couponStatus.message) }
-      setQuoteError('')
-    }).catch((error) => {
-      if (!ignore) setQuoteError(error.message || 'Could not calculate delivery charges.')
-    })
-    return () => { ignore = true }
+    let ignore = false
+    const keyAtSchedule = quoteKey
+    const timer = setTimeout(() => {
+      const quoteId = ++quoteRequest.current
+      const body = {
+        items: cart.items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
+        deliveryOption: rates.option || deliveryOption,
+        couponCode: coupon?.code || null,
+        addressId: selectedAddress?.id,
+        address: selectedAddress?.id === 'current' ? selectedAddress : undefined,
+      }
+      const request = isLoggedIn && token
+        ? authPost('/checkout/quote', token, body)
+        : postJson('/checkout/quote', body)
+      request.then((data) => {
+        if (ignore) return
+        if (quoteKeyRef.current !== keyAtSchedule || quoteId !== quoteRequest.current) return null
+        setQuoteState({ key: keyAtSchedule, data })
+        if (data.couponStatus?.status === 'removed') {
+          couponRequest.current += 1
+          setCouponLoading(false)
+          setCoupon(null)
+          setCouponError(data.couponStatus.message)
+        }
+        setQuoteError('')
+      }).catch((error) => {
+        if (!ignore) setQuoteError(error.message || 'Could not calculate delivery charges.')
+      })
+    }, 350)
+    return () => {
+      ignore = true
+      clearTimeout(timer)
+    }
+    // quoteKey already encodes items, delivery option, coupon, address, and auth session.
   }, [quoteKey, token])
 
   const refreshDeliveryQuote = useCallback(async () => {
@@ -373,24 +392,13 @@ export function CartProvider({ children }) {
 
   const addItem = useCallback(
     async (slug, quantity = 1, product) => {
-      if (token) {
-        try {
-          const data = await authPost('/account/cart/items', token, { slug, quantity })
-          const next = stampItems(data.cart?.items || [], product)
-          setCart(next)
-          await persist(next)
-          return next
-        } catch {
-          // Fall back to a local cart so shopping still works.
-        }
-      }
-
       let details = product
       if (!details?.slug) {
         details = await fetchJson(`/products/${encodeURIComponent(slug)}`)
       }
 
-      return applyLocal((items) => {
+      const syncId = ++cartSyncRef.current
+      const next = await applyLocal((items) => {
         const existing = items.find((item) => item.slug === slug)
         if (existing) {
           return items.map((item) =>
@@ -399,47 +407,70 @@ export function CartProvider({ children }) {
         }
         return [...items, toLineItem(details, quantity)]
       })
+
+      if (token) {
+        try {
+          const data = await authPost('/account/cart/items', token, { slug, quantity })
+          if (syncId !== cartSyncRef.current) return next
+          const synced = stampItems(data.cart?.items || [], details)
+          setCart(synced)
+          await persist(synced)
+          return synced
+        } catch {
+          // Keep optimistic local cart.
+        }
+      }
+
+      return next
     },
     [token, persist, applyLocal, stampItems],
   )
 
   const updateQuantity = useCallback(
     async (slug, quantity) => {
-      if (token) {
-        try {
-          const data = await authPatch(`/account/cart/items/${slug}`, token, { quantity })
-          const next = stampItems(data.cart?.items || [])
-          setCart(next)
-          await persist(next)
-          return next
-        } catch {
-          // Fall back locally.
-        }
-      }
-
-      return applyLocal((items) => {
+      const syncId = ++cartSyncRef.current
+      const next = await applyLocal((items) => {
         if (quantity <= 0) return items.filter((item) => item.slug !== slug)
         return items.map((item) => (item.slug === slug ? { ...item, quantity } : item))
       })
+
+      if (token) {
+        try {
+          const data = await authPatch(`/account/cart/items/${slug}`, token, { quantity })
+          if (syncId !== cartSyncRef.current) return next
+          const synced = stampItems(data.cart?.items || [])
+          setCart(synced)
+          await persist(synced)
+          return synced
+        } catch {
+          // Keep optimistic local cart.
+        }
+      }
+
+      return next
     },
     [token, persist, applyLocal, stampItems],
   )
 
   const removeItem = useCallback(
     async (slug) => {
+      const syncId = ++cartSyncRef.current
+      const next = await applyLocal((items) => items.filter((item) => item.slug !== slug))
+
       if (token) {
         try {
           const data = await authDelete(`/account/cart/items/${slug}`, token)
-          const next = stampItems(data.cart?.items || [])
-          setCart(next)
-          await persist(next)
-          return next
+          if (syncId !== cartSyncRef.current) return next
+          const synced = stampItems(data.cart?.items || [])
+          setCart(synced)
+          await persist(synced)
+          return synced
         } catch {
-          // Fall back locally.
+          // Keep optimistic local cart.
         }
       }
 
-      return applyLocal((items) => items.filter((item) => item.slug !== slug))
+      return next
     },
     [token, persist, applyLocal, stampItems],
   )
@@ -528,17 +559,18 @@ export function CartProvider({ children }) {
       cart,
       items: cart.items,
       totalCount: cart.totalCount,
-      grandTotal: quote?.totals?.grandTotal ?? 0,
-      itemsTotal: quote?.totals?.itemsTotal ?? cart.itemsTotal,
-      deliveryCharge: quote?.totals?.deliveryCharge ?? 0,
-      handlingCharge: quote?.totals?.handlingCharge ?? 0,
+      grandTotal: quoteSynced?.totals?.grandTotal ?? quote?.totals?.grandTotal ?? 0,
+      // Local line math updates instantly on qty change; server quote replaces when synced.
+      itemsTotal: quoteSynced?.totals?.itemsTotal ?? cart.itemsTotal,
+      deliveryCharge: quoteSynced?.totals?.deliveryCharge ?? quote?.totals?.deliveryCharge ?? 0,
+      handlingCharge: quoteSynced?.totals?.handlingCharge ?? quote?.totals?.handlingCharge ?? 0,
       quote,
       quoteLoading,
       quoteError,
       refreshDeliveryQuote,
       smallCartCharge: cart.smallCartCharge,
-      discount: quote?.totals?.discount ?? 0,
-      taxTotal: quote?.totals?.taxTotal ?? 0,
+      discount: quoteSynced?.totals?.discount ?? quote?.totals?.discount ?? 0,
+      taxTotal: quoteSynced?.totals?.taxTotal ?? quote?.totals?.taxTotal ?? 0,
       deliveryOption: rates.option || deliveryOption,
       setDeliveryOption: (next) => {
         setDeliveryOption(next)
@@ -577,6 +609,7 @@ export function CartProvider({ children }) {
     [
       cart,
       quote,
+      quoteSynced,
       quoteLoading,
       quoteError,
       refreshDeliveryQuote,

@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useMemo } from 'react'
 import { View } from 'react-native'
-import { useSystemBottomInset } from '../lib/safeArea'
 import Icon from '../components/Icon'
 import HomeScreen from '../screens/HomeScreen'
 import ShopScreen from '../screens/ShopScreen'
@@ -48,14 +47,12 @@ const styles = {
 function Tabs() {
   const { totalCount } = useCart()
   const { colors } = useTheme()
-  const bottom = useSystemBottomInset()
 
+  // Built-in BottomTabBar already applies safe-area insets (height + paddingBottom).
+  // Only theme colours here — never hardcode height / paddingBottom / gesture floors.
   const tabBarStyle = {
     backgroundColor: colors.panel,
     borderTopColor: colors.line,
-    height: 58 + bottom,
-    paddingTop: 6,
-    paddingBottom: 6 + bottom,
   }
 
   return (
