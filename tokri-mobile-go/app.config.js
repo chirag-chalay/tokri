@@ -25,7 +25,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      buildNumber: '8',
+      buildNumber: '9',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -46,7 +46,7 @@ module.exports = {
     },
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
-      versionCode: 9,
+      versionCode: 10,
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
       adaptiveIcon: {
@@ -69,9 +69,9 @@ module.exports = {
       [
         'expo-splash-screen',
         {
-          // Website wordmark (src/assets/tokri-logo.png) — contain keeps aspect ratio.
+          // Square splash (Android 12+ circular mask). Website wordmark fitted inside safe zone.
           image: './assets/splash-icon.png',
-          imageWidth: 260,
+          imageWidth: 280,
           resizeMode: 'contain',
           backgroundColor: '#022c22',
         },
