@@ -9,6 +9,7 @@ let currentPath = null
 let lastPage = null
 let listening = false
 let scrollSent = false
+let analyticsScrollSent = false
 const names = { page_view: 'PageView', view_item: 'ViewContent', search: 'Search', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', add_payment_info: 'AddPaymentInfo', purchase: 'Purchase', scroll_depth: 'Scroll' }
 
 function safePath(path) {
@@ -54,14 +55,22 @@ export function installAnalytics() {
     document.addEventListener(ANALYTICS_CONSENT_UPDATED, consentUpdate)
     document.addEventListener(MARKETING_CONSENT_UPDATED, consentUpdate)
     const recordScroll = (root) => {
-      if (scrollSent || !root || getMarketingConsent() !== 'granted' || !currentPath || !safePath(currentPath)) return
+      if (!root || !currentPath || !safePath(currentPath)) return
       const distance = root.scrollHeight - root.clientHeight
       if (distance <= 0 || root.scrollTop / distance < 0.9) return
-      scrollSent = true
       const path = currentPath
-      void dispatch('scroll_depth', { percent_scrolled: 90 }, undefined, path).then((sent) => {
-        if (!sent && currentPath === path) scrollSent = false
-      }).catch(() => { if (currentPath === path) scrollSent = false })
+      if (!analyticsScrollSent && getAnalyticsConsent() === 'granted') {
+        analyticsScrollSent = true
+        void dispatch('tokri_scroll', { percent_scrolled: 90 }, undefined, path).then((sent) => {
+          if (!sent && currentPath === path) analyticsScrollSent = false
+        }).catch(() => { if (currentPath === path) analyticsScrollSent = false })
+      }
+      if (!scrollSent && getMarketingConsent() === 'granted') {
+        scrollSent = true
+        void dispatch('scroll_depth', { percent_scrolled: 90 }, undefined, path).then((sent) => {
+          if (!sent && currentPath === path) scrollSent = false
+        }).catch(() => { if (currentPath === path) scrollSent = false })
+      }
     }
     window.addEventListener?.('scroll', () => recordScroll(document.scrollingElement), { passive: true })
     document.addEventListener('scroll', (event) => {
@@ -78,10 +87,11 @@ async function dispatch(name, data = {}, eventId = globalThis.crypto?.randomUUID
   if (!analytics && !marketing) return false
   const config = loadedConfig || await installAnalytics()
   if (name === 'scroll_depth' && (!config?.meta.enabled || getMarketingConsent() !== 'granted' || currentPath !== expectedPath)) return false
+  if (name === 'tokri_scroll' && (!config?.gtm.enabled || getAnalyticsConsent() !== 'granted' || currentPath !== expectedPath)) return false
   const safe = safePath(window.location.href)
   if (!config || (!safe && name !== 'purchase')) return false
   const path = safe || '/checkout'
-  if (analytics && getAnalyticsConsent() === 'granted' && config.gtm.enabled) {
+  if (analytics && name !== 'scroll_depth' && getAnalyticsConsent() === 'granted' && config.gtm.enabled) {
     if (!window.__tokriGtm) {
       window.__tokriGtm = config.gtm.containerId
       const command = function () { layer().push(arguments) }
@@ -115,7 +125,7 @@ async function dispatch(name, data = {}, eventId = globalThis.crypto?.randomUUID
   return true
 }
 export async function trackPageView(path) {
-  if (currentPath !== path) scrollSent = false
+  if (currentPath !== path) { scrollSent = false; analyticsScrollSent = false }
   currentPath = path
   const safe = safePath(path)
   if (!safe) { lastPage = null; return }
