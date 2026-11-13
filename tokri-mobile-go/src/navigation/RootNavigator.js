@@ -1,7 +1,9 @@
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { trackScreen } from '../lib/analytics'
+import { useAnalyticsSettings } from '../context/AnalyticsContext'
 import { View } from 'react-native'
 import Icon from '../components/Icon'
 import HomeScreen from '../screens/HomeScreen'
@@ -109,6 +111,19 @@ function Tabs() {
 
 export default function RootNavigator() {
   const { colors, isDark } = useTheme()
+  const navigationRef = useRef(null)
+  const { choice } = useAnalyticsSettings()
+  const screenRef = useRef(null)
+  const reportScreen = () => {
+    const name = navigationRef.current?.getCurrentRoute()?.name
+    if (name && screenRef.current !== name) {
+      screenRef.current = name
+      trackScreen(name)
+    }
+  }
+  useEffect(() => {
+    if (choice) trackScreen(navigationRef.current?.getCurrentRoute()?.name)
+  }, [choice])
   const navTheme = useMemo(
     () => ({
       ...DefaultTheme,
@@ -126,7 +141,7 @@ export default function RootNavigator() {
   )
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme} onReady={reportScreen} onStateChange={reportScreen}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.panel },

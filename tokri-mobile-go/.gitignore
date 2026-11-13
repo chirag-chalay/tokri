@@ -44,3 +44,6 @@ yarn-error.*
 /android
 
 .metro-tmp/
+
+# Environment-specific Firebase app configuration is supplied through EAS file variables.
+/firebase/

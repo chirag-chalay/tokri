@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { authDelete, authGet, authPatch, authPost, authPut, fetchJson, formatPrice, normalizeLineItem, normalizeProduct, postJson, resolveAssetUrl } from '../lib/api'
 import { useAuth } from './AuthContext'
+import { trackCommerce } from '../lib/analytics'
 import { useAddress } from './AddressContext'
 import {
   DEFAULT_DELIVERY,
@@ -397,6 +398,7 @@ export function CartProvider({ children }) {
         details = await fetchJson(`/products/${encodeURIComponent(slug)}`)
       }
 
+      const previousQuantity = itemsRef.current.find((item) => item.slug === slug)?.quantity || 0
       const syncId = ++cartSyncRef.current
       const next = await applyLocal((items) => {
         const existing = items.find((item) => item.slug === slug)
@@ -407,6 +409,10 @@ export function CartProvider({ children }) {
         }
         return [...items, toLineItem(details, quantity)]
       })
+
+      const added = next?.items?.find((item) => item.slug === slug)
+      const delta = (added?.quantity || 0) - previousQuantity
+      if (added && delta > 0) trackCommerce('add_to_cart', [{ ...added, quantity: delta }])
 
       if (token) {
         try {
@@ -428,11 +434,16 @@ export function CartProvider({ children }) {
 
   const updateQuantity = useCallback(
     async (slug, quantity) => {
+      const previous = itemsRef.current.find((item) => item.slug === slug)
       const syncId = ++cartSyncRef.current
       const next = await applyLocal((items) => {
         if (quantity <= 0) return items.filter((item) => item.slug !== slug)
         return items.map((item) => (item.slug === slug ? { ...item, quantity } : item))
       })
+
+      const updated = next?.items?.find((item) => item.slug === slug)
+      const delta = (updated?.quantity || 0) - (previous?.quantity || 0)
+      if (next && previous && delta !== 0) trackCommerce(delta > 0 ? 'add_to_cart' : 'remove_from_cart', [{ ...previous, quantity: Math.abs(delta) }])
 
       if (token) {
         try {
@@ -454,8 +465,10 @@ export function CartProvider({ children }) {
 
   const removeItem = useCallback(
     async (slug) => {
+      const previous = itemsRef.current.find((item) => item.slug === slug)
       const syncId = ++cartSyncRef.current
       const next = await applyLocal((items) => items.filter((item) => item.slug !== slug))
+      if (previous) trackCommerce('remove_from_cart', [previous])
 
       if (token) {
         try {

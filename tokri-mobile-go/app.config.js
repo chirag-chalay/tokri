@@ -1,3 +1,5 @@
+const fs = require('fs')
+
 const LIVE_API = 'https://tokriii.com/api/v1'
 const STAGING_API = 'https://server.tokriii.com/api/v1'
 
@@ -12,6 +14,25 @@ function resolveApiBaseUrl() {
 
 const apiBaseUrl = resolveApiBaseUrl()
 const isStaging = process.env.APP_VARIANT === 'staging'
+// Separate file variables must be configured for each EAS environment.
+const androidFirebase = process.env.GOOGLE_SERVICES_JSON || (!isStaging ? './firebase/production/google-services.json' : null)
+const iosFirebase = process.env.GOOGLE_SERVICE_INFO_PLIST || (!isStaging ? './firebase/production/GoogleService-Info.plist' : null)
+if (process.env.EAS_BUILD && (!androidFirebase || !iosFirebase || !fs.existsSync(androidFirebase) || !fs.existsSync(iosFirebase))) {
+  throw new Error('Firebase files are missing for this app variant. Configure both EAS file variables for the matching environment.')
+}
+if (process.env.EAS_BUILD) {
+  const androidConfig = JSON.parse(fs.readFileSync(androidFirebase, 'utf8'))
+  const iosConfig = require('@expo/plist').default.parse(fs.readFileSync(iosFirebase, 'utf8'))
+  const expectedId = isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app'
+  const androidIds = (androidConfig.client || []).map((client) => client.client_info?.android_client_info?.package_name)
+  const androidProject = androidConfig.project_info?.project_id
+  if (!androidIds.includes(expectedId) || iosConfig.BUNDLE_ID !== expectedId || !androidProject || androidProject !== iosConfig.PROJECT_ID) {
+    throw new Error('Firebase app identifiers or projects do not match the selected build variant.')
+  }
+  if (isStaging && androidProject === 'tokriii-ec2de') {
+    throw new Error('The staging app must not use the production Firebase project.')
+  }
+}
 
 module.exports = {
   expo: {
@@ -25,6 +46,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
+      ...(iosFirebase ? { googleServicesFile: iosFirebase } : {}),
       buildNumber: '8',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
@@ -46,6 +68,7 @@ module.exports = {
     },
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
+      ...(androidFirebase ? { googleServicesFile: androidFirebase } : {}),
       versionCode: 9,
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
@@ -64,6 +87,9 @@ module.exports = {
       },
     },
     plugins: [
+      '@react-native-firebase/app',
+      '@react-native-firebase/analytics',
+      ['expo-build-properties', { android: { minSdkVersion: 24, kotlinVersion: '2.4.0' }, ios: { useFrameworks: 'dynamic' } }],
       './plugins/withUpiApps',
       'expo-sharing',
       [

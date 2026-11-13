@@ -17,6 +17,7 @@ import { useSystemBottomInset } from '../lib/safeArea'
 import Icon from '../components/Icon'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import { useAnalyticsSettings } from '../context/AnalyticsContext'
 import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'
 import { useScrollFocusedInput } from '../lib/keyboard'
@@ -73,6 +74,7 @@ export default function AccountScreen({ navigation }) {
   const insets = useSafeAreaInsets()
   const bottomInset = useSystemBottomInset()
   const { user, isLoggedIn, logout, updateProfile } = useAuth()
+  const { showAnalyticsChoice } = useAnalyticsSettings()
   const { mode, setMode, colors, isDark } = useTheme()
   const styles = useThemedStyles(createStyles)
   const { setCart } = useCart()
@@ -222,6 +224,7 @@ export default function AccountScreen({ navigation }) {
 
         <Text style={styles.section}>Other information</Text>
         <View style={styles.block}>
+          <Row icon="shield-checkmark-outline" label="App analytics preference" onPress={showAnalyticsChoice} />
           <Row icon="share-outline" label="Share the app" onPress={shareApp} />
           <Row
             icon="book-outline"

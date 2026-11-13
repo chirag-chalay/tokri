@@ -6,6 +6,7 @@ import { CartProvider } from './src/context/CartContext'
 import { AddressProvider } from './src/context/AddressContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import RootNavigator from './src/navigation/RootNavigator'
+import { AnalyticsProvider } from './src/context/AnalyticsContext'
 import AppUpdateGate from './src/components/AppUpdateGate'
 
 function AppShell() {
@@ -25,6 +26,7 @@ export default function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <ThemeProvider>
+        <AnalyticsProvider>
         <AuthProvider>
           <AddressProvider>
             <CartProvider>
@@ -32,6 +34,7 @@ export default function App() {
             </CartProvider>
           </AddressProvider>
         </AuthProvider>
+        </AnalyticsProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   )

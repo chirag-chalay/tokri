@@ -9,6 +9,7 @@ import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { fetchJson, formatPrice, normalizeProduct, resolveAssetUrl } from '../lib/api'
 import { useSystemBottomInset } from '../lib/safeArea'
 import { useCart } from '../context/CartContext'
+import { trackCommerce } from '../lib/analytics'
 
 export default function ProductScreen({ route, navigation }) {
   const { colors } = useTheme()
@@ -39,6 +40,7 @@ export default function ProductScreen({ route, navigation }) {
         const normalized = normalizeProduct(data)
         if (ignore) return
         setProduct(normalized)
+        trackCommerce('view_item', [{ ...normalized, quantity: 1 }])
 
         const cat = normalized.categoryId || normalized.category?.slug
         try {

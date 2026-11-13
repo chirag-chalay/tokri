@@ -93,6 +93,14 @@ The owner has chosen to test directly against the live app destinations instead 
 
 `tokri-mobile-go/src/lib/trackingCommerce.js` now prepares validated, allowlisted browse/cart payloads using product slugs. It does not send events, register an SDK, or implement purchases; catalog slug matching still needs verification. Focused Node tests cover normal payloads and invalid data. Firebase/Meta event integration remains incomplete.
 
+### Google-only implementation — 13 November 2026
+
+The owner deferred Meta and selected production Google testing. Firebase files supplied locally match project `tokriii-ec2de` and the production Android/iOS identifier `com.tokriii.app`. They are excluded from Git. EAS builds must provide file variables `GOOGLE_SERVICES_JSON` and `GOOGLE_SERVICE_INFO_PLIST` for each EAS environment; production and preview require the production files. Staging requires separately registered staging files in a non-production Firebase project and fails configuration otherwise. Never put Firebase app configuration in a secret-bearing commit; app config files are not server credentials.
+
+Implemented Firebase app/analytics SDK 27.0.0, native default-off analytics/ad consent settings, Android minimum SDK 24 and Kotlin 2.4.0, iOS dynamic frameworks, and EAS Node 24.12.0. Google analytics opt-in and withdrawal are available in the app; ad storage and personalization remain denied. Screen changes, loaded product views and user cart additions/removals are instrumented, subject to valid item data and consent. Purchase, search, checkout and other planned events are not complete. Existing web tracking and live checkout have not been changed. Test events use the production property when the owner tests the production build.
+
+Verification: Expo Doctor 20/20; focused commerce payload tests pass; Android and iOS JS exports pass; Android native project generation succeeds with minSdk 24, Kotlin 2.4.0 and the Google Services plugin; production config validation succeeds and staging rejects missing/production files. These checks are not native builds or evidence of provider receipt. Android/iOS native builds, real-device consent/withdrawal and DebugView checks, production reporting impact and purchase contract/recovery remain outstanding. npm under Node 22 warned that Firebase JS transitive dependencies require Node 24.12.0; EAS profile node version is configured accordingly but not validated in an EAS build. The post-install npm audit reported 15 advisories (5 moderate, 9 high, 1 critical); assess before release. App publisher builds/uploads, with no PM2 deployment for this mobile code.
+
 ## 5. Stage 2 — environment configuration and collection controls
 
 **M/P register accounts and app variants; D configures and verifies.**
