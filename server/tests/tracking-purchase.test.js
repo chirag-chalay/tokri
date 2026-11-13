@@ -18,6 +18,18 @@ test('confirmed COD and later paid collection share one immutable purchase', asy
   assert.equal(purchaseSummary(o).items[0].discount, 3)
   assert.equal(JSON.stringify([...stored.values()]).includes('9999999999'), false)
 })
+test('consented purchase includes browser context and a hashed customer ID', async () => {
+  const o = order()
+  o.customer.id = 'customer-fixture'
+  o.trackingContext.match = { fbp: 'fb.1.123.456', fbc: 'fb.1.123.click', client_ip_address: '192.0.2.1', client_user_agent: 'fixture' }
+  let payload
+  const db = { order: { findUnique: async () => o }, trackingDelivery: { createMany: async ({ data }) => { payload = data[0].payload } } }
+  await enqueuePurchase(o.id, { db, config })
+  assert.equal(payload.user_data.fbp, o.trackingContext.match.fbp)
+  assert.equal(payload.user_data.fbc, o.trackingContext.match.fbc)
+  assert.match(payload.user_data.external_id[0], /^[a-f0-9]{64}$/)
+  assert.equal(JSON.stringify(payload.user_data).includes('customer-fixture'), false)
+})
 test('unconfirmed COD, failed online, revoked and wrong-destination orders do not enqueue', async () => {
   const o = order(); let calls = 0
   const db = { order: { findUnique: async () => o }, trackingDelivery: { createMany: async () => calls++ } }

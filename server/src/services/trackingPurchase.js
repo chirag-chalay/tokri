@@ -7,13 +7,19 @@ import { readMetaConversionsConfig, sendMetaConversion } from './metaConversions
 export function purchaseIdentity(id) {
   return createHash('sha256').update(`tokri-purchase:${id}`).digest('hex')
 }
-export function captureTrackingContext(value) {
+export function captureTrackingContext(value, request = {}) {
   const config = getPublicTrackingConfig()
   if (!config.enabled || !value || value.source !== 'web') return undefined
   try {
     const url = new URL(value.url)
     if (url.protocol !== 'https:' || !config.allowedHosts.includes(url.hostname)) return undefined
-    return { source: 'web', analytics: value.analytics === true, marketing: value.marketing === true, pixelId: config.meta.pixelId, version: config.version, url: `${url.origin}/checkout`, consentAt: Date.now() }
+    const marketing = value.marketing === true
+    const match = marketing && request.marketingConsent ? {
+      ...request.attribution,
+      ...(request.ip ? { client_ip_address: String(request.ip).slice(0, 64) } : {}),
+      ...(request.userAgent ? { client_user_agent: String(request.userAgent).slice(0, 512) } : {}),
+    } : undefined
+    return { source: 'web', analytics: value.analytics === true, marketing, pixelId: config.meta.pixelId, version: config.version, url: `${url.origin}/checkout`, consentAt: Date.now(), ...(match ? { match } : {}) }
   } catch { return undefined }
 }
 export function purchaseSummary(order) {
@@ -29,9 +35,10 @@ export async function enqueuePurchase(orderId, { db = prisma, config = readMetaC
   const context = order?.trackingContext
   if (!context?.marketing || context.source !== 'web' || context.pixelId !== config.pixelId || !(order.paymentStatus === 'paid' || (order.paymentMode === 'cod' && context.codConfirmed))) return
   const summary = purchaseSummary(order)
-  const userData = {}
+  const userData = { ...(context.match || {}) }
   if (order.customer?.phone) userData.ph = [createHash('sha256').update(`91${order.customer.phone.replace(/\D/g, '').slice(-10)}`).digest('hex')]
   if (!userData.ph) return
+  if (order.customer?.id) userData.external_id = [createHash('sha256').update(String(order.customer.id)).digest('hex')]
   const payload = { event_name: 'Purchase', event_id: summary.eventId, event_time: Math.floor((context.confirmedAt || order.updatedAt.getTime()) / 1000), action_source: 'website', event_source_url: context.url, user_data: userData, custom_data: { currency: summary.currency, value: summary.value, content_type: 'product', contents: summary.items.map((item) => ({ id: item.id, quantity: item.quantity })) } }
   await db.trackingDelivery.createMany({ data: [{ id: summary.eventId, pixelId: config.pixelId, payload }], skipDuplicates: true })
 }

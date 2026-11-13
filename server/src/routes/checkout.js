@@ -19,6 +19,7 @@ import { previewCoupon } from '../services/coupons.js'
 import { env } from '../config/env.js'
 import { assertAppReleaseAllowed } from '../services/appRelease.js'
 import { quoteCheckoutDelivery } from '../services/deliveryQuote.js'
+import { metaAttribution, cookieValue } from '../utils/metaAttribution.js'
 
 const router = Router()
 router.use((req, res, next) => {
@@ -111,6 +112,8 @@ router.post('/create-order', async (req, res, next) => {
     const result = await createCheckoutOrder(req.customer, { ...req.body, tracking: /^Bearer /i.test(req.headers.authorization || '') ? req.body?.tracking : undefined }, {
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      attribution: metaAttribution(req),
+      marketingConsent: cookieValue(req, 'tokriii_marketing_consent') === 'granted',
     })
     res.status(201).json(result)
   } catch (error) {

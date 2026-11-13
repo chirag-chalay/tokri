@@ -6,10 +6,10 @@ import { prisma } from '../lib/prisma.js'
 import { purchaseSummary } from '../services/trackingPurchase.js'
 import { Router } from 'express'
 import { getPublicTrackingConfig } from '../services/trackingConfig.js'
+import { cookieValue, metaAttribution } from '../utils/metaAttribution.js'
 
 const router = Router()
 const sessions = new Map()
-const cookieValue = (req, name) => String(req.headers.cookie || '').split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1)
 const sessionKey = (token) => createHmac('sha256', env.sessionSecret).update(token).digest('hex')
 
 router.get('/config', (_req, res) => {
@@ -48,7 +48,7 @@ router.post('/events', async (req, res, next) => {
     }
     session.count++
     session.eventIds.push(eventId)
-    await prisma.trackingDelivery.createMany({ skipDuplicates: true, data: { id: eventId, sessionId: sessionKey(token), pixelId: config.pixelId, payload: { event_name: eventName, event_id: eventId, event_time: Math.floor(Date.now() / 1000), action_source: 'website', event_source_url: url.href, user_data: { client_ip_address: req.ip, client_user_agent: String(req.get('user-agent') || '').slice(0, 512) }, custom_data: custom } } })
+    await prisma.trackingDelivery.createMany({ skipDuplicates: true, data: { id: eventId, sessionId: sessionKey(token), pixelId: config.pixelId, payload: { event_name: eventName, event_id: eventId, event_time: Math.floor(Date.now() / 1000), action_source: 'website', event_source_url: url.href, user_data: { client_ip_address: req.ip, client_user_agent: String(req.get('user-agent') || '').slice(0, 512), ...metaAttribution(req) }, custom_data: custom } } })
     return res.sendStatus(202)
   } catch (error) { next(error) }
 })
@@ -68,7 +68,10 @@ router.post('/revoke', (req, res, next) => {
 }, requireCustomer, async (req, res, next) => {
   try {
     const orders = await prisma.order.findMany({ where: { customerId: req.customer.id }, select: { id: true, trackingContext: true } })
-    for (const order of orders) if (order.trackingContext) await prisma.order.update({ where: { id: order.id }, data: { trackingContext: { ...order.trackingContext, marketing: false } } })
+    for (const order of orders) if (order.trackingContext) {
+      const { match: _match, ...context } = order.trackingContext
+      await prisma.order.update({ where: { id: order.id }, data: { trackingContext: { ...context, marketing: false } } })
+    }
     const { purchaseIdentity } = await import('../services/trackingPurchase.js')
     await prisma.trackingDelivery.deleteMany({ where: { id: { in: orders.map((order) => purchaseIdentity(order.id)) }, sentAt: null } })
     res.sendStatus(204)

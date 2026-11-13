@@ -206,7 +206,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     const created = await tx.order.create({
       data: {
         orderNo,
-        ...(captureTrackingContext(tracking) ? { trackingContext: captureTrackingContext(tracking) } : {}),
+        ...(captureTrackingContext(tracking, meta) ? { trackingContext: captureTrackingContext(tracking, meta) } : {}),
         customer: { connect: { id: user.id } },
         status: 'pending',
         paymentStatus: 'pending',
