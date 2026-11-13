@@ -36,7 +36,6 @@ function BillRow({ icon: Icon, label, value, oldValue, badge, free }) {
 export default function BillDetails({
   cartItems = [],
   itemsTotal,
-  taxTotal = 0,
   deliveryCharge,
   handlingCharge,
   discount,
@@ -63,14 +62,6 @@ export default function BillDetails({
           oldValue={itemSavings > 0 ? formatPrice(itemsOriginal) : null}
           badge={itemSavings > 0 ? `Saved ${formatPrice(itemSavings)}` : null}
         />
-        {Number(taxTotal) > 0 ? quote?.totals?.isInterState ? (
-          <BillRow icon={Receipt} label="IGST included" value={formatPrice(quote.totals.igstTotal)} />
-        ) : (
-          <>
-            <BillRow icon={Receipt} label="CGST included" value={formatPrice(quote?.totals?.cgstTotal)} />
-            <BillRow icon={Receipt} label="SGST included" value={formatPrice(quote?.totals?.sgstTotal)} />
-          </>
-        ) : null}
         <BillRow icon={ShoppingBag} label="Cart handling" value={formatPrice(handlingCharge)} />
         <BillRow
           icon={Bike}

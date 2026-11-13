@@ -23,7 +23,6 @@ export default function CheckoutPage() {
   const {
     cartItems,
     itemsTotal,
-    taxTotal,
     deliveryCharge,
     handlingCharge,
     discount,
@@ -495,23 +494,6 @@ export default function CheckoutPage() {
                 <span>Item total</span>
                 <span>{formatPrice(itemsTotal)}</span>
               </div>
-              {taxTotal > 0 ? quote?.totals?.isInterState ? (
-                <div className="flex justify-between">
-                  <span>IGST included</span>
-                  <span>{formatPrice(quote.totals.igstTotal)}</span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex justify-between">
-                    <span>CGST included</span>
-                    <span>{formatPrice(quote?.totals?.cgstTotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>SGST included</span>
-                    <span>{formatPrice(quote?.totals?.sgstTotal)}</span>
-                  </div>
-                </>
-              ) : null}
               <div className="flex justify-between">
                 <span>Cart handling</span>
                 <span>{formatPrice(handlingCharge)}</span>

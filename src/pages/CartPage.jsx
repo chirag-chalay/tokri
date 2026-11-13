@@ -62,7 +62,6 @@ function MobileCartItem({ item, onDecrease, onIncrease }) {
 function MobileCartView({
   cartItems,
   itemsTotal,
-  taxTotal,
   deliveryCharge,
   handlingCharge,
   discount,
@@ -132,7 +131,6 @@ function MobileCartView({
             <BillDetails
               cartItems={cartItems}
               itemsTotal={itemsTotal}
-              taxTotal={taxTotal}
               deliveryCharge={deliveryCharge}
               handlingCharge={handlingCharge}
               discount={discount}
@@ -191,7 +189,6 @@ function MobileCartView({
 function DesktopCartView({
   cartItems,
   itemsTotal,
-  taxTotal,
   deliveryCharge,
   handlingCharge,
   discount,
@@ -278,7 +275,6 @@ function DesktopCartView({
             <BillDetails
               cartItems={cartItems}
               itemsTotal={itemsTotal}
-              taxTotal={taxTotal}
               deliveryCharge={deliveryCharge}
               handlingCharge={handlingCharge}
               discount={discount}
@@ -316,7 +312,6 @@ export default function CartPage() {
   const {
     cartItems,
     itemsTotal,
-    taxTotal,
     deliveryCharge,
     handlingCharge,
     discount,
@@ -334,7 +329,6 @@ export default function CartPage() {
       <MobileCartView
         cartItems={cartItems}
         itemsTotal={itemsTotal}
-        taxTotal={taxTotal}
         deliveryCharge={deliveryCharge}
         handlingCharge={handlingCharge}
         discount={discount}
@@ -350,7 +344,6 @@ export default function CartPage() {
       <DesktopCartView
         cartItems={cartItems}
         itemsTotal={itemsTotal}
-        taxTotal={taxTotal}
         deliveryCharge={deliveryCharge}
         handlingCharge={handlingCharge}
         discount={discount}
