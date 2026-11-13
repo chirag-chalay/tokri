@@ -8,10 +8,10 @@ import {
   Text,
   View,
 } from 'react-native'
-import { Image } from 'expo-image'
 import AppHeader from '../components/AppHeader'
 import ProductCard from '../components/ProductCard'
 import LoadingView from '../components/LoadingView'
+import RemoteImage from '../components/RemoteImage'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { fetchJson, normalizeCategory, normalizeProduct } from '../lib/api'
 
@@ -134,7 +134,7 @@ export default function HomeScreen({ navigation }) {
               style={styles.catItem}
               onPress={() => openCategory(category.slug)}
             >
-              <Image source={{ uri: category.image }} style={styles.catImage} contentFit="cover" />
+              <RemoteImage uri={category.image} style={styles.catImage} />
               <Text style={styles.catLabel} numberOfLines={2}>
                 {category.label}
               </Text>

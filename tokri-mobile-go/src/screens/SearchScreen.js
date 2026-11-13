@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Image } from 'expo-image'
+import RemoteImage from '../components/RemoteImage'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import ProductCard from '../components/ProductCard'
@@ -165,7 +165,7 @@ export default function SearchScreen({ navigation, route }) {
                 {recent.map((item) => (
                   <Pressable key={item.q} style={styles.chip} onPress={() => run(item.q)}>
                     {item.image ? (
-                      <Image source={{ uri: item.image }} style={styles.chipImage} contentFit="cover" />
+                      <RemoteImage uri={item.image} style={styles.chipImage} />
                     ) : (
                       <View style={styles.chipIcon}>
                         <Icon name="search" size={18} color={colors.muted} />

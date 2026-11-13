@@ -3,7 +3,8 @@ import { log, logDurable } from '../monitoring/index.js'
 import { logError } from '../monitoring/database.js'
 import { optionalCustomer, requireCustomer } from '../middleware/customerAuth.js'
 import {
-  resolveCartItems,
+  partitionCartItems,
+  suggestionsForUnavailable,
   isStoreIntraState,
   completeRazorpayCallback,
   confirmCheckoutPayment,
@@ -39,9 +40,53 @@ router.use((req, res, next) => {
   next()
 })
 
-async function resolvePreviewItems(rawItems) {
-  if (Array.isArray(rawItems) && rawItems.length === 0) return []
-  return resolveCartItems(rawItems)
+async function resolvePreviewPartition(rawItems) {
+  if (Array.isArray(rawItems) && rawItems.length === 0) {
+    return { items: [], unavailableItems: [] }
+  }
+  return partitionCartItems(rawItems)
+}
+
+function emptyQuoteTotals() {
+  return {
+    itemsTotal: 0,
+    taxTotal: 0,
+    deliveryCharge: 0,
+    handlingCharge: 0,
+    discount: 0,
+    grandTotal: 0,
+  }
+}
+
+function emptyQuoteShell(option) {
+  const totals = emptyQuoteTotals()
+  const blankOption = {
+    title: option === 'express' ? 'Same Day Delivery' : 'Morning Delivery',
+    subtitle: '',
+    deliveryFee: 0,
+    deliverySavings: 0,
+    minimumOrderValue: 0,
+    minimumMet: true,
+    minimumMessage: null,
+    freeDeliveryApplied: false,
+    offerRemaining: 0,
+    offerMessage: null,
+    deliveryMessage: null,
+    freeAboveMessage: null,
+    freeAbove: 0,
+    totals,
+  }
+  return {
+    items: [],
+    couponStatus: null,
+    availableCoupons: [],
+    deliveryType: option,
+    options: {
+      morning: option === 'morning' ? blankOption : { ...blankOption, title: 'Morning Delivery', totals: undefined },
+      express: option === 'express' ? blankOption : { ...blankOption, title: 'Same Day Delivery', totals: undefined },
+    },
+    totals,
+  }
 }
 
 // Quote tax jurisdiction follows the same saved address resolution as checkout.
@@ -68,12 +113,22 @@ router.get('/config', optionalCustomer, async (req, res, next) => {
 
 router.post('/quote', optionalCustomer, async (req, res, next) => {
   try {
-    const items = await resolvePreviewItems(req.body?.items)
+    const { items, unavailableItems } = await resolvePreviewPartition(req.body?.items)
+    if (!items.length && !unavailableItems.length) {
+      throw Object.assign(new Error('Your cart is empty.'), { status: 400 })
+    }
     const option = req.body?.deliveryOption === 'express' ? 'express' : 'morning'
-    const quote = await quoteCheckoutDelivery(items, req.customer?.id || null, option, {
-      couponCode: req.body?.couponCode, isInterState: await quoteIsInterState(req),
-    })
-    res.json(quote)
+    const quote = items.length
+      ? await quoteCheckoutDelivery(items, req.customer?.id || null, option, {
+          couponCode: req.body?.couponCode, isInterState: await quoteIsInterState(req),
+        })
+      : emptyQuoteShell(option)
+    const excludeSlugs = [
+      ...items.map((item) => item.slug),
+      ...(Array.isArray(req.body?.items) ? req.body.items.map((row) => row?.slug || row?.id).filter(Boolean) : []),
+    ]
+    const suggestions = await suggestionsForUnavailable(unavailableItems, excludeSlugs, 4)
+    res.json({ ...quote, unavailableItems, suggestions })
   } catch (error) {
     next(error)
   }
@@ -81,7 +136,17 @@ router.post('/quote', optionalCustomer, async (req, res, next) => {
 
 router.post('/preview-coupon', optionalCustomer, async (req, res, next) => {
   try {
-    const items = await resolvePreviewItems(req.body?.items)
+    const { items, unavailableItems } = await resolvePreviewPartition(req.body?.items)
+    if (!items.length) {
+      throw Object.assign(
+        new Error(
+          unavailableItems.length
+            ? 'Those products are no longer available.'
+            : 'Your cart is empty.',
+        ),
+        { status: 400, unavailableItems },
+      )
+    }
     const result = await previewCoupon({
       code: req.body?.code,
       taxOptions: { isInterState: await quoteIsInterState(req) },
@@ -89,7 +154,7 @@ router.post('/preview-coupon', optionalCustomer, async (req, res, next) => {
       customerId: req.customer?.id || null,
       deliveryOption: req.body?.deliveryOption,
     })
-    res.json({ coupon: result.preview, totals: result.totals })
+    res.json({ coupon: result.preview, totals: result.totals, unavailableItems })
   } catch (error) {
     next(error)
   }

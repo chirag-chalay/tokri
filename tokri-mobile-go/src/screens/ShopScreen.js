@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, FlatList, Platform, Pressable, Text, View } from 'react-native'
-import { Image } from 'expo-image'
+import RemoteImage from '../components/RemoteImage'
 import { useRoute } from '@react-navigation/native'
 import ProductCard from '../components/ProductCard'
 import LoadingView from '../components/LoadingView'
@@ -407,7 +407,7 @@ export default function ShopScreen({ navigation }) {
                 <Pressable style={[styles.railItem, active && styles.railActive]} onPress={() => selectCategory(item.slug)}>
                   {active ? <View style={styles.railBar} /> : null}
                   <View style={[styles.railImageWrap, active && styles.railImageActive]}>
-                    <Image source={{ uri: item.image }} style={styles.railImage} contentFit="cover" />
+                    <RemoteImage uri={item.image} style={styles.railImage} />
                   </View>
                   <Text style={[styles.railLabel, active && styles.railLabelActive]} numberOfLines={2}>
                     {item.label}

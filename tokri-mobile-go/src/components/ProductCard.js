@@ -1,9 +1,9 @@
 import { useRef } from 'react'
-import { Image } from 'expo-image'
 import { Alert, Pressable, Text, View } from 'react-native'
 import { useThemedStyles } from '../context/ThemeContext'
 import { formatPrice } from '../lib/api'
 import { useCart } from '../context/CartContext'
+import RemoteImage from './RemoteImage'
 
 function discountPercent(product) {
   const price = Number(product.priceValue)
@@ -52,7 +52,7 @@ export default function ProductCard({ product, onPress, compact = false }) {
     <Pressable ref={cardRef} style={[styles.card, compact && styles.compact]} onPress={open}>
       <View style={styles.imageWrap}>
         {off > 0 ? <Text style={styles.off}>{off}% OFF</Text> : null}
-        <Image source={{ uri: product.image }} style={styles.image} contentFit="cover" />
+        <RemoteImage uri={product.image} style={styles.image} />
       </View>
       <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={2}>
         {product.name}

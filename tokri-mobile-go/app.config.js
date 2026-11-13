@@ -19,12 +19,13 @@ module.exports = {
     slug: 'tokriii',
     version: '1.0.6',
     orientation: 'portrait',
+    // App icon: website favicon mark (fruit "o") on brand green — used by iOS + Android legacy.
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      buildNumber: '8',
+      buildNumber: '11',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -45,8 +46,9 @@ module.exports = {
     },
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
-      versionCode: 9,
+      versionCode: 12,
       usesCleartextTraffic: true,
+      // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#022c22',
@@ -67,10 +69,23 @@ module.exports = {
       [
         'expo-splash-screen',
         {
-          image: './assets/splash-icon.png',
-          imageWidth: 280,
-          resizeMode: 'contain',
+          // Website brand splash (splash-icon.png) on both platforms.
           backgroundColor: '#022c22',
+          image: './assets/splash-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          android: {
+            image: './assets/splash-icon.png',
+            backgroundColor: '#022c22',
+            imageWidth: 200,
+            resizeMode: 'contain',
+          },
+          ios: {
+            image: './assets/splash-icon.png',
+            backgroundColor: '#022c22',
+            imageWidth: 220,
+            resizeMode: 'contain',
+          },
         },
       ],
       '@react-native-community/datetimepicker',

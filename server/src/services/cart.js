@@ -1,8 +1,8 @@
 import crypto from 'crypto'
 import { prisma } from '../lib/prisma.js'
 import { quoteCheckoutDelivery } from './deliveryQuote.js'
-import { formatProduct } from '../utils/formatters.js'
-import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
+import { formatProduct, toPublicAssetUrl } from '../utils/formatters.js'
+import { PRODUCT_CATEGORY_INCLUDE, productCategoryList } from '../utils/catalog.js'
 
 function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status })
@@ -100,13 +100,43 @@ function formatCartItem(item) {
   }
 }
 
+function formatUnavailableFromCartRow(item) {
+  const product = item.product
+  const categories = productCategoryList(product)
+  const primary = categories[0] || null
+  return {
+    slug: product.slug,
+    id: product.slug,
+    name: product.name,
+    image: toPublicAssetUrl(product.image),
+    weight: product.weight || null,
+    quantity: item.quantity,
+    categoryId: primary?.slug || null,
+  }
+}
+
 export async function formatCart(cart) {
-  const activeItems = (cart?.items || []).filter((item) => item.product?.isActive)
+  const rows = cart?.items || []
+  const activeItems = rows.filter((item) => item.product?.isActive)
+  const unavailableItems = rows
+    .filter((item) => item.product && !item.product.isActive)
+    .map(formatUnavailableFromCartRow)
   const items = activeItems.map((item) => ({
     ...formatCartItem(item),
     priceValue: Number(item.product.priceValue),
   }))
-  const { totals } = await quoteCheckoutDelivery(items, cart?.customerId, 'morning')
+  const { totals } = items.length
+    ? await quoteCheckoutDelivery(items, cart?.customerId, 'morning')
+    : {
+        totals: {
+          itemsTotal: 0,
+          taxTotal: 0,
+          deliveryCharge: 0,
+          handlingCharge: 0,
+          discount: 0,
+          grandTotal: 0,
+        },
+      }
 
   return {
     items: items.map(({ id, slug, name, price, priceValue, oldPrice, oldPriceValue, image, weight, quantity, lineTotal, category, stock, isTaxable, gstRate, hsnCode }) => ({
@@ -127,6 +157,7 @@ export async function formatCart(cart) {
       gstRate,
       hsnCode,
     })),
+    unavailableItems,
     ...totals,
   }
 }
@@ -151,28 +182,55 @@ export async function replaceCart(customerId, rawItems) {
   }))
 
   const products = await prisma.product.findMany({
-    where: { slug: { in: normalized.map((item) => item.slug) }, isActive: true },
+    where: { slug: { in: normalized.map((item) => item.slug) } },
+    include: PRODUCT_CATEGORY_INCLUDE,
   })
   const productMap = new Map(products.map((product) => [product.slug, product]))
 
+  // Soft-skip inactive/missing lines so sync stays clean; callers read unavailableItems.
+  const activeEntries = []
+  const skippedUnavailable = []
   for (const entry of normalized) {
-    if (!productMap.has(entry.slug)) {
-      throw httpError(`Product "${entry.slug}" is no longer available.`)
+    const product = productMap.get(entry.slug)
+    if (product?.isActive) {
+      activeEntries.push({ entry, product })
+      continue
+    }
+    if (product) {
+      skippedUnavailable.push(formatUnavailableFromCartRow({ product, quantity: entry.quantity }))
+    } else {
+      skippedUnavailable.push({
+        slug: entry.slug,
+        id: entry.slug,
+        name: entry.slug,
+        image: null,
+        weight: null,
+        quantity: entry.quantity,
+        categoryId: null,
+      })
     }
   }
 
   const cartId = await getOrCreateCartId(customerId)
   await prisma.$executeRaw`DELETE FROM CartItem WHERE cartId = ${cartId}`
 
-  for (const entry of normalized) {
-    const product = productMap.get(entry.slug)
+  for (const { entry, product } of activeEntries) {
     await prisma.$executeRaw`
       INSERT INTO CartItem (id, cartId, productId, quantity)
       VALUES (${newId()}, ${cartId}, ${product.id}, ${entry.quantity})
     `
   }
 
-  return getCart(customerId)
+  const cart = await getCart(customerId)
+  if (!skippedUnavailable.length) return cart
+  const seen = new Set((cart.unavailableItems || []).map((item) => item.slug))
+  return {
+    ...cart,
+    unavailableItems: [
+      ...(cart.unavailableItems || []),
+      ...skippedUnavailable.filter((item) => !seen.has(item.slug)),
+    ],
+  }
 }
 
 export async function addCartItem(customerId, rawItem) {
