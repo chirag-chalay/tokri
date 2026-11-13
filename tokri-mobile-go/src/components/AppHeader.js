@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Animated, Pressable, Text, TextInput, View } from 'react-native'
+import { Alert, Animated, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { useAddress } from '../context/AddressContext'
@@ -20,10 +20,8 @@ export default function AppHeader({ navigation, onSearch, collapseProgress = 0 }
   const styles = useThemedStyles(createStyles)
   const insets = useSafeAreaInsets()
   const { selectedAddress, detectedLabel, addressChosen, openPicker } = useAddress()
-  const [query, setQuery] = useState('')
   const [listening, setListening] = useState(false)
-  const [focused, setFocused] = useState(false)
-  const showHints = !query && !focused && !listening
+  const showHints = !listening
   const anim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
@@ -56,18 +54,20 @@ export default function AppHeader({ navigation, onSearch, collapseProgress = 0 }
     outputRange: [colors.line, colors.brand],
   })
 
-  const submit = (value = query) => {
-    const term = String(value || '').trim()
-    if (!term) return
-    onSearch ? onSearch(term) : navigation.navigate('Search', { q: term })
+  const openSearch = (q = '') => {
+    const term = String(q || '').trim()
+    if (onSearch && term) {
+      onSearch(term)
+      return
+    }
+    navigation.navigate('Search', term ? { q: term } : undefined)
   }
 
   const onMic = async () => {
     try {
       setListening(true)
       const spoken = await listenForSearch()
-      setQuery(spoken)
-      submit(spoken)
+      openSearch(spoken)
     } catch (error) {
       Alert.alert('Voice search', error.message || 'Could not start voice search.')
     } finally {
@@ -117,24 +117,20 @@ export default function AppHeader({ navigation, onSearch, collapseProgress = 0 }
         </View>
       </Animated.View>
 
-      <View style={styles.search}>
+      <Pressable style={styles.search} onPress={() => openSearch()} accessibilityRole="search">
         <Icon name="search" size={18} color={colors.muted} />
-        <TextInput
-          style={styles.input}
-          placeholder=""
-          placeholderTextColor={colors.muted}
-          value={query}
-          onChangeText={setQuery}
-          returnKeyType="search"
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onSubmitEditing={() => submit()}
-        />
+        <View style={styles.input} />
         <SearchPlaceholderSlider visible={showHints} />
-        <Pressable onPress={onMic} hitSlop={8}>
+        <Pressable
+          onPress={(event) => {
+            event?.stopPropagation?.()
+            onMic()
+          }}
+          hitSlop={8}
+        >
           <Icon name={listening ? 'mic' : 'mic-outline'} size={20} color={listening ? colors.brand : colors.mint} />
         </Pressable>
-      </View>
+      </Pressable>
     </Animated.View>
   )
 }

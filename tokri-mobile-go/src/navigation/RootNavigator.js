@@ -18,10 +18,13 @@ import OrderDetailScreen from '../screens/OrderDetailScreen'
 import UpiPaymentScreen from '../screens/UpiPaymentScreen'
 import { useCart } from '../context/CartContext'
 import { useTheme } from '../context/ThemeContext'
+import { useSystemBottomInset } from '../lib/safeArea'
 import AddressPicker from '../components/AddressPicker'
 
 const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
+/** Default tab content is 49; raise this to make the bar taller. */
+const TAB_BAR_EXTRA_HEIGHT = 5
 
 function TabIcon({ name, focused, badge }) {
   const { colors } = useTheme()
@@ -47,12 +50,13 @@ const styles = {
 function Tabs() {
   const { totalCount } = useCart()
   const { colors } = useTheme()
+  const bottomInset = useSystemBottomInset()
 
-  // Built-in BottomTabBar already applies safe-area insets (height + paddingBottom).
-  // Only theme colours here — never hardcode height / paddingBottom / gesture floors.
+  // Total height = UIKit 49 + extra + system home/gesture inset.
   const tabBarStyle = {
     backgroundColor: colors.panel,
     borderTopColor: colors.line,
+    height: 49 + TAB_BAR_EXTRA_HEIGHT + bottomInset,
   }
 
   return (
@@ -99,7 +103,7 @@ function Tabs() {
         component={CartScreen}
         options={{
           tabBarStyle: { display: 'none' },
-          tabBarLabel: totalCount ? `Checkout (${totalCount})` : 'Checkout',
+          tabBarLabel: 'Checkout',
           tabBarIcon: ({ focused }) => <TabIcon name="cart" focused={focused} badge={totalCount > 0} />,
         }}
       />

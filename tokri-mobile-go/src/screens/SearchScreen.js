@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -14,10 +14,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import ProductCard from '../components/ProductCard'
 import Icon from '../components/Icon'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
-import { fetchJson, normalizeProduct, resolveAssetUrl } from '../lib/api'
+import { fetchJson, formatPrice, normalizeProduct, resolveAssetUrl } from '../lib/api'
 import { listenForSearch } from '../lib/voiceSearch'
 
 const RECENT_KEY = 'tokri_recent_searches'
+const MIN_CHARS = 2
+const DEBOUNCE_MS = 300
 
 export default function SearchScreen({ navigation, route }) {
   const { colors } = useTheme()
@@ -26,12 +28,17 @@ export default function SearchScreen({ navigation, route }) {
   const initial = route.params?.q || ''
   const [query, setQuery] = useState(initial)
   const [products, setProducts] = useState([])
+  const [suggestions, setSuggestions] = useState([])
+  const [resultQuery, setResultQuery] = useState('')
+  const [total, setTotal] = useState(0)
   const [topPicks, setTopPicks] = useState([])
   const [bestSellers, setBestSellers] = useState([])
   const [dryFruits, setDryFruits] = useState([])
   const [recent, setRecent] = useState([])
-  const [loading, setLoading] = useState(Boolean(initial))
+  const [loading, setLoading] = useState(false)
   const [listening, setListening] = useState(false)
+  const requestId = useRef(0)
+  const debounceRef = useRef(null)
 
   const openProduct = (slug, origin) => {
     navigation.navigate('Product', { slug, origin })
@@ -45,24 +52,36 @@ export default function SearchScreen({ navigation, route }) {
     await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next)).catch(() => {})
   }
 
-  const run = async (term) => {
+  const runSearch = async (term) => {
     const q = String(term || '').trim()
-    setQuery(q)
-    if (!q) {
+    const id = ++requestId.current
+    if (q.length < MIN_CHARS) {
       setProducts([])
+      setSuggestions([])
+      setResultQuery('')
+      setTotal(0)
       setLoading(false)
       return
     }
     setLoading(true)
     try {
       const data = await fetchJson(`/search?q=${encodeURIComponent(q)}`)
+      if (id !== requestId.current) return
       const list = (data.products || []).map(normalizeProduct)
+      const suggest = (data.suggestions || []).map(normalizeProduct)
       setProducts(list)
-      await remember(q, list[0]?.image)
+      setSuggestions(suggest)
+      setResultQuery(data.query || q)
+      setTotal(Number(data.total) || list.length)
+      await remember(q, list[0]?.image || suggest[0]?.image)
     } catch {
+      if (id !== requestId.current) return
       setProducts([])
+      setSuggestions([])
+      setResultQuery(q)
+      setTotal(0)
     } finally {
-      setLoading(false)
+      if (id === requestId.current) setLoading(false)
     }
   }
 
@@ -91,15 +110,35 @@ export default function SearchScreen({ navigation, route }) {
         setDryFruits(list.slice(0, 6))
       })
       .catch(() => {})
-    if (initial) run(initial)
   }, [])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    const term = query.trim()
+    if (term.length < MIN_CHARS) {
+      setProducts([])
+      setSuggestions([])
+      setResultQuery('')
+      setTotal(0)
+      setLoading(false)
+      return undefined
+    }
+    debounceRef.current = setTimeout(() => runSearch(term), DEBOUNCE_MS)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [query])
+
+  useEffect(() => {
+    const next = route.params?.q
+    if (next != null && String(next) !== query) setQuery(String(next))
+  }, [route.params?.q])
 
   const onMic = async () => {
     try {
       setListening(true)
       const spoken = await listenForSearch()
       setQuery(spoken)
-      run(spoken)
     } catch (error) {
       Alert.alert('Voice search', error.message || 'Could not start voice search.')
     } finally {
@@ -111,6 +150,8 @@ export default function SearchScreen({ navigation, route }) {
     setRecent([])
     AsyncStorage.removeItem(RECENT_KEY).catch(() => {})
   }
+
+  const showBrowse = query.trim().length < MIN_CHARS
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
@@ -127,31 +168,20 @@ export default function SearchScreen({ navigation, route }) {
             placeholderTextColor={colors.muted}
             returnKeyType="search"
             autoFocus
-            onSubmitEditing={() => run(query)}
+            onSubmitEditing={() => runSearch(query)}
           />
+          {query ? (
+            <Pressable onPress={() => setQuery('')} hitSlop={8}>
+              <Icon name="close-circle" size={18} color={colors.muted} />
+            </Pressable>
+          ) : null}
         </View>
         <Pressable style={styles.mic} onPress={onMic}>
           <Icon name={listening ? 'mic' : 'mic-outline'} size={22} color={colors.text} />
         </Pressable>
       </View>
 
-      {loading ? (
-        <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
-      ) : query.trim() ? (
-        <ScrollView contentContainerStyle={styles.results}>
-          {products.length ? (
-            <View style={styles.grid}>
-              {products.map((item) => (
-                <View key={item.slug} style={styles.cardWrap}>
-                  <ProductCard product={item} onPress={openProduct} />
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.empty}>No results for “{query}”</Text>
-          )}
-        </ScrollView>
-      ) : (
+      {showBrowse ? (
         <ScrollView contentContainerStyle={styles.browse} keyboardShouldPersistTaps="handled">
           {recent.length ? (
             <>
@@ -163,7 +193,7 @@ export default function SearchScreen({ navigation, route }) {
               </View>
               <View style={styles.chips}>
                 {recent.map((item) => (
-                  <Pressable key={item.q} style={styles.chip} onPress={() => run(item.q)}>
+                  <Pressable key={item.q} style={styles.chip} onPress={() => setQuery(item.q)}>
                     {item.image ? (
                       <RemoteImage uri={item.image} style={styles.chipImage} />
                     ) : (
@@ -183,6 +213,49 @@ export default function SearchScreen({ navigation, route }) {
           <ProductRow title="Top picks for you" products={topPicks} onProduct={openProduct} />
           <ProductRow title="Bestsellers" products={bestSellers} onProduct={openProduct} />
           <ProductRow title="Dry fruits" products={dryFruits} onProduct={openProduct} />
+        </ScrollView>
+      ) : loading && !products.length && !suggestions.length ? (
+        <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
+      ) : (
+        <ScrollView contentContainerStyle={styles.results} keyboardShouldPersistTaps="handled">
+          {suggestions.length ? (
+            <View style={styles.suggestBlock}>
+              {suggestions.map((item) => (
+                <Pressable
+                  key={`s-${item.slug}`}
+                  style={styles.suggestRow}
+                  onPress={() => openProduct(item.slug)}
+                >
+                  <RemoteImage uri={resolveAssetUrl(item.image) || item.image} style={styles.suggestImage} />
+                  <View style={styles.suggestCopy}>
+                    <Text style={styles.suggestName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    {item.weight ? <Text style={styles.suggestWeight}>{item.weight}</Text> : null}
+                  </View>
+                  <Text style={styles.suggestPrice}>
+                    {item.price || formatPrice(item.priceValue)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          <Text style={styles.resultTitle}>
+            {total > 0
+              ? `Showing results for “${resultQuery || query.trim()}”`
+              : `No products found for “${resultQuery || query.trim()}”`}
+          </Text>
+
+          {products.length ? (
+            <View style={styles.grid}>
+              {products.map((item) => (
+                <View key={item.slug} style={styles.cardWrap}>
+                  <ProductCard product={item} onPress={openProduct} />
+                </View>
+              ))}
+            </View>
+          ) : null}
         </ScrollView>
       )}
     </View>
@@ -234,7 +307,7 @@ const createStyles = (c) => ({
     justifyContent: 'center',
   },
   browse: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 28 },
-  results: { paddingTop: 12, paddingBottom: 28 },
+  results: { paddingTop: 8, paddingBottom: 28 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: c.text, fontSize: 18, fontWeight: '800' },
   clear: { color: c.brand, fontWeight: '700' },
@@ -263,6 +336,37 @@ const createStyles = (c) => ({
   rowBlock: { marginTop: 22 },
   picks: { paddingTop: 12, paddingRight: 8 },
   pickCard: { width: 148, marginRight: 10 },
+  suggestBlock: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: c.line,
+    borderRadius: 14,
+    backgroundColor: c.panel,
+    overflow: 'hidden',
+  },
+  suggestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: c.line,
+  },
+  suggestImage: { width: 36, height: 36, borderRadius: 8, backgroundColor: c.panel2 },
+  suggestCopy: { flex: 1, minWidth: 0 },
+  suggestName: { color: c.mint, fontSize: 14, fontWeight: '600' },
+  suggestWeight: { color: c.muted, fontSize: 11, marginTop: 2 },
+  suggestPrice: { color: c.text, fontSize: 13, fontWeight: '800' },
+  resultTitle: {
+    color: c.text,
+    fontSize: 14,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 3 },
   cardWrap: { width: '50%', paddingHorizontal: 3, marginBottom: 8 },
   empty: { color: c.muted, textAlign: 'center', marginTop: 40 },
