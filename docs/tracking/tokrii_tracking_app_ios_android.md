@@ -80,6 +80,13 @@ Record these inputs in a private handoff. Do not invent answers:
 - [ ] Select and record actual EAS Android/iOS images/toolchains. SDK 58 scene support and an Xcode 27 build SDK do not mean the app supports only iOS 27 devices; verify deployment targets and supported OS versions separately. [Expo build images](https://docs.expo.dev/build-reference/infrastructure/).
 **Handoff to M/P:** dependency/Doctor report and proposed exact versions. **Confirm:** M/P supply the missing Stage 2 configs/access; they do not certify native compatibility from this report.
 
+### Stage 1 implementation record — 13 November 2026
+
+- Starting revision: `e9eb552` on `marketingdimpal`. Added direct `expo-font` and updated the five Expo packages to the SDK 58 compatible patch versions recorded in the mobile lockfile. Existing app identifiers, API settings, native configuration and shopping code were not changed.
+- After installation, `npx expo-doctor` passed 20/20 checks, `npm ls expo-font` showed one deduplicated 58.0.12 version, and `npx expo install --check` reported compatible dependencies. Android JavaScript export passed; this does not establish native build or device compatibility. Expo's installer exited nonzero because it could not automatically modify the dynamic `app.config.js`: its suggested font and status-bar plugins have no effect without options in the installed plugin implementations, so they were not added without a corresponding configuration need.
+- `npm audit --omit=dev` reported 7 advisories (3 moderate, 3 high, 1 critical), including transitive tooling and navigation dependencies. These have not been remediated or assessed as exploitable in the shipped app; review separately before release. Do not run a force upgrade without compatibility review.
+- Firebase/Meta packages, provider configuration and tracking events are not yet installed or implemented. Staging Firebase registrations/files, an isolated Meta test destination, verification of the staging API and the documented native compatibility gates remain open. The app publisher retains responsibility for signed store builds.
+
 ## 5. Stage 2 — environment configuration and collection controls
 
 **M/P register accounts and app variants; D configures and verifies.**
