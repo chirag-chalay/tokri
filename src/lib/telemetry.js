@@ -53,24 +53,31 @@ export function installAnalytics() {
     listening = true
     document.addEventListener(ANALYTICS_CONSENT_UPDATED, consentUpdate)
     document.addEventListener(MARKETING_CONSENT_UPDATED, consentUpdate)
-    window.addEventListener?.('scroll', () => {
-      const root = document.scrollingElement
+    const recordScroll = (root) => {
       if (scrollSent || !root || getMarketingConsent() !== 'granted' || !currentPath || !safePath(currentPath)) return
       const distance = root.scrollHeight - root.clientHeight
       if (distance <= 0 || root.scrollTop / distance < 0.9) return
       scrollSent = true
-      void dispatch('scroll_depth', { percent_scrolled: 90 }).catch(() => {})
-    }, { passive: true })
+      const path = currentPath
+      void dispatch('scroll_depth', { percent_scrolled: 90 }, undefined, path).then((sent) => {
+        if (!sent && currentPath === path) scrollSent = false
+      }).catch(() => { if (currentPath === path) scrollSent = false })
+    }
+    window.addEventListener?.('scroll', () => recordScroll(document.scrollingElement), { passive: true })
+    document.addEventListener('scroll', (event) => {
+      if (event.target?.hasAttribute?.('data-track-scroll')) recordScroll(event.target)
+    }, { capture: true, passive: true })
   }
   configPromise ||= loadTrackingConfig({ hostname: window.location.hostname }).then((config) => { loadedConfig = config; return config })
   return configPromise
 }
-async function dispatch(name, data = {}, eventId = globalThis.crypto?.randomUUID?.()) {
+async function dispatch(name, data = {}, eventId = globalThis.crypto?.randomUUID?.(), expectedPath = null) {
   // Capture consent at the action, never replay denied actions after async config.
   const analytics = getAnalyticsConsent() === 'granted'
   const marketing = getMarketingConsent() === 'granted'
   if (!analytics && !marketing) return false
   const config = loadedConfig || await installAnalytics()
+  if (name === 'scroll_depth' && (!config?.meta.enabled || getMarketingConsent() !== 'granted' || currentPath !== expectedPath)) return false
   const safe = safePath(window.location.href)
   if (!config || (!safe && name !== 'purchase')) return false
   const path = safe || '/checkout'

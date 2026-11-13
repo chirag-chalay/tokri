@@ -102,4 +102,4 @@ At the time of that investigation, scroll depth was not an application event in 
 
 ## Meta scroll tracking
 
-The subsequent scroll change records a custom Meta `Scroll` event once per route when a visitor scrolls 90% of the document, after marketing consent. Pixel and CAPI use the same event name and ID for deduplication. The regular document scroll is tracked; nested scrolling panels are not. A fresh route resets the threshold. GA4 has a separate scroll configuration and the existing GTM container does not include a scroll tag.
+The scroll change records a custom Meta `Scroll` event once per route when a visitor scrolls 90% of the document or the shop's designated product panel, after marketing consent. Both mobile and desktop shop panels are covered. Pixel and CAPI use the same event name and ID for deduplication. A fresh route resets the threshold. GA4 has a separate scroll configuration and the existing GTM container does not include a scroll tag.

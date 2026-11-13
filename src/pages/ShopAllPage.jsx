@@ -729,6 +729,7 @@ export default function ShopAllPage({ initialData }) {
             overflow-clip (not hidden) keeps the box from becoming the scrollport. */}
         <div
           ref={isMobile ? productsScrollRef : null}
+          data-track-scroll={isMobile ? '' : undefined}
           className={isMobile ? 'min-h-0 flex-1 overflow-x-clip overflow-y-auto' : ''}
         >
           <div
@@ -791,6 +792,7 @@ export default function ShopAllPage({ initialData }) {
             {/* Products — the scrolling part of the box on desktop */}
             <section
               ref={isMobile ? null : productsScrollRef}
+              data-track-scroll={isMobile ? undefined : ''}
               className={`min-w-0 flex-1 bg-canvas ${
                 isMobile ? '' : 'min-h-0 overflow-y-auto overscroll-contain'
               }`}

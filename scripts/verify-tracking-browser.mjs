@@ -46,6 +46,22 @@ try {
   await page.waitForFunction(() => window.fbq?.queue?.some((event) => event[0] === 'trackSingleCustom' && event[2] === 'Scroll'))
   await page.evaluate(() => { window.dispatchEvent(new Event('scroll')) })
   assert.equal(await page.evaluate(() => window.fbq.queue.filter((event) => event[0] === 'trackSingleCustom' && event[2] === 'Scroll').length), 1)
+  await page.evaluate(async () => {
+    history.replaceState(null, '', '/shop?category=fruit')
+    await window.tracking.trackPageView('/shop?category=fruit')
+    const panel = document.createElement('div')
+    panel.id = 'scroll-fixture'
+    panel.dataset.trackScroll = ''
+    panel.style.cssText = 'height:100px;overflow:auto'
+    panel.innerHTML = '<div style="height:1000px"></div>'
+    document.body.appendChild(panel)
+    panel.scrollTop = 200
+  })
+  await page.waitForTimeout(100)
+  assert.equal(await page.evaluate(() => window.fbq.queue.filter((event) => event[0] === 'trackSingleCustom' && event[2] === 'Scroll').length), 1)
+  await page.evaluate(() => { document.getElementById('scroll-fixture').scrollTop = 900 })
+  await page.waitForFunction(() => window.fbq.queue.filter((event) => event[0] === 'trackSingleCustom' && event[2] === 'Scroll').length === 2)
+  await page.evaluate(() => { history.replaceState(null, '', '/__tracking-test'); document.getElementById('scroll-fixture').remove() })
   const search = page.getByRole('textbox', { name: 'Search products' })
   await search.fill('apple')
   await page.waitForFunction(() => window.dataLayer?.filter((event) => event.event === 'search' && event.search_term === 'apple').length === 1)
@@ -77,6 +93,6 @@ try {
   await page.waitForFunction(() => window.dataLayer?.some((event) => event.event === 'page_view'))
   assert.equal(await page.evaluate(() => typeof window.fbq), 'undefined')
   assert.deepEqual(pageErrors, [])
-  console.log('Browser consent checks PASS: no pre-consent tags, one acceptance PageView, one 90% Meta Scroll per page, duplicate purchase suppression, withdrawal, persisted choice, analytics-only isolation, automatic search and Enter deduplication.')
+  console.log('Browser checks PASS: consent isolation, 90% document and category-panel scrolls, scroll deduplication, purchase deduplication, and search tracking.')
   await context.close()
 } finally { await browser?.close(); await server.close() }
