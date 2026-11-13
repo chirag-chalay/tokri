@@ -21,25 +21,26 @@ module.exports = {
     slug: 'tokriii-partner',
     version: '1.0.1',
     orientation: 'portrait',
-    icon: './assets/icon.png',
+    // Customer-app fruit mark (from adaptive-icon.png), saved as partner-app-icon.
+    icon: './assets/partner-app-icon-opaque.png',
     userInterfaceStyle: 'light',
     newArchEnabled: true,
     ios: {
       supportsTablet: false,
-      buildNumber: '2',
+      buildNumber: '3',
       bundleIdentifier: isLiveApi ? 'com.tokriii.partner' : 'com.tokriii.partner.staging',
     },
     updates: { enabled: false },
     android: {
       package: isLiveApi ? 'com.tokriii.partner' : 'com.tokriii.partner.staging',
-      versionCode: 2,
+      versionCode: 3,
       usesCleartextTraffic: true,
       adaptiveIcon: {
-        foregroundImage: './assets/adaptive-icon.png',
+        foregroundImage: './assets/partner-app-icon.png',
         backgroundColor: '#022c22',
       },
     },
-    web: { favicon: './assets/favicon.png' },
+    web: { favicon: './assets/partner-app-icon-opaque.png' },
     extra: {
       apiBaseUrl,
       isLiveApi,

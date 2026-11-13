@@ -14,7 +14,6 @@ export default function CartDrawer() {
     cartItems,
     totalCount,
     itemsTotal,
-    taxTotal,
     deliveryCharge,
     handlingCharge,
     discount,
@@ -109,7 +108,6 @@ export default function CartDrawer() {
               <BillDetails
                 cartItems={cartItems}
                 itemsTotal={itemsTotal}
-                taxTotal={taxTotal}
                 deliveryCharge={deliveryCharge}
                 handlingCharge={handlingCharge}
                 discount={discount}
