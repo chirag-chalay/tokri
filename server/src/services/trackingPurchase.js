@@ -38,7 +38,7 @@ export async function enqueuePurchase(orderId, { db = prisma, config = readMetaC
   const userData = { ...(context.match || {}) }
   if (order.customer?.phone) userData.ph = [createHash('sha256').update(`91${order.customer.phone.replace(/\D/g, '').slice(-10)}`).digest('hex')]
   if (!userData.ph) return
-  if (order.customer?.id) userData.external_id = [createHash('sha256').update(String(order.customer.id)).digest('hex')]
+  if (context.match && order.customer?.id) userData.external_id = [createHash('sha256').update(String(order.customer.id)).digest('hex')]
   const payload = { event_name: 'Purchase', event_id: summary.eventId, event_time: Math.floor((context.confirmedAt || order.updatedAt.getTime()) / 1000), action_source: 'website', event_source_url: context.url, user_data: userData, custom_data: { currency: summary.currency, value: summary.value, content_type: 'product', contents: summary.items.map((item) => ({ id: item.id, quantity: item.quantity })) } }
   await db.trackingDelivery.createMany({ data: [{ id: summary.eventId, pixelId: config.pixelId, payload }], skipDuplicates: true })
 }
