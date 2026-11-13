@@ -25,7 +25,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      buildNumber: '9',
+      buildNumber: '10',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -46,7 +46,7 @@ module.exports = {
     },
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
-      versionCode: 10,
+      versionCode: 11,
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
       adaptiveIcon: {
@@ -69,11 +69,24 @@ module.exports = {
       [
         'expo-splash-screen',
         {
-          // Square splash (Android 12+ circular mask). Website wordmark fitted inside safe zone.
-          image: './assets/splash-icon.png',
-          imageWidth: 280,
-          resizeMode: 'contain',
+          // Square canvas + small centered wordmark so Android 12 circular splash mask does not clip.
           backgroundColor: '#022c22',
+          image: './assets/splash-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          // Android 12+ draws splash image inside a circle — use compact mark to avoid side crop.
+          android: {
+            image: './assets/splash-mark.png',
+            backgroundColor: '#022c22',
+            imageWidth: 180,
+            resizeMode: 'contain',
+          },
+          ios: {
+            image: './assets/splash-icon.png',
+            backgroundColor: '#022c22',
+            imageWidth: 220,
+            resizeMode: 'contain',
+          },
         },
       ],
       '@react-native-community/datetimepicker',
