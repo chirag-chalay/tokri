@@ -7,6 +7,7 @@ import LoadingView from '../components/LoadingView'
 import Icon from '../components/Icon'
 import CouponBox from '../components/CouponBox'
 import ProductCard from '../components/ProductCard'
+import UnavailableCartSection from '../components/UnavailableCartSection'
 import RazorpayCheckout from '../components/RazorpayCheckout'
 import PaymentSheet, { PaymentMark, paymentLabel } from '../components/PaymentSheet'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
@@ -62,8 +63,12 @@ export default function CartScreen({ navigation }) {
     quote,
     quoteLoading,
     quoteError,
+    unavailablePanel,
+    dismissUnavailable,
     refreshDeliveryQuote,
   } = useCart()
+  const unavailableItems = unavailablePanel?.items || []
+  const hasCartBody = items.length > 0 || unavailableItems.length > 0
   const [suggested, setSuggested] = useState([])
   const [onlineEnabled, setOnlineEnabled] = useState(false)
   const [codEnabled, setCodEnabled] = useState(true)
@@ -321,7 +326,7 @@ export default function CartScreen({ navigation }) {
       </View>
       {!hydrated ? (
         <LoadingView />
-      ) : !items.length ? (
+      ) : !hasCartBody ? (
         <View style={styles.center}>
           <Icon name="cart-outline" size={42} color={colors.muted} />
           <Text style={styles.empty}>Your cart is empty</Text>
@@ -335,7 +340,15 @@ export default function CartScreen({ navigation }) {
             style={styles.scroller}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
           >
+            <UnavailableCartSection
+              items={unavailableItems}
+              suggestions={unavailablePanel?.suggestions || []}
+              onDismiss={dismissUnavailable}
+              onPressSuggestion={(slug) => navigation.navigate('Product', { slug })}
+            />
+
             {items.map((item) => (
               <View key={item.slug} style={styles.row}>
                 <RemoteImage uri={resolveAssetUrl(item.image) || item.image} style={styles.image} />
@@ -365,7 +378,7 @@ export default function CartScreen({ navigation }) {
               </View>
             ))}
 
-            {suggested.length ? (
+            {items.length > 0 && suggested.length ? (
               <View style={styles.likeSection}>
                 <Text style={styles.likeTitle}>You may also like</Text>
                 <ScrollView
@@ -386,9 +399,9 @@ export default function CartScreen({ navigation }) {
               </View>
             ) : null}
 
-            <CouponBox />
+            {items.length > 0 ? <CouponBox /> : null}
 
-            {selectedAddress ? (
+            {items.length > 0 && selectedAddress ? (
               <View style={styles.optionCard}>
                 <Text style={styles.billTitle}>Delivery option</Text>
                 {['morning', 'express'].map((optionId) => {
@@ -427,6 +440,7 @@ export default function CartScreen({ navigation }) {
               </View>
             ) : null}
 
+            {items.length > 0 ? (
             <View style={styles.billCard}>
               <Text style={styles.billTitle}>Bill details</Text>
               <BillRow
@@ -500,8 +514,10 @@ export default function CartScreen({ navigation }) {
                 </View>
               ) : null}
             </View>
+            ) : null}
           </ScrollView>
 
+          {items.length > 0 ? (
           <View style={styles.sticky}>
             <View style={styles.deliverBar}>
               <Icon name="location" size={24} color="#eab308" />
@@ -561,6 +577,7 @@ export default function CartScreen({ navigation }) {
               </Pressable>
             </View>
           </View>
+          ) : null}
 
           <PaymentSheet
             visible={paySheet}

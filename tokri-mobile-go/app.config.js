@@ -25,7 +25,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      buildNumber: '10',
+      buildNumber: '11',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -46,7 +46,7 @@ module.exports = {
     },
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
-      versionCode: 11,
+      versionCode: 12,
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
       adaptiveIcon: {
@@ -69,16 +69,15 @@ module.exports = {
       [
         'expo-splash-screen',
         {
-          // Square canvas + small centered wordmark so Android 12 circular splash mask does not clip.
+          // Website brand splash (splash-icon.png) on both platforms.
           backgroundColor: '#022c22',
           image: './assets/splash-icon.png',
           imageWidth: 200,
           resizeMode: 'contain',
-          // Android 12+ draws splash image inside a circle — use compact mark to avoid side crop.
           android: {
-            image: './assets/splash-mark.png',
+            image: './assets/splash-icon.png',
             backgroundColor: '#022c22',
-            imageWidth: 180,
+            imageWidth: 200,
             resizeMode: 'contain',
           },
           ios: {
