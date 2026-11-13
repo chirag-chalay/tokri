@@ -8,7 +8,8 @@ let configPromise
 let currentPath = null
 let lastPage = null
 let listening = false
-const names = { page_view: 'PageView', view_item: 'ViewContent', search: 'Search', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', add_payment_info: 'AddPaymentInfo', purchase: 'Purchase' }
+let scrollSent = false
+const names = { page_view: 'PageView', view_item: 'ViewContent', search: 'Search', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', add_payment_info: 'AddPaymentInfo', purchase: 'Purchase', scroll_depth: 'Scroll' }
 
 function safePath(path) {
   try {
@@ -52,6 +53,14 @@ export function installAnalytics() {
     listening = true
     document.addEventListener(ANALYTICS_CONSENT_UPDATED, consentUpdate)
     document.addEventListener(MARKETING_CONSENT_UPDATED, consentUpdate)
+    window.addEventListener?.('scroll', () => {
+      const root = document.scrollingElement
+      if (scrollSent || !root || getMarketingConsent() !== 'granted' || !currentPath || !safePath(currentPath)) return
+      const distance = root.scrollHeight - root.clientHeight
+      if (distance <= 0 || root.scrollTop / distance < 0.9) return
+      scrollSent = true
+      void dispatch('scroll_depth', { percent_scrolled: 90 }).catch(() => {})
+    }, { passive: true })
   }
   configPromise ||= loadTrackingConfig({ hostname: window.location.hostname }).then((config) => { loadedConfig = config; return config })
   return configPromise
@@ -92,13 +101,14 @@ async function dispatch(name, data = {}, eventId = globalThis.crypto?.randomUUID
     }
     window.fbq('consent', 'grant')
     const ecommerce = data.ecommerce
-    const payload = ecommerce ? { currency: ecommerce.currency, value: data.metaValue ?? ecommerce.value, content_ids: ecommerce.items.map((item) => item.item_id), content_type: 'product', contents: ecommerce.items.map((item) => ({ id: item.item_id, quantity: item.quantity })) } : (data.search_term ? { search_string: data.search_term } : {})
-    window.fbq('trackSingle', config.meta.pixelId, names[name], payload, { eventID: eventId })
+    const payload = ecommerce ? { currency: ecommerce.currency, value: data.metaValue ?? ecommerce.value, content_ids: ecommerce.items.map((item) => item.item_id), content_type: 'product', contents: ecommerce.items.map((item) => ({ id: item.item_id, quantity: item.quantity })) } : (data.search_term ? { search_string: data.search_term } : name === 'scroll_depth' ? { percent_scrolled: 90 } : {})
+    window.fbq(name === 'scroll_depth' ? 'trackSingleCustom' : 'trackSingle', config.meta.pixelId, names[name], payload, { eventID: eventId })
     if (name !== 'purchase') fetch('/api/v1/tracking/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventToken: config.eventToken, eventName: names[name], eventId, sourceUrl: `${window.location.origin}${path.split('?')[0]}`, ecommerce: data.ecommerce }) }).catch(() => {})
   }
   return true
 }
 export async function trackPageView(path) {
+  if (currentPath !== path) scrollSent = false
   currentPath = path
   const safe = safePath(path)
   if (!safe) { lastPage = null; return }

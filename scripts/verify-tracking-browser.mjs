@@ -42,6 +42,10 @@ try {
   await page.waitForFunction(() => window.dataLayer?.some((event) => event.event === 'page_view') && window.fbq?.queue?.some((event) => event[0] === 'trackSingle'))
   assert.equal(await page.evaluate(() => window.dataLayer.filter((event) => event.event === 'page_view').length), 1)
   assert.equal(vendors.length, 2)
+  await page.evaluate(() => { document.body.style.minHeight = '5000px'; window.scrollTo(0, document.body.scrollHeight) })
+  await page.waitForFunction(() => window.fbq?.queue?.some((event) => event[0] === 'trackSingleCustom' && event[2] === 'Scroll'))
+  await page.evaluate(() => { window.dispatchEvent(new Event('scroll')) })
+  assert.equal(await page.evaluate(() => window.fbq.queue.filter((event) => event[0] === 'trackSingleCustom' && event[2] === 'Scroll').length), 1)
   const search = page.getByRole('textbox', { name: 'Search products' })
   await search.fill('apple')
   await page.waitForFunction(() => window.dataLayer?.filter((event) => event.event === 'search' && event.search_term === 'apple').length === 1)
@@ -73,6 +77,6 @@ try {
   await page.waitForFunction(() => window.dataLayer?.some((event) => event.event === 'page_view'))
   assert.equal(await page.evaluate(() => typeof window.fbq), 'undefined')
   assert.deepEqual(pageErrors, [])
-  console.log('Browser consent checks PASS: no pre-consent tags, one acceptance PageView, duplicate purchase suppression, withdrawal, persisted choice, analytics-only isolation, automatic search and Enter deduplication.')
+  console.log('Browser consent checks PASS: no pre-consent tags, one acceptance PageView, one 90% Meta Scroll per page, duplicate purchase suppression, withdrawal, persisted choice, analytics-only isolation, automatic search and Enter deduplication.')
   await context.close()
 } finally { await browser?.close(); await server.close() }

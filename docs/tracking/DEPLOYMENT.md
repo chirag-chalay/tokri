@@ -98,4 +98,8 @@ This verifies browser transport and server acceptance using a shared event ID. E
 
 To check browser events, open the correct Pixel/dataset's **Test events** view, visit the website, and choose **Allow all** or **Marketing only**. **Analytics only** does not enable Pixel/CAPI. The Event Setup Tool overlay does not need matching manual rules for the already instrumented commerce events; adding such rules could introduce duplicates.
 
-Scroll depth is not currently an application event in the implementation's event map. A homepage visit emits PageView after marketing consent; scrolling alone does not generate an application Pixel/CAPI scroll event.
+At the time of that investigation, scroll depth was not an application event in the implementation's event map.
+
+## Meta scroll tracking
+
+The subsequent scroll change records a custom Meta `Scroll` event once per route when a visitor scrolls 90% of the document, after marketing consent. Pixel and CAPI use the same event name and ID for deduplication. The regular document scroll is tracked; nested scrolling panels are not. A fresh route resets the threshold. GA4 has a separate scroll configuration and the existing GTM container does not include a scroll tag.

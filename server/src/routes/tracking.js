@@ -31,12 +31,12 @@ router.post('/events', async (req, res, next) => {
     const token = cookieValue(req, 'tokri_tracking')
     const session = sessions.get(token)
     if (!config || !session || session.expires < Date.now() || session.count >= 120 || req.body?.eventToken !== sessionKey(token) || cookieValue(req, 'tokriii_marketing_consent') !== 'granted') return res.sendStatus(403)
-    const names = new Set(['PageView', 'ViewContent', 'Search', 'AddToCart', 'InitiateCheckout', 'AddPaymentInfo'])
+    const names = new Set(['PageView', 'ViewContent', 'Search', 'AddToCart', 'InitiateCheckout', 'AddPaymentInfo', 'Scroll'])
     const { eventName, eventId, sourceUrl, ecommerce } = req.body
     if (!names.has(eventName) || !/^[a-f0-9-]{36}$/i.test(eventId || '')) return res.sendStatus(400)
     const url = new URL(sourceUrl)
     if (url.protocol !== 'https:' || !publicConfig.allowedHosts.includes(url.hostname) || url.search || url.hash || /@|%40/i.test(url.pathname) || url.pathname.length > 512 || /^\/order(?:\/|$)/.test(url.pathname)) return res.sendStatus(400)
-    const custom = {}
+    const custom = eventName === 'Scroll' ? { percent_scrolled: 90 } : {}
     if (ecommerce) {
       if (!Array.isArray(ecommerce.items) || ecommerce.items.length > 200 || !Number.isFinite(ecommerce.value) || ecommerce.value < 0 || !/^[A-Z]{3}$/.test(ecommerce.currency)) return res.sendStatus(400)
       custom.value = ecommerce.value; custom.currency = ecommerce.currency

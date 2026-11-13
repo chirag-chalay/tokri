@@ -2,7 +2,7 @@
 // durable idempotency before invoking this function.
 const META_PIXEL_ID = /^\d{5,25}$/
 const META_API_VERSION = /^v\d{1,3}\.\d{1,3}$/
-const EVENT_NAMES = new Set(['PageView', 'ViewContent', 'Search', 'AddToCart', 'InitiateCheckout', 'AddPaymentInfo', 'Purchase'])
+const EVENT_NAMES = new Set(['PageView', 'ViewContent', 'Search', 'AddToCart', 'InitiateCheckout', 'AddPaymentInfo', 'Purchase', 'Scroll'])
 
 export function readMetaConversionsConfig(source = process.env) {
   const pixelId = String(source.TRACKING_META_PIXEL_ID || '').trim()
