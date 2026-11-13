@@ -87,6 +87,12 @@ Record these inputs in a private handoff. Do not invent answers:
 - `npm audit --omit=dev` reported 7 advisories (3 moderate, 3 high, 1 critical), including transitive tooling and navigation dependencies. These have not been remediated or assessed as exploitable in the shipped app; review separately before release. Do not run a force upgrade without compatibility review.
 - Firebase/Meta packages, provider configuration and tracking events are not yet installed or implemented. Staging Firebase registrations/files, an isolated Meta test destination, verification of the staging API and the documented native compatibility gates remain open. The app publisher retains responsibility for signed store builds.
 
+### Owner decision and implementation update — 13 November 2026
+
+The owner has chosen to test directly against the live app destinations instead of creating Firebase or Meta staging apps. Firebase project `tokriii-ec2de` has Android and iOS registrations for `com.tokriii.app`. The owner describes `server.tokriii.com` as a separate staging environment. This decision supersedes the staging-destination requirement for the selected live tests; the existing staging profiles must not silently receive production credentials. Confirm the actual test build identity and API destination, obtain production app configuration files, and coordinate with marketing to identify test events and their reporting impact. Do not generate production orders or alter live provider settings without the appropriate test procedure. Consent controls, native compatibility, correct purchase confirmation, publisher release and device verification remain required.
+
+`tokri-mobile-go/src/lib/trackingCommerce.js` now prepares validated, allowlisted browse/cart payloads using product slugs. It does not send events, register an SDK, or implement purchases; catalog slug matching still needs verification. Focused Node tests cover normal payloads and invalid data. Firebase/Meta event integration remains incomplete.
+
 ## 5. Stage 2 — environment configuration and collection controls
 
 **M/P register accounts and app variants; D configures and verifies.**
