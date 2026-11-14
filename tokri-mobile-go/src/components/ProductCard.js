@@ -4,6 +4,7 @@ import { useThemedStyles } from '../context/ThemeContext'
 import { formatPrice } from '../lib/api'
 import { useCart } from '../context/CartContext'
 import { trackCommerce } from '../lib/analytics'
+import { useProductImpression } from './ProductImpressions'
 import RemoteImage from './RemoteImage'
 
 function discountPercent(product) {
@@ -13,9 +14,10 @@ function discountPercent(product) {
   return Math.round((1 - price / oldPrice) * 100)
 }
 
-export default function ProductCard({ product, onPress, compact = false }) {
+export default function ProductCard({ product, onPress, compact = false, listId = 'product_list' }) {
   const styles = useThemedStyles(createStyles)
   const cardRef = useRef(null)
+  useProductImpression(cardRef, product, listId)
   const { addItem, updateQuantity, items } = useCart()
   const qty = items.find((item) => item.slug === product.slug)?.quantity || 0
   const off = discountPercent(product)
@@ -41,7 +43,7 @@ export default function ProductCard({ product, onPress, compact = false }) {
   }
 
   const open = () => {
-    trackCommerce('select_item', [{ ...product, quantity: 1 }])
+    trackCommerce('select_item', [{ ...product, quantity: 1 }], undefined, listId)
     const emit = (origin) => onPress?.(product.slug, origin)
     if (!cardRef.current?.measureInWindow) {
       emit(null)

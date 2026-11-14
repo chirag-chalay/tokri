@@ -1,3 +1,4 @@
+import ProductImpressions from '../components/ProductImpressions'
 import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -23,6 +24,7 @@ const MIN_CHARS = 2
 const DEBOUNCE_MS = 300
 
 export default function SearchScreen({ navigation, route }) {
+  const impressionViewport = useRef(null)
   const { colors } = useTheme()
   const styles = useThemedStyles(createStyles)
   const insets = useSafeAreaInsets()
@@ -156,6 +158,7 @@ export default function SearchScreen({ navigation, route }) {
   const showBrowse = query.trim().length < MIN_CHARS
 
   return (
+    <ProductImpressions scrollRef={impressionViewport}>
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
@@ -184,7 +187,7 @@ export default function SearchScreen({ navigation, route }) {
       </View>
 
       {showBrowse ? (
-        <ScrollView contentContainerStyle={styles.browse} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={impressionViewport} contentContainerStyle={styles.browse} keyboardShouldPersistTaps="handled">
           {recent.length ? (
             <>
               <View style={styles.sectionHead}>
@@ -219,7 +222,7 @@ export default function SearchScreen({ navigation, route }) {
       ) : loading && !products.length && !suggestions.length ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={styles.results} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={impressionViewport} contentContainerStyle={styles.results} keyboardShouldPersistTaps="handled">
           {suggestions.length ? (
             <View style={styles.suggestBlock}>
               {suggestions.map((item) => (
@@ -253,7 +256,7 @@ export default function SearchScreen({ navigation, route }) {
             <View style={styles.grid}>
               {products.map((item) => (
                 <View key={item.slug} style={styles.cardWrap}>
-                  <ProductCard product={item} onPress={openProduct} />
+                  <ProductCard product={item} onPress={openProduct} listId="search_results" />
                 </View>
               ))}
             </View>
@@ -261,6 +264,7 @@ export default function SearchScreen({ navigation, route }) {
         </ScrollView>
       )}
     </View>
+    </ProductImpressions>
   )
 }
 
@@ -273,7 +277,7 @@ function ProductRow({ title, products, onProduct }) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.picks}>
         {products.map((item) => (
           <View key={item.slug} style={styles.pickCard}>
-            <ProductCard product={item} compact onPress={onProduct} />
+            <ProductCard product={item} compact onPress={onProduct} listId="search_recommendations" />
           </View>
         ))}
       </ScrollView>

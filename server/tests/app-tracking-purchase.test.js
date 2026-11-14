@@ -5,11 +5,12 @@ import { createAppTrackingContext, appPurchasePayload, isCapturedAppPayment } fr
 const request = { source: 'app', platform: 'android', analytics: true, consentId: 'consent_1234567890123456' }
 const totals = { itemsTotal: 200, deliveryCharge: 20, handlingCharge: 0, smallCartCharge: 0, discount: 10, taxTotal: 18, grandTotal: 210 }
 const lines = [{ productId: 'product-1', name: 'Apple', priceValue: 100, quantity: 2, discount: 10, taxAmount: 18 }]
-const cart = [{ product: { slug: 'apple' } }]
+const cart = [{ product: { slug: 'apple', category: { label: 'Fruit' } } }]
 
 test('server snapshots discounted merchandise and only allows confirmed consented purchases', () => {
   const context = createAppTrackingContext(request, 'android', totals, lines, cart)
   assert.equal(context.snapshot.value, 172)
+  assert.equal(context.snapshot.items[0].item_category, 'Fruit')
   assert.equal(context.snapshot.items[0].item_id, 'apple')
   const order = { id: 'order-1', paymentMode: 'cod', paymentStatus: 'pending', trackingContext: context }
   assert.equal(appPurchasePayload(order, request.consentId), null)
@@ -60,7 +61,7 @@ test('recovery isolates customer and consent and confirms captured payments', as
   })
   assert.equal(query.where.customerId, 'customer-1')
   assert.equal(query.take, 30)
-  assert.equal(result.length, 2)
+  assert.equal(result.purchases.length, 2)
   assert.deepEqual(fetched, ['rz_payment'])
-  assert.ok(result.every((payload) => !('customerId' in payload) && !('consentId' in payload)))
+  assert.ok(result.purchases.every((payload) => !('customerId' in payload) && !('consentId' in payload)))
 })

@@ -4,9 +4,15 @@ import { purchaseSummary } from './trackingPurchase.js'
 // matching order can be reconciled without exposing customer or payment data.
 export async function lookupTrackingPurchase(transactionId, db) {
   if (!/^[a-f0-9]{64}$/.test(transactionId || '')) return null
-  const rows = await db.$queryRaw`SELECT id FROM \`Order\` WHERE SHA2(CONCAT('tokri-purchase:', id), 256) = ${transactionId} LIMIT 1`
-  if (!rows?.[0]?.id) return null
-  const order = await db.order.findUnique({ where: { id: rows[0].id }, include: { items: { include: { product: { select: { slug: true } } } } } })
+  let orderId
+  try { orderId = (await db.trackingPurchaseLookup?.findUnique({ where: { id: transactionId } }))?.orderId } catch { /* Pre-migration/legacy fallback. */ }
+  if (!orderId) {
+    const rows = await db.$queryRaw`SELECT id FROM \`Order\` WHERE SHA2(CONCAT('tokri-purchase:', id), 256) = ${transactionId} LIMIT 1`
+    orderId = rows?.[0]?.id
+    if (!orderId) return null
+    try { await db.trackingPurchaseLookup?.upsert({ where: { id: transactionId }, create: { id: transactionId, orderId }, update: {} }) } catch { /* Lookup still works before the additive migration. */ }
+  }
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: { include: { product: { select: { slug: true } } } } } })
   if (!order) return null
   const context = order.trackingContext || {}
   const summary = context.source === 'app' && context.snapshot ? context.snapshot : purchaseSummary(order)
@@ -16,6 +22,8 @@ export async function lookupTrackingPurchase(transactionId, db) {
     source: context.source || 'unknown',
     platform: context.platform || null,
     confirmedAt: context.confirmedAt || null,
+    googleDispatchState: context.googleDispatch?.state || null,
+    googleDispatchAt: context.googleDispatch?.at || null,
     currency: summary.currency,
     ga4MerchandiseValue: context.source === 'app' ? summary.value : summary.merchandiseValue,
     grandTotal: Number(order.grandTotal),

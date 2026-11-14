@@ -1,5 +1,5 @@
 import { createAppTrackingContext, appPurchasePayload, isCapturedAppPayment } from './appTrackingPurchase.js'
-import { captureTrackingContext, enqueuePurchase, purchaseSummary } from './trackingPurchase.js'
+import { captureTrackingContext, enqueuePurchase, purchaseSummary, purchaseIdentity } from './trackingPurchase.js'
 import { logError } from '../monitoring/database.js'
 import { subtotal } from '../utils/money.js'
 import { calculateCheckoutPricing } from './pricing.js'
@@ -334,6 +334,10 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     if (appliedCoupon) await redeemCoupon({ coupon: appliedCoupon, customerId: user.id, orderId: created.id }, tx)
     return created
   })
+
+  if (order.trackingContext?.source === 'app') {
+    prisma.trackingPurchaseLookup?.upsert({ where: { id: purchaseIdentity(order.id) }, create: { id: purchaseIdentity(order.id), orderId: order.id }, update: {} }).catch(() => console.error('Tracking lookup index unavailable'))
+  }
 
   let intent = null
   let intentError = null
@@ -710,16 +714,17 @@ async function recordAppConfirmation(orderId, kind) {
 }
 
 // Only recent app-origin orders belonging to a verified bearer customer qualify.
-export async function getAppTrackingPurchases(user, consentId, { db = prisma, fetchPayment = fetchRazorpayPayment, confirm = recordAppConfirmation, now = Date.now } = {}) {
-  if (!/^[a-zA-Z0-9_-]{16,80}$/.test(consentId || '')) return []
+export async function getAppTrackingPurchases(user, consentId, { db = prisma, fetchPayment = fetchRazorpayPayment, confirm = recordAppConfirmation, now = Date.now, cursor } = {}) {
+  if (!/^[a-zA-Z0-9_-]{16,80}$/.test(consentId || '')) return { purchases: [], nextCursor: null }
   const orders = await db.order.findMany({
-    where: { customerId: user.id, createdAt: { gte: new Date(now() - 7 * 86400000) } },
-    orderBy: { createdAt: 'desc' }, take: 30,
+    where: { customerId: user.id, createdAt: { gte: new Date(now() - 90 * 86400000) } },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 30,
+    ...(/^[a-zA-Z0-9_-]{1,80}$/.test(cursor || '') ? { cursor: { id: cursor }, skip: 1 } : {}),
   })
   const purchases = []
   for (let order of orders) {
     const context = order.trackingContext
-    if (order.customerId !== user.id || context?.source !== 'app' || context.consentId !== consentId) continue
+    if (order.customerId !== user.id || context?.source !== 'app' || context.consentId !== consentId || context.googleDispatch) continue
     if (order.paymentMode === 'online' && order.paymentStatus === 'paid' && !context.confirmedAt && order.razorpayPaymentId) {
       try {
         const payment = await fetchPayment(order.razorpayPaymentId)
@@ -731,7 +736,7 @@ export async function getAppTrackingPurchases(user, consentId, { db = prisma, fe
     }
     if (!order || order.customerId !== user.id) continue
     const payload = appPurchasePayload(order, consentId)
-    if (payload) purchases.push(payload)
+    if (payload) purchases.push({ ...payload, orderKey: order.id })
   }
-  return purchases
+  return { purchases, nextCursor: orders.length === 30 ? orders.at(-1).id : null }
 }

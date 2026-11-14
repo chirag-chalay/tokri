@@ -576,3 +576,10 @@ model MonitoringOutboxBudget {
   id        Int @id @default(1)
   usedBytes Int @default(0)
 }
+
+// Optional index for authorized reconciliation; contains no customer data.
+model TrackingPurchaseLookup {
+  id        String   @id @db.Char(64)
+  orderId   String   @unique @db.VarChar(191)
+  createdAt DateTime @default(now())
+}

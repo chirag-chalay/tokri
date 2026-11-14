@@ -54,3 +54,12 @@ test('lookup route requires a current active order admin and audits access', asy
   assert.equal((await response.json()).orderNo, 'ORDER-1')
   assert.equal(audits, 1)
 })
+
+test('indexed transaction lookups avoid the legacy hash scan', async () => {
+  const db = {
+    trackingPurchaseLookup: { findUnique: async ({ where }) => { assert.equal(where.id, id); return { orderId: 'internal-1' } } },
+    $queryRaw: async () => { throw new Error('unexpected scan') },
+    order: { findUnique: async () => ({ orderNo: 'ORDER-1', grandTotal: 100, items: [], trackingContext: { source: 'app', snapshot: { currency: 'INR', value: 100, shipping: 0 } } }) },
+  }
+  assert.equal((await lookupTrackingPurchase(id, db)).orderNo, 'ORDER-1')
+})

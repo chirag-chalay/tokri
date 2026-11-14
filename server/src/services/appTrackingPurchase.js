@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { productCategoryList } from '../utils/catalog.js'
 import { orderPricesIncludeGst } from '../utils/tax.js'
 
 const money = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100
@@ -16,7 +17,9 @@ export function createAppTrackingContext(input, platform, totals, lines, cartIte
       const netLine = Number(line.priceValue) * quantity - Number(line.discount || 0) - (included ? Number(line.taxAmount || 0) : 0)
       const price = money(netLine / quantity)
       if (!itemId || !name || !Number.isSafeInteger(quantity) || quantity < 1 || !Number.isFinite(price) || price < 0) throw new Error('invalid item')
-      return { item_id: itemId, item_name: name, price, quantity }
+      const category = productCategoryList(cartItems[index]?.product || {})[0]
+      const categoryName = clean(category?.label || category?.name || category?.slug)
+      return { item_id: itemId, item_name: name, price, quantity, ...(categoryName ? { item_category: categoryName } : {}) }
     })
     if (!items.length || items.length > 200) return undefined
     const itemDiscount = lines.reduce((sum, line) => sum + Number(line.discount || 0), 0)

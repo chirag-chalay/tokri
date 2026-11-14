@@ -8,7 +8,8 @@ import { AddressProvider } from './src/context/AddressContext'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import RootNavigator from './src/navigation/RootNavigator'
 import { AnalyticsProvider, useAnalyticsSettings } from './src/context/AnalyticsContext'
-import { recoverPurchases, setPurchaseTrackingSession } from './src/lib/purchaseTracking'
+import { recoverPurchases, setPurchaseTrackingSession, flushRevocations } from './src/lib/purchaseTracking'
+import { loadAnalyticsChoice, setAnalyticsCustomer } from './src/lib/analytics'
 import AppUpdateGate from './src/components/AppUpdateGate'
 
 function AppShell() {
@@ -17,11 +18,19 @@ function AppShell() {
   const { choice } = useAnalyticsSettings()
   useEffect(() => {
     setPurchaseTrackingSession(token ? user?.id : null)
-    return () => setPurchaseTrackingSession(null)
+    setAnalyticsCustomer(token ? user?.id : null)
+    return () => { setPurchaseTrackingSession(null); setAnalyticsCustomer(null) }
+  }, [token, user?.id])
+  useEffect(() => {
+    if (!token || !user?.id) return undefined
+    const cleanup = () => flushRevocations(token, user.id).catch(() => {})
+    cleanup()
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') cleanup() })
+    return () => subscription.remove()
   }, [token, user?.id])
   useEffect(() => {
     if (!choice || !token || !user?.id) return undefined
-    const recover = () => recoverPurchases(token, user.id).catch(() => {})
+    const recover = () => loadAnalyticsChoice().then(() => recoverPurchases(token, user.id)).catch(() => {})
     recover()
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') recover() })
     return () => subscription.remove()
@@ -41,15 +50,15 @@ export default function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <ThemeProvider>
-        <AnalyticsProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <AnalyticsProvider>
             <AddressProvider>
               <CartProvider>
                 <AppShell />
               </CartProvider>
             </AddressProvider>
-          </AuthProvider>
-        </AnalyticsProvider>
+          </AnalyticsProvider>
+        </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   )

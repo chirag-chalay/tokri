@@ -441,7 +441,7 @@ export default function CartScreen({ navigation }) {
                     <Pressable
                       key={optionId}
                       disabled={comingSoon}
-                      onPress={() => enabled && setDeliveryOption(optionId)}
+                      onPress={() => { if (enabled) { setDeliveryOption(optionId); if (optionId !== deliveryOption) trackCommerce('add_shipping_info', items, optionId) } }}
                       style={[
                         styles.optionRow,
                         selected && styles.optionRowOn,

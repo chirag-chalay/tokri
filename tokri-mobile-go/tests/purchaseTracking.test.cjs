@@ -4,7 +4,7 @@ const fs = require('node:fs')
 const vm = require('node:vm')
 const path = require('node:path')
 
-function makeHarness(authGet) {
+function makeHarness(authGet, authPost = async () => ({ accepted: true, ok: true })) {
   const store = new Map()
   const sent = []
   let consent = 'consent_1234567890123456'
@@ -14,15 +14,17 @@ function makeHarness(authGet) {
   const scope = {
     AsyncStorage: { getItem: async (key) => store.get(key) || null, setItem: async (key, value) => store.set(key, value) },
     API_BASE_URL: 'https://example.invalid/api/v1', authGet,
+    authPost,
     getAnalyticsConsentId: () => consent,
     trackConfirmedPurchase: async (payload) => { sent.push(payload.transaction_id); return true },
+    recordTrackingOutcome: () => {},
     module: { exports: {} },
   }
-  vm.runInNewContext(`${source}\nmodule.exports = { recoverPurchases, setPurchaseTrackingSession }`, scope)
+  vm.runInNewContext(`${source}\nmodule.exports = { recoverPurchases, setPurchaseTrackingSession, queueRevocation, flushRevocations }`, scope)
   return { ...scope.module.exports, sent, withdraw: () => { consent = null } }
 }
 
-const purchase = { transaction_id: 'a'.repeat(64), value: 100, currency: 'INR', items: [{ item_id: 'apple' }] }
+const purchase = { orderKey: 'order-1', transaction_id: 'a'.repeat(64), value: 100, currency: 'INR', items: [{ item_id: 'apple' }] }
 
 test('simultaneous recovery calls dispatch an order only once', async () => {
   const h = makeHarness(async () => ({ purchases: [purchase] }))
@@ -44,4 +46,20 @@ test('account switch or consent withdrawal prevents an in-flight recovery send',
     await running
     assert.equal(h.sent.length, 0)
   }
+})
+
+test('offline withdrawal cleanup retries only under the matching customer', async () => {
+  let online = false
+  let calls = 0
+  const h = makeHarness(async () => ({ purchases: [] }), async () => { calls += 1; if (!online) throw new Error('offline'); return { ok: true } })
+  await h.queueRevocation('customer-1', 'consent_1234567890123456')
+  await h.flushRevocations('other-token', 'customer-2')
+  assert.equal(calls, 0)
+  await h.flushRevocations('token', 'customer-1')
+  assert.equal(calls, 1)
+  online = true
+  await h.flushRevocations('token', 'customer-1')
+  assert.equal(calls, 2)
+  await h.flushRevocations('token', 'customer-1')
+  assert.equal(calls, 2)
 })

@@ -1,3 +1,4 @@
+import ProductImpressions from '../components/ProductImpressions'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Animated,
@@ -20,7 +21,7 @@ const CAT_GAP = 10
 const CAT_PAD = 16
 const CAT_ITEM_WIDTH = (SCREEN_WIDTH - CAT_PAD - CAT_GAP * 3) / 3.5
 
-function ProductSection({ title, products, onSeeAll, onProduct }) {
+function ProductSection({ title, products, onSeeAll, onProduct, listId }) {
   const styles = useThemedStyles(createStyles)
   const list = products
   if (!list.length) return null
@@ -31,7 +32,7 @@ function ProductSection({ title, products, onSeeAll, onProduct }) {
       <View style={styles.grid}>
         {list.map((product) => (
           <View key={product.slug} style={styles.cardWrap}>
-            <ProductCard product={product} onPress={onProduct} compact />
+            <ProductCard product={product} onPress={onProduct} listId={listId} compact />
           </View>
         ))}
       </View>
@@ -45,6 +46,7 @@ function ProductSection({ title, products, onSeeAll, onProduct }) {
 }
 
 export default function HomeScreen({ navigation }) {
+  const impressionViewport = useRef(null)
   const { colors } = useTheme()
   const styles = useThemedStyles(createStyles)
   const [data, setData] = useState({ categories: [], bestSellers: [] })
@@ -110,9 +112,11 @@ export default function HomeScreen({ navigation }) {
   if (loading) return <LoadingView />
 
   return (
+    <ProductImpressions scrollRef={impressionViewport}>
     <View style={styles.screen}>
       <AppHeader navigation={navigation} collapseProgress={headerCollapse} />
       <Animated.ScrollView
+        ref={impressionViewport}
         style={styles.container}
         scrollEventThrottle={16}
         onScroll={Animated.event(
@@ -143,6 +147,7 @@ export default function HomeScreen({ navigation }) {
         </ScrollView>
 
         <ProductSection
+          listId="home_bestsellers"
           title="Bestsellers"
           products={data.bestSellers}
           onProduct={openProduct}
@@ -151,6 +156,7 @@ export default function HomeScreen({ navigation }) {
         {categoryRows.map((row) => (
           <ProductSection
             key={row.category.slug}
+            listId={`home_${row.category.slug}`}
             title={row.category.label}
             products={row.products}
             onProduct={openProduct}
@@ -161,6 +167,7 @@ export default function HomeScreen({ navigation }) {
         <View style={{ height: 28 }} />
       </Animated.ScrollView>
     </View>
+    </ProductImpressions>
   )
 }
 

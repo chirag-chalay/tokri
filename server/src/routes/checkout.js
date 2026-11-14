@@ -1,3 +1,5 @@
+import { changeAppDispatch, revokeAppTracking } from '../services/appTrackingDelivery.js'
+import { prisma } from '../lib/prisma.js'
 import { Router } from 'express'
 import { log, logDurable } from '../monitoring/index.js'
 import { logError } from '../monitoring/database.js'
@@ -162,6 +164,11 @@ router.post('/preview-coupon', optionalCustomer, async (req, res, next) => {
   }
 })
 
+router.get('/app-tracking-config', (_req, res) => {
+  res.set('Cache-Control', 'no-store')
+  res.json({ enabled: process.env.MOBILE_ANALYTICS_ENABLED !== 'false' })
+})
+
 router.use(requireCustomer)
 
 router.use(async (req, res, next) => {
@@ -193,8 +200,26 @@ router.get('/app-purchases', async (req, res, next) => {
   try {
     if (!/^Bearer\s+\S+/i.test(req.headers.authorization || '')) return res.status(401).json({ message: 'Please log in to continue.' })
     res.set('Cache-Control', 'no-store')
-    const purchases = await getAppTrackingPurchases(req.customer, String(req.query.consentId || ''))
-    res.json({ purchases })
+    if (process.env.MOBILE_ANALYTICS_ENABLED === 'false') return res.json({ purchases: [], nextCursor: null })
+    const page = await getAppTrackingPurchases(req.customer, String(req.query.consentId || ''), { cursor: String(req.query.cursor || '') })
+    res.json(page)
+  } catch (error) { next(error) }
+})
+
+router.post('/app-purchases/dispatch', async (req, res, next) => {
+  try {
+    if (!/^Bearer\s+\S+/i.test(req.headers.authorization || '')) return res.sendStatus(401)
+    if (process.env.MOBILE_ANALYTICS_ENABLED === 'false') return res.json({ accepted: false })
+    res.set('Cache-Control', 'no-store')
+    res.json({ accepted: await changeAppDispatch(prisma, req.customer.id, req.body || {}) })
+  } catch (error) { next(error) }
+})
+
+router.post('/app-purchases/revoke', async (req, res, next) => {
+  try {
+    if (!/^Bearer\s+\S+/i.test(req.headers.authorization || '')) return res.sendStatus(401)
+    await revokeAppTracking(prisma, req.customer.id, req.body?.consentId)
+    res.json({ ok: true })
   } catch (error) { next(error) }
 })
 

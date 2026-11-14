@@ -3,7 +3,7 @@
 // intentionally excluded until that backend contract exists.
 const COMMERCE_EVENTS = new Set([
   'view_item_list', 'select_item', 'view_item', 'add_to_cart',
-  'remove_from_cart', 'view_cart', 'begin_checkout', 'add_payment_info',
+  'remove_from_cart', 'view_cart', 'begin_checkout', 'add_payment_info', 'add_shipping_info',
 ])
 
 function safeText(value) {
@@ -28,7 +28,7 @@ function buildCommercePayload(event, items, currency = 'INR') {
     const price = amount(item.priceValue)
     const quantity = item.quantity
     if (!id || !name || price === null || !Number.isSafeInteger(quantity) || quantity < 1) return null
-    const category = safeText(typeof item.category === 'string' ? item.category : item.category?.name)
+    const category = safeText(typeof item.category === 'string' ? item.category : item.category?.label || item.category?.name)
     return { item_id: id, item_name: name, price, quantity, ...(category ? { item_category: category } : {}) }
   })
   if (normalized.some((item) => !item)) return null
