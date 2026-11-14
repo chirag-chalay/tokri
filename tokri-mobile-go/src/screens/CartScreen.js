@@ -7,6 +7,7 @@ import LoadingView from '../components/LoadingView'
 import Icon from '../components/Icon'
 import CouponBox from '../components/CouponBox'
 import ProductCard from '../components/ProductCard'
+import UnavailableCartSection from '../components/UnavailableCartSection'
 import RazorpayCheckout from '../components/RazorpayCheckout'
 import PaymentSheet, { PaymentMark, paymentLabel } from '../components/PaymentSheet'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
@@ -47,7 +48,6 @@ export default function CartScreen({ navigation }) {
     deliveryCharge,
     handlingCharge,
     discount,
-    taxTotal,
     coupon,
     couponLoading,
     hydrated,
@@ -62,8 +62,12 @@ export default function CartScreen({ navigation }) {
     quote,
     quoteLoading,
     quoteError,
+    unavailablePanel,
+    dismissUnavailable,
     refreshDeliveryQuote,
   } = useCart()
+  const unavailableItems = unavailablePanel?.items || []
+  const hasCartBody = items.length > 0 || unavailableItems.length > 0
   const [suggested, setSuggested] = useState([])
   const [onlineEnabled, setOnlineEnabled] = useState(false)
   const [codEnabled, setCodEnabled] = useState(true)
@@ -321,7 +325,7 @@ export default function CartScreen({ navigation }) {
       </View>
       {!hydrated ? (
         <LoadingView />
-      ) : !items.length ? (
+      ) : !hasCartBody ? (
         <View style={styles.center}>
           <Icon name="cart-outline" size={42} color={colors.muted} />
           <Text style={styles.empty}>Your cart is empty</Text>
@@ -335,7 +339,15 @@ export default function CartScreen({ navigation }) {
             style={styles.scroller}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
           >
+            <UnavailableCartSection
+              items={unavailableItems}
+              suggestions={unavailablePanel?.suggestions || []}
+              onDismiss={dismissUnavailable}
+              onPressSuggestion={(slug) => navigation.navigate('Product', { slug })}
+            />
+
             {items.map((item) => (
               <View key={item.slug} style={styles.row}>
                 <RemoteImage uri={resolveAssetUrl(item.image) || item.image} style={styles.image} />
@@ -343,29 +355,31 @@ export default function CartScreen({ navigation }) {
                   <Text style={styles.name}>{item.name}</Text>
                   {item.weight ? <Text style={styles.weight}>{item.weight}</Text> : null}
                   <View style={styles.priceRow}>
-                    <Text style={styles.price}>
-                      {formatPrice(Number(item.priceValue || 0) * Number(item.quantity || 0))}
-                    </Text>
-                    {cutoffPrice(item) ? (
-                      <Text style={styles.cutPrice}>
-                        {formatPrice(cutoffPrice(item) * Number(item.quantity || 0))}
+                    <View style={styles.priceCol}>
+                      <Text style={styles.price}>
+                        {formatPrice(Number(item.priceValue || 0) * Number(item.quantity || 0))}
                       </Text>
-                    ) : null}
-                  </View>
-                  <View style={styles.qtyRow}>
-                    <Pressable style={styles.qtyBtn} onPress={() => changeQty(item.slug, item.quantity - 1)}>
-                      <Text style={styles.qtyBtnText}>-</Text>
-                    </Pressable>
-                    <Text style={styles.qty}>{item.quantity}</Text>
-                    <Pressable style={styles.qtyBtn} onPress={() => changeQty(item.slug, item.quantity + 1)}>
-                      <Text style={styles.qtyBtnText}>+</Text>
-                    </Pressable>
+                      {cutoffPrice(item) ? (
+                        <Text style={styles.cutPrice}>
+                          {formatPrice(cutoffPrice(item) * Number(item.quantity || 0))}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.qtyBox}>
+                      <Pressable onPress={() => changeQty(item.slug, item.quantity - 1)} hitSlop={6}>
+                        <Text style={styles.qtyBtnText}>-</Text>
+                      </Pressable>
+                      <Text style={styles.qty}>{item.quantity}</Text>
+                      <Pressable onPress={() => changeQty(item.slug, item.quantity + 1)} hitSlop={6}>
+                        <Text style={styles.qtyBtnText}>+</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
               </View>
             ))}
 
-            {suggested.length ? (
+            {items.length > 0 && suggested.length ? (
               <View style={styles.likeSection}>
                 <Text style={styles.likeTitle}>You may also like</Text>
                 <ScrollView
@@ -386,9 +400,9 @@ export default function CartScreen({ navigation }) {
               </View>
             ) : null}
 
-            <CouponBox />
+            {items.length > 0 ? <CouponBox /> : null}
 
-            {selectedAddress ? (
+            {items.length > 0 && selectedAddress ? (
               <View style={styles.optionCard}>
                 <Text style={styles.billTitle}>Delivery option</Text>
                 {['morning', 'express'].map((optionId) => {
@@ -427,6 +441,7 @@ export default function CartScreen({ navigation }) {
               </View>
             ) : null}
 
+            {items.length > 0 ? (
             <View style={styles.billCard}>
               <Text style={styles.billTitle}>Bill details</Text>
               <BillRow
@@ -460,14 +475,6 @@ export default function CartScreen({ navigation }) {
               ) : selectedQuote?.freeDeliveryApplied && selectedQuote.offerMessage ? (
                 <Text style={styles.freeNudge}>{selectedQuote.offerMessage}</Text>
               ) : null}
-              {taxTotal > 0 ? quote?.totals?.isInterState ? (
-                <BillRow icon="receipt-outline" label="IGST included" value={formatPrice(quote.totals.igstTotal)} />
-              ) : (
-                <>
-                  <BillRow icon="receipt-outline" label="CGST included" value={formatPrice(quote?.totals?.cgstTotal)} />
-                  <BillRow icon="receipt-outline" label="SGST included" value={formatPrice(quote?.totals?.sgstTotal)} />
-                </>
-              ) : null}
               {quote?.totals?.couponDiscount > 0 ? (
                 <BillRow
                   icon="pricetag-outline"
@@ -500,14 +507,27 @@ export default function CartScreen({ navigation }) {
                 </View>
               ) : null}
             </View>
+            ) : null}
           </ScrollView>
 
+          {items.length > 0 ? (
           <View style={styles.sticky}>
+            {!isLoggedIn ? (
+              <View style={[styles.guestBar, { paddingBottom: bottomInset + 12 }]}>
+                <Pressable
+                  style={styles.loginProceedBtn}
+                  onPress={() => navigation.navigate('Login', { next: 'Checkout' })}
+                >
+                  <Text style={styles.loginProceedText}>Login to Proceed</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
             <View style={styles.deliverBar}>
               <Icon name="location" size={24} color="#eab308" />
               <View style={styles.deliverCopy}>
                 <Text style={styles.deliverTitle} numberOfLines={1}>
-                  {isLoggedIn && selectedAddress ? 'Delivering to ' : ''}
+                  {selectedAddress ? 'Delivering to ' : ''}
                   <Text style={styles.deliverStrong}>{addressTitle}</Text>
                 </Text>
                 <Text
@@ -517,11 +537,8 @@ export default function CartScreen({ navigation }) {
                   {addressLine}
                 </Text>
               </View>
-              <Pressable
-                hitSlop={10}
-                onPress={() => (isLoggedIn ? openPicker() : navigation.navigate('Login', { next: 'Checkout' }))}
-              >
-                <Text style={styles.changeText}>{isLoggedIn ? 'Change' : 'Login'}</Text>
+              <Pressable hitSlop={10} onPress={() => openPicker()}>
+                <Text style={styles.changeText}>Change</Text>
               </Pressable>
             </View>
 
@@ -560,7 +577,10 @@ export default function CartScreen({ navigation }) {
                 )}
               </Pressable>
             </View>
+              </>
+            )}
           </View>
+          ) : null}
 
           <PaymentSheet
             visible={paySheet}
@@ -646,20 +666,28 @@ const createStyles = (c) => ({
   info: { flex: 1 },
   name: { fontSize: 15, fontWeight: '700', color: c.text },
   weight: { color: c.muted, fontSize: 12, marginTop: 2 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 8,
+  },
+  priceCol: { flex: 1, minWidth: 0, gap: 2 },
   price: { color: c.text, fontWeight: '800', fontSize: 15 },
   cutPrice: { color: c.muted, textDecorationLine: 'line-through', fontSize: 13, fontWeight: '600' },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  qtyBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: c.brand,
+  qtyBox: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    flexShrink: 0,
+    backgroundColor: c.brand,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    gap: 4,
   },
-  qtyBtnText: { fontSize: 16, fontWeight: '800', color: c.onBrand },
-  qty: { fontSize: 16, fontWeight: '800', color: c.text, minWidth: 18, textAlign: 'center' },
+  qtyBtnText: { fontSize: 16, fontWeight: '800', color: c.onBrand, width: 18, textAlign: 'center' },
+  qty: { fontSize: 13, fontWeight: '800', color: c.onBrand, minWidth: 16, textAlign: 'center' },
   likeSection: { marginTop: 4, marginBottom: 4 },
   likeTitle: { color: c.text, fontSize: 18, fontWeight: '800', marginBottom: 10 },
   likeRow: { paddingRight: 8 },
@@ -773,6 +801,25 @@ const createStyles = (c) => ({
     shadowOffset: { width: 0, height: -3 },
     elevation: 12,
     overflow: 'hidden',
+  },
+  guestBar: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    backgroundColor: c.panel,
+  },
+  loginProceedBtn: {
+    width: '100%',
+    backgroundColor: c.brand,
+    borderRadius: 14,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  loginProceedText: {
+    color: c.onBrand,
+    fontSize: 16,
+    fontWeight: '800',
   },
   deliverBar: {
     flexDirection: 'row',

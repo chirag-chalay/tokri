@@ -96,9 +96,42 @@ export function CartProvider({ children }) {
   const [couponLoading, setCouponLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [hydrated, setHydrated] = useState(false)
+  const [unavailablePanel, setUnavailablePanel] = useState(null)
   const itemsRef = useRef([])
   const sessionRef = useRef(null)
   itemsRef.current = cart.items
+
+  const applyUnavailablePayload = useCallback(
+    (payload) => {
+      const unavailableItems = Array.isArray(payload?.unavailableItems) ? payload.unavailableItems : []
+      const suggestions = Array.isArray(payload?.suggestions)
+        ? payload.suggestions.map(normalizeProduct).filter((item) => item?.slug)
+        : []
+      if (!unavailableItems.length) return
+      const blocked = new Set(unavailableItems.map((item) => item.slug || item.id).filter(Boolean))
+      setUnavailablePanel((current) => {
+        const merged = new Map()
+        for (const item of current?.items || []) merged.set(item.slug || item.id, item)
+        for (const item of unavailableItems) merged.set(item.slug || item.id, item)
+        return {
+          items: [...merged.values()],
+          suggestions: suggestions.length ? suggestions : current?.suggestions || [],
+        }
+      })
+      setCart((current) => {
+        const nextItems = (current.items || []).filter((item) => !blocked.has(item.slug))
+        if (nextItems.length === (current.items || []).length) return current
+        const next = withTotals(nextItems, rates, coupon?.discount || 0)
+        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {})
+        return next
+      })
+    },
+    [coupon?.discount, rates],
+  )
+
+  const dismissUnavailable = useCallback(() => {
+    setUnavailablePanel(null)
+  }, [])
 
   const quoteKey = JSON.stringify({
     items: cart.items.map((item) => [item.slug, item.quantity]),
@@ -143,6 +176,7 @@ export function CartProvider({ children }) {
         if (ignore) return
         if (quoteKeyRef.current !== keyAtSchedule || quoteId !== quoteRequest.current) return null
         setQuoteState({ key: keyAtSchedule, data })
+        applyUnavailablePayload(data)
         if (data.couponStatus?.status === 'removed') {
           couponRequest.current += 1
           setCouponLoading(false)
@@ -159,7 +193,7 @@ export function CartProvider({ children }) {
       clearTimeout(timer)
     }
     // quoteKey already encodes items, delivery option, coupon, address, and auth session.
-  }, [quoteKey, token])
+  }, [applyUnavailablePayload, quoteKey, token])
 
   const refreshDeliveryQuote = useCallback(async () => {
     if (!cart.items.length) return null
@@ -177,6 +211,7 @@ export function CartProvider({ children }) {
         : await postJson('/checkout/quote', body)
       if (quoteKeyRef.current !== quoteKey || quoteId !== quoteRequest.current) return null
       setQuoteState({ key: quoteKey, data })
+      applyUnavailablePayload(data)
       if (data.couponStatus?.status === 'removed') { couponRequest.current += 1; setCouponLoading(false); setCoupon(null); setCouponError(data.couponStatus.message) }
       setQuoteError('')
       return data
@@ -184,7 +219,7 @@ export function CartProvider({ children }) {
       setQuoteError(error.message || 'Could not calculate delivery charges.')
       throw error
     }
-  }, [cart.items, coupon?.code, deliveryOption, isLoggedIn, quoteKey, rates.option, selectedAddress, token])
+  }, [applyUnavailablePayload, cart.items, coupon?.code, deliveryOption, isLoggedIn, quoteKey, rates.option, selectedAddress, token])
 
   useEffect(() => {
     if (!cart.items.length) return undefined
@@ -275,9 +310,11 @@ export function CartProvider({ children }) {
 
     async function syncCart() {
       const localItems = itemsRef.current || []
+      let serverCart = null
       let serverItems = []
       try {
         const data = await authGet('/account/cart', token)
+        serverCart = data.cart || null
         serverItems = data.cart?.items || []
       } catch {
         serverItems = []
@@ -288,6 +325,9 @@ export function CartProvider({ children }) {
         const next = stampItems(serverItems)
         setCart(next)
         await persist(next)
+        if (serverCart?.unavailableItems?.length) {
+          applyUnavailablePayload({ unavailableItems: serverCart.unavailableItems, suggestions: [] })
+        }
         return
       }
 
@@ -296,6 +336,9 @@ export function CartProvider({ children }) {
           const next = stampItems(serverItems)
           setCart(next)
           await persist(next)
+        }
+        if (serverCart?.unavailableItems?.length) {
+          applyUnavailablePayload({ unavailableItems: serverCart.unavailableItems, suggestions: [] })
         }
         return
       }
@@ -319,6 +362,9 @@ export function CartProvider({ children }) {
         const next = stampItems(data.cart?.items || items)
         setCart(next)
         await persist(next)
+        if (data.cart?.unavailableItems?.length) {
+          applyUnavailablePayload({ unavailableItems: data.cart.unavailableItems, suggestions: data.cart.suggestions || [] })
+        }
       } catch {
         if (!ignore) {
           const next = stampItems(items)
@@ -332,7 +378,7 @@ export function CartProvider({ children }) {
     return () => {
       ignore = true
     }
-  }, [hydrated, booting, isLoggedIn, token, stampItems, persist])
+  }, [applyUnavailablePayload, hydrated, booting, isLoggedIn, token, stampItems, persist])
 
   useEffect(() => {
     if (!hydrated) return undefined
@@ -498,6 +544,7 @@ export function CartProvider({ children }) {
     }
     const empty = withTotals([], rates, 0)
     setCart(empty)
+    setUnavailablePanel(null)
     setCoupon(null)
     setCouponError('')
     await persist(empty)
@@ -580,6 +627,8 @@ export function CartProvider({ children }) {
       quote,
       quoteLoading,
       quoteError,
+      unavailablePanel,
+      dismissUnavailable,
       refreshDeliveryQuote,
       smallCartCharge: cart.smallCartCharge,
       discount: quoteSynced?.totals?.discount ?? quote?.totals?.discount ?? 0,
@@ -625,6 +674,8 @@ export function CartProvider({ children }) {
       quoteSynced,
       quoteLoading,
       quoteError,
+      unavailablePanel,
+      dismissUnavailable,
       refreshDeliveryQuote,
       rates,
       deliveryOption,

@@ -114,7 +114,30 @@ export function CartProvider({ children }) {
   const [quoteState, setQuoteState] = useState(null)
   const [quoteError, setQuoteError] = useState('')
   const [quotePending, setQuotePending] = useState(false)
+  const [unavailablePanel, setUnavailablePanel] = useState(null)
   const [couponAction, setCouponAction] = useState(null)
+
+  const applyUnavailablePayload = useCallback((payload) => {
+    const unavailableItems = Array.isArray(payload?.unavailableItems) ? payload.unavailableItems : []
+    const suggestions = Array.isArray(payload?.suggestions) ? payload.suggestions : []
+    if (!unavailableItems.length) return
+    const blocked = new Set(unavailableItems.map((item) => item.slug || item.id).filter(Boolean))
+    setUnavailablePanel((current) => {
+      const merged = new Map()
+      for (const item of current?.items || []) merged.set(item.slug || item.id, item)
+      for (const item of unavailableItems) merged.set(item.slug || item.id, item)
+      const nextSuggestions = suggestions.length ? suggestions : current?.suggestions || []
+      return { items: [...merged.values()], suggestions: nextSuggestions }
+    })
+    setCartItems((items) => {
+      const next = items.filter((item) => !blocked.has(item.id))
+      return next.length === items.length ? items : next
+    })
+  }, [])
+
+  const dismissUnavailable = useCallback(() => {
+    setUnavailablePanel(null)
+  }, [])
   const quoteStateRef = useRef(null)
   const quoteInputRef = useRef(null)
   const inFlightQuotes = useRef(new Map())
@@ -176,9 +199,15 @@ export function CartProvider({ children }) {
         const serverItems = (data.cart?.items || []).map(mapServerCartItem).filter(Boolean)
         const localItems = cartItemsRef.current
         if (wasGuest.current && !serverItems.length && localItems.length) {
-          await authPut('/account/cart', user, { items: toServerCartItems(localItems) }).catch(() => {})
+          const put = await authPut('/account/cart', user, { items: toServerCartItems(localItems) }).catch(() => null)
+          if (put?.cart?.unavailableItems?.length) {
+            applyUnavailablePayload({ unavailableItems: put.cart.unavailableItems, suggestions: [] })
+          }
         } else {
           setCartItems(serverItems)
+          if (data.cart?.unavailableItems?.length) {
+            applyUnavailablePayload({ unavailableItems: data.cart.unavailableItems, suggestions: [] })
+          }
         }
         wasGuest.current = false
       })
@@ -194,7 +223,7 @@ export function CartProvider({ children }) {
     return () => {
       ignore = true
     }
-  }, [isLoggedIn, user?.id, user?.token])
+  }, [applyUnavailablePayload, isLoggedIn, user?.id, user?.token])
 
   useEffect(() => {
     if (!isLoggedIn || !user?.token || skipServerPush.current) return undefined
@@ -352,6 +381,7 @@ export function CartProvider({ children }) {
     couponRequest.current += 1
     setCouponLoading(false)
     setCartItems([])
+    setUnavailablePanel(null)
     setCoupon(null)
     setCouponError('')
     if (isLoggedIn && user?.token) {
@@ -429,7 +459,7 @@ export function CartProvider({ children }) {
   // One request path for automatic revalidation, focus refresh and payment checks.
   // Equivalent in-flight requests share a promise; cart revisions also distinguish
   // A -> B -> A changes so an old A response cannot become current again.
-  const refreshDeliveryQuote = useCallback(({ automatic = false } = {}) => {
+  const refreshDeliveryQuote = useCallback(({ automatic = false, silent = false } = {}) => {
     const input = quoteInputRef.current
     if (!input?.hasItems) return Promise.resolve(null)
     const requestKey = JSON.stringify([input.key, input.revision])
@@ -439,8 +469,12 @@ export function CartProvider({ children }) {
     const quoteId = ++quoteRequest.current
     const isCurrent = () => quoteRequest.current === quoteId &&
       currentQuoteKey.current === input.key && cartRevision.current === input.revision
-    setQuotePending(true)
-    setQuoteError('')
+    // Keep last bill on screen during background revalidate (30s / tab focus).
+    const keepUiStable = Boolean(silent || (automatic && quoteStateRef.current?.data))
+    if (!keepUiStable) {
+      setQuotePending(true)
+      setQuoteError('')
+    }
     const request = (async () => {
       try {
         const data = input.user?.token
@@ -454,6 +488,7 @@ export function CartProvider({ children }) {
         const key = removed ? JSON.stringify({ ...JSON.parse(input.key), couponCode: null }) : input.key
         quoteStateRef.current = { key, data, revision: input.revision + (removed ? 1 : 0) }
         setQuoteState(quoteStateRef.current)
+        applyUnavailablePayload(data)
         if (data.items) setCartItems((current) => {
           let changed = false
           const next = current.map((item) => {
@@ -473,9 +508,12 @@ export function CartProvider({ children }) {
           setCouponError('')
         }
         setCouponAction(null)
+        setQuoteError('')
         return data
       } catch (error) {
         if (!isCurrent()) return null
+        // Background refresh failed: keep last good totals, skip "Calculating…".
+        if (keepUiStable && quoteStateRef.current?.data) return null
         if ([400, 404, 422].includes(error.status)) invalidQuoteRequest.current = requestKey
         setQuoteError(error.message || 'Could not calculate delivery charges.')
         throw error
@@ -486,7 +524,7 @@ export function CartProvider({ children }) {
     })()
     inFlightQuotes.current.set(requestKey, request)
     return request
-  }, [])
+  }, [applyUnavailablePayload])
 
   useEffect(() => {
     if (!hasItems) {
@@ -505,7 +543,7 @@ export function CartProvider({ children }) {
   // Revalidate live admin changes for an open cart, on tab focus and periodically.
   useEffect(() => {
     if (!hasItems) return undefined
-    const refresh = () => { refreshDeliveryQuote({ automatic: true }).catch(() => {}) }
+    const refresh = () => { refreshDeliveryQuote({ automatic: true, silent: true }).catch(() => {}) }
     window.addEventListener('focus', refresh)
     const interval = window.setInterval(refresh, 30000)
     return () => { window.removeEventListener('focus', refresh); window.clearInterval(interval) }
@@ -602,6 +640,8 @@ export function CartProvider({ children }) {
         showDrawer,
         openDrawer,
         closeDrawer,
+        unavailablePanel,
+        dismissUnavailable,
         freeDelivery: activeFreeDelivery,
         refreshFreeDelivery,
       }}

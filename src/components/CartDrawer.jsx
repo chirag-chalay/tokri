@@ -4,6 +4,7 @@ import { useAddress } from '../context/AddressContext'
 import CouponBox from './CouponBox'
 import CartLineItem from './CartLineItem'
 import BillDetails from './BillDetails'
+import UnavailableCartSection from './UnavailableCartSection'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 
 export default function CartDrawer() {
@@ -13,7 +14,6 @@ export default function CartDrawer() {
     cartItems,
     totalCount,
     itemsTotal,
-    taxTotal,
     deliveryCharge,
     handlingCharge,
     discount,
@@ -25,10 +25,14 @@ export default function CartDrawer() {
     removeItem,
     deliveryOption,
     deliveryConfig,
+    unavailablePanel,
+    dismissUnavailable,
   } = useCart()
 
   const containerRef = useFocusTrap(Boolean(showDrawer), closeDrawer)
   const hasPublicCoupons = (quote?.availableCoupons || []).length > 0
+  const unavailableItems = unavailablePanel?.items || []
+  const hasCartBody = cartItems.length > 0 || unavailableItems.length > 0
 
   if (!showDrawer) return null
 
@@ -48,7 +52,7 @@ export default function CartDrawer() {
       <div
         ref={containerRef}
         tabIndex={-1}
-        className="w-full max-w-md overflow-y-auto border-l border-line bg-panel p-6 text-white outline-none"
+        className="w-full max-w-md min-w-0 overflow-y-auto overflow-x-hidden border-l border-line bg-panel p-6 text-white outline-none"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
@@ -63,19 +67,26 @@ export default function CartDrawer() {
           </button>
         </div>
 
-        {cartItems.length === 0 ? (
+        {!hasCartBody ? (
           <div className="py-20 text-center text-mint">
             <p className="text-lg font-medium text-white">Your cart is empty</p>
             <p className="mt-2 text-muted">Add fresh fruits and vegetables to get started.</p>
           </div>
         ) : (
           <>
-            {hasPublicCoupons ? (
+            <UnavailableCartSection
+              items={unavailableItems}
+              suggestions={unavailablePanel?.suggestions || []}
+              onDismiss={dismissUnavailable}
+            />
+
+            {hasPublicCoupons && cartItems.length ? (
               <div className="mb-4 rounded-2xl border border-line bg-panel-2 p-4">
                 <CouponBox compact />
               </div>
             ) : null}
 
+            {cartItems.length ? (
             <div className="mb-5 space-y-3">
               {cartItems.map((item) => (
                 <CartLineItem
@@ -89,12 +100,14 @@ export default function CartDrawer() {
                 />
               ))}
             </div>
+            ) : null}
 
+            {cartItems.length ? (
+              <>
             <div className="mb-4 rounded-2xl border border-line bg-panel-2 p-4">
               <BillDetails
                 cartItems={cartItems}
                 itemsTotal={itemsTotal}
-                taxTotal={taxTotal}
                 deliveryCharge={deliveryCharge}
                 handlingCharge={handlingCharge}
                 discount={discount}
@@ -132,6 +145,8 @@ export default function CartDrawer() {
                 Add address to proceed
               </button>
             )}
+              </>
+            ) : null}
           </>
         )}
       </div>

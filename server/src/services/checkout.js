@@ -17,7 +17,8 @@ import { listAddresses, snapshotCurrentAddress } from './addresses.js'
 import { publicDeliveryConfig } from '../config/charges.js'
 import { clearCart, getCartCheckoutItems } from './cart.js'
 import { redeemCoupon } from './coupons.js'
-import { PRODUCT_CATEGORY_INCLUDE } from '../utils/catalog.js'
+import { PRODUCT_CATEGORY_INCLUDE, productCategoryList } from '../utils/catalog.js'
+import { formatProduct, toPublicAssetUrl } from '../utils/formatters.js'
 import { notifyOrderStatus } from './push.js'
 import { notifyConfirmedOrder } from './msg91.js'
 import { assignmentForPincode, assertDeliveryOptionEnabled, expectedDeliveryDate } from './delivery.js'
@@ -55,39 +56,128 @@ function normalizeCartItem(raw) {
   return { slug, quantity }
 }
 
-export async function resolveCartItems(rawItems) {
+function formatUnavailableCartItem(entry, product) {
+  if (!product) {
+    return {
+      slug: entry.slug,
+      id: entry.slug,
+      name: entry.slug,
+      image: null,
+      weight: null,
+      quantity: entry.quantity,
+      categoryId: null,
+    }
+  }
+  const categories = productCategoryList(product)
+  const primary = categories[0] || null
+  return {
+    slug: product.slug,
+    id: product.slug,
+    name: product.name,
+    image: toPublicAssetUrl(product.image),
+    weight: product.weight || null,
+    quantity: entry.quantity,
+    categoryId: primary?.slug || null,
+  }
+}
+
+function toResolvedCartItem(product, quantity) {
+  return {
+    product,
+    quantity,
+    priceValue: Number(product.priceValue),
+    slug: product.slug,
+    isTaxable: Boolean(product.isTaxable),
+    gstRate: Number(product.gstRate || 0),
+    hsnCode: product.hsnCode || '0808',
+    category: product.category,
+    categories: (product.categoryLinks || []).map((row) => row.category).filter(Boolean),
+  }
+}
+
+/** Split cart lines into active (billable) vs inactive/missing (not billed). */
+export async function partitionCartItems(rawItems) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
-    throw Object.assign(new Error('Your cart is empty.'), { status: 400 })
+    return { items: [], unavailableItems: [] }
   }
 
   const normalized = rawItems.map(normalizeCartItem)
   const slugs = normalized.map((item) => item.slug)
   const products = await prisma.product.findMany({
-    where: { slug: { in: slugs }, isActive: true },
+    where: { slug: { in: slugs } },
     include: PRODUCT_CATEGORY_INCLUDE,
   })
-
   const productMap = new Map(products.map((product) => [product.slug, product]))
-  const items = []
 
+  const items = []
+  const unavailableItems = []
   for (const entry of normalized) {
     const product = productMap.get(entry.slug)
-    if (!product) {
-      throw Object.assign(new Error(`Product "${entry.slug}" is no longer available.`), { status: 400 })
+    if (!product || !product.isActive) {
+      unavailableItems.push(formatUnavailableCartItem(entry, product))
+      continue
     }
-    items.push({
-      product,
-      quantity: entry.quantity,
-      priceValue: Number(product.priceValue),
-      slug: product.slug,
-      isTaxable: Boolean(product.isTaxable),
-      gstRate: Number(product.gstRate || 0),
-      hsnCode: product.hsnCode || '0808',
-      category: product.category,
-      categories: (product.categoryLinks || []).map((row) => row.category).filter(Boolean),
-    })
+    items.push(toResolvedCartItem(product, entry.quantity))
+  }
+  return { items, unavailableItems }
+}
+
+/** Same-category active products for OOS suggestions (max 4). */
+export async function suggestionsForUnavailable(unavailableItems, excludeSlugs = [], limit = 4) {
+  if (!unavailableItems?.length) return []
+
+  const categorySlugs = [
+    ...new Set(unavailableItems.map((item) => item.categoryId).filter(Boolean)),
+  ]
+  const categories = categorySlugs.length
+    ? await prisma.category.findMany({ where: { slug: { in: categorySlugs } }, select: { id: true } })
+    : []
+  const categoryIds = categories.map((row) => row.id)
+  if (!categoryIds.length) return []
+
+  const blocked = new Set([
+    ...excludeSlugs,
+    ...unavailableItems.map((item) => item.slug),
+  ].filter(Boolean))
+
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      slug: blocked.size ? { notIn: [...blocked] } : undefined,
+      OR: [
+        { categoryId: { in: categoryIds } },
+        { categoryLinks: { some: { categoryId: { in: categoryIds } } } },
+      ],
+    },
+    include: PRODUCT_CATEGORY_INCLUDE,
+    orderBy: [{ isBestSeller: 'desc' }, { sortOrder: 'asc' }],
+    take: Math.max(1, Math.min(Number(limit) || 4, 8)),
+  })
+  return products.map(formatProduct)
+}
+
+export async function resolveCartItems(rawItems, { allowPartial = false } = {}) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    throw Object.assign(new Error('Your cart is empty.'), { status: 400 })
   }
 
+  const { items, unavailableItems } = await partitionCartItems(rawItems)
+  if (!items.length) {
+    throw Object.assign(
+      new Error(
+        unavailableItems.length === 1
+          ? `Product "${unavailableItems[0].slug}" is no longer available.`
+          : 'Those products are no longer available.',
+      ),
+      { status: 400, unavailableItems },
+    )
+  }
+  if (!allowPartial && unavailableItems.length) {
+    throw Object.assign(
+      new Error(`Product "${unavailableItems[0].slug}" is no longer available.`),
+      { status: 400, unavailableItems },
+    )
+  }
   return items
 }
 
@@ -121,7 +211,8 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     Array.isArray(rawItems) && rawItems.length > 0
       ? rawItems
       : await getCartCheckoutItems(user.id)
-  const cartItems = await resolveCartItems(sourceItems)
+  // Soft-skip inactive lines so remaining in-stock items can still check out.
+  const cartItems = await resolveCartItems(sourceItems, { allowPartial: true })
   const address = await resolveAddress(user, addressId, addressSnapshot)
   const { option } = await assertDeliveryOptionEnabled(address.pincode, deliveryOption || address.delivery?.defaultOption)
   const itemsTotal = subtotal(cartItems)

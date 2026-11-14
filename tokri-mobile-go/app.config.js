@@ -47,7 +47,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       ...(iosFirebase ? { googleServicesFile: iosFirebase } : {}),
-      buildNumber: '8',
+      buildNumber: '11',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -69,7 +69,7 @@ module.exports = {
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       ...(androidFirebase ? { googleServicesFile: androidFirebase } : {}),
-      versionCode: 9,
+      versionCode: 12,
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
       adaptiveIcon: {
@@ -95,11 +95,23 @@ module.exports = {
       [
         'expo-splash-screen',
         {
-          // Website wordmark (src/assets/tokri-logo.png) — contain keeps aspect ratio.
-          image: './assets/splash-icon.png',
-          imageWidth: 260,
-          resizeMode: 'contain',
+          // Website brand splash (splash-icon.png) on both platforms.
           backgroundColor: '#022c22',
+          image: './assets/splash-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          android: {
+            image: './assets/splash-icon.png',
+            backgroundColor: '#022c22',
+            imageWidth: 200,
+            resizeMode: 'contain',
+          },
+          ios: {
+            image: './assets/splash-icon.png',
+            backgroundColor: '#022c22',
+            imageWidth: 220,
+            resizeMode: 'contain',
+          },
         },
       ],
       '@react-native-community/datetimepicker',
