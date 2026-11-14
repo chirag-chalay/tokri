@@ -62,7 +62,7 @@ export async function handleRazorpayWebhook(req, res, next) {
     if (event === 'payment.captured' || event === 'payment.authorized' || event === 'order.paid') {
       let marked = null
       if (event === 'payment.captured') {
-        marked = await markOnlineOrderPaidFromWebhook({ orderNo, razorpayOrderId, paymentId })
+        marked = await markOnlineOrderPaidFromWebhook({ orderNo, razorpayOrderId, paymentId, capturedPayment: payload?.payload?.payment?.entity })
       }
       if (!marked && razorpayOrderId) {
         const order = await prisma.order.findFirst({ where: { razorpayOrderId } })

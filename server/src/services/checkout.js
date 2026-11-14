@@ -486,6 +486,7 @@ export async function reconcileOnlineOrderFromRazorpay(order) {
     order,
     payment.id,
   )
+  recordCapturedAppPurchase(updated, payment)
   return { status: 'paid', order: updated }
 }
 
@@ -554,24 +555,29 @@ export async function recoverPendingOnlinePayments({ lookbackHours = 24, limit =
   return recovered
 }
 
-export async function markOnlineOrderPaidFromWebhook({ orderNo, razorpayOrderId, paymentId }) {
+export async function markOnlineOrderPaidFromWebhook({ orderNo, razorpayOrderId, paymentId, capturedPayment }) {
   let order = null
   if (orderNo) order = await prisma.order.findUnique({ where: { orderNo } })
   if (!order && razorpayOrderId) {
     order = await prisma.order.findFirst({ where: { razorpayOrderId } })
   }
   if (!order || order.paymentMode !== 'online') return null
-  if (order.paymentStatus === 'paid') return order
+  if (order.paymentStatus === 'paid') {
+    recordCapturedAppPurchase(order, capturedPayment)
+    return order
+  }
 
   const customer = order.customerId
     ? await prisma.customer.findUnique({ where: { id: order.customerId } })
     : null
 
-  return markOnlineOrderPaid(
+  const updated = await markOnlineOrderPaid(
     { id: order.customerId, phone: customer?.phone || '', name: customer?.name || '' },
     order,
     paymentId,
   )
+  recordCapturedAppPurchase(updated, capturedPayment)
+  return updated
 }
 
 export async function confirmCheckoutPayment(user, { orderNo, razorpayOrderId, razorpayPaymentId, razorpaySignature }) {
@@ -646,7 +652,8 @@ export async function syncIntentPayment(user, { orderNo, razorpayPaymentId }) {
   }
 
   if (payment.status === 'captured') {
-    await markOnlineOrderPaid(user, order, payment.id)
+    const updated = await markOnlineOrderPaid(user, order, payment.id)
+    recordCapturedAppPurchase(updated, payment)
     return { status: 'paid', orderNo: order.orderNo }
   }
 
@@ -683,6 +690,12 @@ export async function confirmCodOrder(user, { orderNo }) {
   return { orderNo: order.orderNo, paymentStatus: order.paymentStatus, status: order.status }
 }
 
+// Tracking cannot make a successful payment fail. Verify all capture facts first.
+function recordCapturedAppPurchase(order, payment) {
+  if (order?.trackingContext?.source !== 'app' || !isCapturedAppPayment(order, payment)) return
+  recordAppConfirmation(order.id, 'captured').catch(() => console.error('App purchase confirmation recording failed'))
+}
+
 // Lock the order so repeated confirmations keep their original timestamp.
 async function recordAppConfirmation(orderId, kind) {
   await prisma.$transaction(async (tx) => {
@@ -697,25 +710,26 @@ async function recordAppConfirmation(orderId, kind) {
 }
 
 // Only recent app-origin orders belonging to a verified bearer customer qualify.
-export async function getAppTrackingPurchases(user, consentId) {
+export async function getAppTrackingPurchases(user, consentId, { db = prisma, fetchPayment = fetchRazorpayPayment, confirm = recordAppConfirmation, now = Date.now } = {}) {
   if (!/^[a-zA-Z0-9_-]{16,80}$/.test(consentId || '')) return []
-  const orders = await prisma.order.findMany({
-    where: { customerId: user.id, createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+  const orders = await db.order.findMany({
+    where: { customerId: user.id, createdAt: { gte: new Date(now() - 7 * 86400000) } },
     orderBy: { createdAt: 'desc' }, take: 30,
   })
   const purchases = []
   for (let order of orders) {
     const context = order.trackingContext
-    if (context?.source !== 'app' || context.consentId !== consentId) continue
+    if (order.customerId !== user.id || context?.source !== 'app' || context.consentId !== consentId) continue
     if (order.paymentMode === 'online' && order.paymentStatus === 'paid' && !context.confirmedAt && order.razorpayPaymentId) {
       try {
-        const payment = await fetchRazorpayPayment(order.razorpayPaymentId)
+        const payment = await fetchPayment(order.razorpayPaymentId)
         if (isCapturedAppPayment(order, payment)) {
-          await recordAppConfirmation(order.id, 'captured')
-          order = await prisma.order.findUnique({ where: { id: order.id } })
+          await confirm(order.id, 'captured')
+          order = await db.order.findUnique({ where: { id: order.id } })
         }
       } catch { continue }
     }
+    if (!order || order.customerId !== user.id) continue
     const payload = appPurchasePayload(order, consentId)
     if (payload) purchases.push(payload)
   }

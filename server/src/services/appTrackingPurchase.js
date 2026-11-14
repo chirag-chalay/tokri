@@ -38,5 +38,5 @@ export function appPurchasePayload(order, currentConsentId) {
 }
 
 export function isCapturedAppPayment(order, payment) {
-  return Boolean(order && payment && order.paymentStatus === 'paid' && order.paymentMode === 'online' && order.razorpayOrderId && payment.status === 'captured' && payment.order_id === order.razorpayOrderId && Number(payment.amount) === Math.round(Number(order.grandTotal) * 100) && payment.currency === 'INR')
+  return Boolean(order && payment && order.paymentStatus === 'paid' && order.paymentMode === 'online' && order.razorpayOrderId && order.razorpayPaymentId && payment.id === order.razorpayPaymentId && payment.status === 'captured' && payment.order_id === order.razorpayOrderId && Number(payment.amount) === Math.round(Number(order.grandTotal) * 100) && payment.currency === 'INR')
 }
