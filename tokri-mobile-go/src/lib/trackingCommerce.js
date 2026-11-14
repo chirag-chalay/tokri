@@ -3,7 +3,7 @@
 // intentionally excluded until that backend contract exists.
 const COMMERCE_EVENTS = new Set([
   'view_item_list', 'select_item', 'view_item', 'add_to_cart',
-  'remove_from_cart', 'view_cart', 'begin_checkout',
+  'remove_from_cart', 'view_cart', 'begin_checkout', 'add_payment_info',
 ])
 
 function safeText(value) {
@@ -37,4 +37,11 @@ function buildCommercePayload(event, items, currency = 'INR') {
   return { currency, value, items: normalized }
 }
 
-module.exports = { buildCommercePayload }
+function sanitizeSearchTerm(term) {
+  if (typeof term !== 'string') return ''
+  const value = term.normalize('NFKC').trim().replace(/\s+/g, ' ')
+  if (!/^[\p{L}\p{M}\p{N} '\u2019-]{2,60}$/u.test(value) || /\p{N}{6,}/u.test(value) || /^\p{N}+$/u.test(value)) return ''
+  return value
+}
+
+module.exports = { buildCommercePayload, sanitizeSearchTerm }

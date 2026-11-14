@@ -17,6 +17,8 @@ import { useSystemBottomInset } from '../lib/safeArea'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'
+import { trackCommerce } from '../lib/analytics'
+import { useIsFocused } from '@react-navigation/native'
 
 const PAY_CHOICE_KEY = 'tokri_pay_choice'
 const ONLINE_CHOICES = ['gpay', 'phonepe', 'paytm', 'cred', 'amazon', 'bhim', 'card', 'netbanking', 'wallet']
@@ -35,6 +37,7 @@ function cutoffPrice(item) {
 
 export default function CartScreen({ navigation }) {
   const { colors } = useTheme()
+  const isFocused = useIsFocused()
   const styles = useThemedStyles(createStyles)
   const insets = useSafeAreaInsets()
   const bottomInset = useSystemBottomInset()
@@ -78,6 +81,24 @@ export default function CartScreen({ navigation }) {
   const [razorpayConfig, setRazorpayConfig] = useState(null)
   const [installedUpiIds, setInstalledUpiIds] = useState([])
   const paymentWait = useRef(null)
+  const cartViewRecorded = useRef(false)
+  const checkoutRecorded = useRef(false)
+
+  useEffect(() => {
+    if (!isFocused) {
+      cartViewRecorded.current = false
+      checkoutRecorded.current = false
+      return
+    }
+    if (hydrated && items.length && !cartViewRecorded.current) {
+      cartViewRecorded.current = true
+      trackCommerce('view_cart', items)
+    }
+    if (hydrated && items.length && quote && !quoteLoading && quote.options?.[deliveryOption]?.minimumMet && !checkoutRecorded.current) {
+      checkoutRecorded.current = true
+      trackCommerce('begin_checkout', items)
+    }
+  }, [isFocused, hydrated, items, quote, quoteLoading, deliveryOption])
 
   useEffect(() => navigation.addListener('focus', () => {
     refreshDeliveryQuote?.().catch(() => {})
@@ -207,6 +228,7 @@ export default function CartScreen({ navigation }) {
         throw new Error(currentOption?.minimumMessage || 'This delivery option is not available for this order.')
       }
       const isUpi = Boolean(upiAppById(payChoice))
+      trackCommerce('add_payment_info', items, isUpi ? 'upi' : payChoice)
       const checkout = await authPost('/checkout/create-order', token, {
         addressId: selectedId,
         expectedGrandTotal: currentQuote.totals.grandTotal,

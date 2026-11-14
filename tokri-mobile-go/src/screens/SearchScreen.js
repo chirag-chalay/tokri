@@ -16,6 +16,7 @@ import Icon from '../components/Icon'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { fetchJson, formatPrice, normalizeProduct, resolveAssetUrl } from '../lib/api'
 import { listenForSearch } from '../lib/voiceSearch'
+import { trackSearch } from '../lib/analytics'
 
 const RECENT_KEY = 'tokri_recent_searches'
 const MIN_CHARS = 2
@@ -72,6 +73,7 @@ export default function SearchScreen({ navigation, route }) {
       setProducts(list)
       setSuggestions(suggest)
       setResultQuery(data.query || q)
+      trackSearch(q)
       setTotal(Number(data.total) || list.length)
       await remember(q, list[0]?.image || suggest[0]?.image)
     } catch {

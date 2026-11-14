@@ -18,3 +18,11 @@ test('rejects purchase and malformed or identifying item data', () => {
   assert.equal(buildCommercePayload('view_item', [{ ...item, name: 'user@example.com' }]), null)
   assert.equal(buildCommercePayload('view_item', [{ ...item, priceValue: NaN }]), null)
 })
+
+test('search terms exclude common contact information and URLs', () => {
+  const { sanitizeSearchTerm } = require('../src/lib/trackingCommerce')
+  assert.equal(sanitizeSearchTerm('  green   apple '), 'green apple')
+  assert.equal(sanitizeSearchTerm('user@example.com'), '')
+  assert.equal(sanitizeSearchTerm('9876543210'), '')
+  assert.equal(sanitizeSearchTerm('https://example.com'), '')
+})

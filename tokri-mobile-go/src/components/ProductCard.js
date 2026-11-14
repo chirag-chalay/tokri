@@ -3,6 +3,7 @@ import { Alert, Pressable, Text, View } from 'react-native'
 import { useThemedStyles } from '../context/ThemeContext'
 import { formatPrice } from '../lib/api'
 import { useCart } from '../context/CartContext'
+import { trackCommerce } from '../lib/analytics'
 import RemoteImage from './RemoteImage'
 
 function discountPercent(product) {
@@ -40,6 +41,7 @@ export default function ProductCard({ product, onPress, compact = false }) {
   }
 
   const open = () => {
+    trackCommerce('select_item', [{ ...product, quantity: 1 }])
     const emit = (origin) => onPress?.(product.slug, origin)
     if (!cardRef.current?.measureInWindow) {
       emit(null)
