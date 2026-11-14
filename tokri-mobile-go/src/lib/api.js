@@ -38,9 +38,21 @@ export function authHeaders(token) {
   return headers
 }
 
-export async function fetchJson(path) {
-  const response = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() })
-  return parseResponse(response)
+export async function fetchJson(path, { timeoutMs = 0 } = {}) {
+  if (!timeoutMs) {
+    const response = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() })
+    return parseResponse(response)
+  }
+  const controller = new AbortController()
+  let timer
+  try {
+    return await Promise.race([
+      fetch(`${API_BASE_URL}${path}`, { headers: authHeaders(), signal: controller.signal }).then(parseResponse),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => { controller.abort(); reject(new Error('Request timed out')) }, timeoutMs)
+      }),
+    ])
+  } finally { clearTimeout(timer) }
 }
 
 export async function authGet(path, token) {

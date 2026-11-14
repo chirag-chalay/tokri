@@ -11,10 +11,15 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
     let initialized = 0
     let autoEvents = false
     const sent = []
+    let hold = false, release
+    let configStarted
     const scope = {
       AsyncStorage: { getItem: async (key) => store.get(key) || null, setItem: async (key, value) => store.set(key, value), removeItem: async (key) => store.delete(key) },
       Platform: { OS: platform }, AppState: { currentState: 'active' }, Constants: { expoConfig: { extra: { metaEnabled: true } } },
-      fetchJson: async () => ({ metaEnabled: true }),
+      fetchJson: async () => {
+        if (hold) { configStarted?.(); await new Promise((resolve) => { release = resolve }) }
+        return { metaEnabled: true }
+      },
       getTrackingPermissionsAsync: async () => ({ status: permission }), requestTrackingPermissionsAsync: async () => ({ status: permission }),
       Settings: { setAutoLogAppEventsEnabled: (value) => { autoEvents = value }, setAdvertiserIDCollectionEnabled: () => {}, setAdvertiserTrackingEnabled: async () => true, initializeSDK: () => { initialized += 1 } },
       AppEventsLogger: { setUserID: () => {}, logEvent: (...args) => sent.push(args), logPurchase: (...args) => sent.push(args) },
@@ -33,7 +38,17 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
     assert.equal(initialized, 1)
     assert.ok(api.getMetaConsentId())
     assert.equal(api.trackMetaAction('view_item', {}), true)
-    await api.saveMetaChoice(false)
+    hold = true
+    const started = new Promise((resolve) => { configStarted = resolve })
+    const refresh = api.loadMetaChoice()
+    await started
+    const withdrawing = api.saveMetaChoice(false)
+    assert.equal(autoEvents, false, 'Native auto-events stop while older config request is still pending')
+    assert.equal(api.trackMetaAction('view_item', {}), false)
+    hold = false
+    release()
+    await refresh
+    await withdrawing
     assert.equal(autoEvents, false)
     assert.equal(api.trackMetaAction('view_item', {}), false)
     assert.equal(sent.length, 1)

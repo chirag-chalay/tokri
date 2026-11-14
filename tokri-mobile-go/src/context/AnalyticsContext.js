@@ -1,5 +1,5 @@
 import { loadMetaChoice, saveMetaChoice, getMetaConsentId, readMetaConsentId } from '../lib/metaTracking'
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import Constants from 'expo-constants'
 import { Alert, AppState, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -24,6 +24,24 @@ export function AnalyticsProvider({ children }) {
   const [saving, setSaving] = useState(false)
   const [analyticsReady, setAnalyticsReady] = useState(0)
   const { colors } = useTheme()
+  const [startupBlocked, setStartupBlocked] = useState(true)
+  const [navigationReady, setNavigationReady] = useState(false)
+  const [foreground, setForeground] = useState(AppState.currentState === 'active')
+  const [presentationReady, setPresentationReady] = useState(false)
+  const saveLock = useRef(false)
+  const markNavigationReady = useCallback(() => setNavigationReady(true), [])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => setForeground(state === 'active'))
+    return () => subscription.remove()
+  }, [])
+  useEffect(() => {
+    setPresentationReady(false)
+    if (!loaded || startupBlocked || !navigationReady || !foreground) return undefined
+    // Let an update modal finish dismissing before presenting privacy on iOS.
+    const timer = setTimeout(() => setPresentationReady(true), 400)
+    return () => clearTimeout(timer)
+  }, [loaded, startupBlocked, navigationReady, foreground])
 
   useEffect(() => {
     const refresh = () => { if (AppState.currentState === 'active') { refreshAnalyticsConfig().catch(() => {}); loadMetaChoice().catch(() => {}) } }
@@ -42,8 +60,10 @@ export function AnalyticsProvider({ children }) {
       }
       await saving
       setChoice(value)
+      return true
     } catch {
       Alert.alert('Could not save preference', 'Please try again from your account settings.')
+      return false
     }
   }, [token, user?.id])
 
@@ -57,7 +77,8 @@ export function AnalyticsProvider({ children }) {
       }
       await saving
       setMarketingChoice(value)
-    } catch { Alert.alert('Could not save preference', 'Please try again from your account settings.') }
+      return true
+    } catch { Alert.alert('Could not save preference', 'Please try again from your account settings.'); return false }
   }, [token, user?.id])
   const showPreferences = useCallback(() => {
     setAnalyticsDraft(choice === true)
@@ -77,7 +98,7 @@ export function AnalyticsProvider({ children }) {
       const a = parse(analytics), m = parse(marketing)
       setChoice(a); setMarketingChoice(m); setLoaded(true)
       if (a === null || (marketingAvailable && m === null)) {
-        setAnalyticsDraft(a === true); setMarketingDraft(m === true); setOpen(true)
+        setAnalyticsDraft(a !== false); setMarketingDraft(m !== false); setOpen(true)
       }
     }).catch(() => { if (active) setLoaded(true) })
     loadAnalyticsChoice().then(() => { if (active) setAnalyticsReady((value) => value + 1) }).catch(() => {})
@@ -86,29 +107,35 @@ export function AnalyticsProvider({ children }) {
   }, [marketingAvailable])
 
   const savePreferences = async (analytics, marketing) => {
-    if (saving) return
+    if (saveLock.current) return
+    saveLock.current = true
     setSaving(true)
     setOpen(false)
-    // Preserve unchanged consent markers and allow the iOS ATT prompt to appear
-    // after the custom modal has closed.
-    if (analytics !== choice) await choose(analytics)
-    if (marketingAvailable && marketing !== marketingChoice) {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      await chooseMarketing(marketing)
+    try {
+      // Neither destination's withdrawal should wait for the other's save.
+      const results = await Promise.all([
+        analytics !== choice ? choose(analytics) : Promise.resolve(true),
+        marketingAvailable && marketing !== marketingChoice
+          ? (marketing ? new Promise((resolve) => setTimeout(resolve, 500)).then(() => chooseMarketing(true)) : chooseMarketing(false))
+          : Promise.resolve(true),
+      ])
+      if (results.some((result) => !result)) setOpen(true)
+    } finally {
+      saveLock.current = false
+      setSaving(false)
     }
-    setSaving(false)
   }
 
-  const value = { choice, marketingChoice, marketingAvailable, analyticsReady, showAnalyticsChoice: showPreferences, showMarketingChoice: showPreferences, showPreferences }
+  const value = { choice, marketingChoice, marketingAvailable, analyticsReady, setStartupBlocked, markNavigationReady, showAnalyticsChoice: showPreferences, showMarketingChoice: showPreferences, showPreferences }
   return (
     <AnalyticsContext.Provider value={value}>
       {children}
-      <Modal visible={loaded && open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal visible={presentationReady && open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={styles.overlay}>
           <View style={[styles.card, { backgroundColor: colors.panel, borderColor: colors.line }]}>
             <ScrollView contentContainerStyle={styles.content}>
               <Text style={[styles.title, { color: colors.text }]}>Privacy and measurement</Text>
-              <Text style={[styles.description, { color: colors.muted }]}>Choose how Tokriii uses optional app activity. You can change these choices in your account at any time.</Text>
+              <Text style={[styles.description, { color: colors.muted }]}>Choose how Tokriii uses optional app activity. Tracking starts only after you agree. You can change these choices in your account at any time.</Text>
               <View style={styles.row}>
                 <View style={styles.rowText}><Text style={[styles.label, { color: colors.text }]}>App analytics</Text><Text style={{ color: colors.muted }}>Share app activity with Google Analytics to help improve the app.</Text></View>
                 <Switch accessibilityLabel="App analytics" value={analyticsDraft} onValueChange={setAnalyticsDraft} />
@@ -118,8 +145,7 @@ export function AnalyticsProvider({ children }) {
                 <Switch accessibilityLabel="Advertising measurement" value={marketingDraft} onValueChange={setMarketingDraft} />
               </View> : null}
               <Pressable accessibilityRole="link" onPress={() => Linking.openURL('https://tokriii.com/privacy-policy').catch(() => {})}><Text style={{ color: colors.brand }}>Read privacy policy</Text></Pressable>
-              <Pressable accessibilityRole="button" disabled={saving} style={[styles.button, { backgroundColor: colors.brand }]} onPress={() => savePreferences(true, true)}><Text style={[styles.buttonText, { color: colors.ink }]}>{marketingAvailable ? 'Allow both' : 'Allow analytics'}</Text></Pressable>
-              <Pressable accessibilityRole="button" disabled={saving} style={styles.secondary} onPress={() => savePreferences(analyticsDraft, marketingDraft)}><Text style={[styles.label, { color: colors.text }]}>Save preferences</Text></Pressable>
+              <Pressable accessibilityRole="button" disabled={saving} style={[styles.button, { backgroundColor: colors.brand }]} onPress={() => savePreferences(analyticsDraft, marketingDraft)}><Text style={[styles.buttonText, { color: colors.ink }]}>{choice === null || (marketingAvailable && marketingChoice === null) ? 'Agree and continue' : 'Save preferences'}</Text></Pressable>
               <Pressable accessibilityRole="button" disabled={saving} style={styles.secondary} onPress={() => savePreferences(false, false)}><Text style={{ color: colors.muted }}>Continue without optional tracking</Text></Pressable>
             </ScrollView>
           </View>

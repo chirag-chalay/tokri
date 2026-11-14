@@ -18,6 +18,14 @@ let initialized = false
 function apply(choice, persist, prompt) {
   const current = ++revision
   effectiveId = null
+  if (!choice) {
+    // Stop native automatic events immediately, even if an older config fetch
+    // or a storage write is still pending. Never wait for network to withdraw.
+    Settings.setAutoLogAppEventsEnabled(false)
+    Settings.setAdvertiserIDCollectionEnabled(false)
+    Promise.resolve(Settings.setAdvertiserTrackingEnabled(false)).catch(() => {})
+    if (initialized) AppEventsLogger.setUserID(null)
+  }
   serial = serial.catch(() => {}).then(async () => {
     let marker = await AsyncStorage.getItem(ID)
     if (persist) {
@@ -27,7 +35,9 @@ function apply(choice, persist, prompt) {
       await AsyncStorage.setItem(CHOICE, choice ? 'granted' : 'denied')
     }
     let remote = false
-    try { remote = (await fetchJson('/checkout/app-tracking-config'))?.metaEnabled === true } catch {}
+    if (choice) {
+      try { remote = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.metaEnabled === true } catch {}
+    }
     let allowed = Boolean(choice && marker && remote && Constants.expoConfig?.extra?.metaEnabled)
     if (allowed && Platform.OS === 'ios') {
       const permission = prompt && AppState.currentState === 'active' ? await requestTrackingPermissionsAsync() : await getTrackingPermissionsAsync()

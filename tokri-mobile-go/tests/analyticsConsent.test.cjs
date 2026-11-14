@@ -6,13 +6,15 @@ const path = require('node:path')
 
 test('runtime switch preserves consent identity, disables collection and never grants ad consent', async () => {
   let remote = true
+  let releaseConfig
+  let holdConfig = true
   let collecting = false
   let user = null
   const sent = []
   const store = new Map()
   const scope = {
     AsyncStorage: { getItem: async (key) => store.get(key) || null, setItem: async (key, value) => store.set(key, value), removeItem: async (key) => store.delete(key) },
-    fetchJson: async () => ({ enabled: remote }), getAnalytics: () => ({}),
+    fetchJson: async () => { if (holdConfig) await new Promise((resolve) => { releaseConfig = resolve }); return { enabled: remote } }, getAnalytics: () => ({}),
     setAnalyticsCollectionEnabled: async (_instance, value) => { collecting = value },
     setConsent: async (_instance, value) => { assert.equal(value.ad_storage, false); assert.equal(value.ad_personalization, false) },
     setUserId: async (_instance, value) => { user = value },
@@ -24,9 +26,14 @@ test('runtime switch preserves consent identity, disables collection and never g
   const source = fs.readFileSync(path.join(__dirname, '../src/lib/analytics.js'), 'utf8').replace(/^import .*$/gm, '').replace(/^export (async )?function /gm, '$1function ')
   vm.runInNewContext(source + '\nmodule.exports={loadAnalyticsChoice,saveAnalyticsChoice,getAnalyticsConsentId,refreshAnalyticsConfig,setAnalyticsCustomer,trackConfirmedPurchase}', scope)
   const api = scope.module.exports
-  await api.loadAnalyticsChoice()
+  const loading = api.loadAnalyticsChoice()
   assert.equal(collecting, false)
   await api.saveAnalyticsChoice(true)
+  assert.equal(collecting, false, 'Consent alone cannot enable before remote config')
+  holdConfig = false
+  releaseConfig()
+  await loading
+  assert.equal(collecting, true, 'Consent made during config fetch activates after config arrives')
   api.setAnalyticsCustomer('customer1')
   const marker = api.getAnalyticsConsentId()
   assert.ok(marker)
