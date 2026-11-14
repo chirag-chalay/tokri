@@ -1,3 +1,4 @@
+import { trackAuthentication } from '../lib/analytics'
 import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
@@ -59,6 +60,7 @@ export default function OtpScreen({ navigation, route }) {
     try {
       const result = await postJson('/auth/verify-otp', { phone, otp: code })
       await login({ ...result.user, token: result.token })
+      trackAuthentication(result.isNewCustomer)
       navigation.popToTop()
       if (next === 'Checkout') navigation.navigate('Main', { screen: 'Cart' })
     } catch (error) {

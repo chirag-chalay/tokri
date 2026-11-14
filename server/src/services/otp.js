@@ -132,6 +132,7 @@ export async function verifyOtp(rawPhone, rawCode) {
 
 async function openCustomerSession(phone) {
   let customer = await prisma.customer.findFirst({ where: { phone } })
+  const isNewCustomer = !customer
 
   if (!customer) {
     customer = await prisma.customer.create({
@@ -145,6 +146,7 @@ async function openCustomerSession(phone) {
   }
 
   return {
+    isNewCustomer,
     token: signCustomerToken(customer),
     tokenType: 'Bearer',
     expiresIn: env.jwtExpiresInSeconds,

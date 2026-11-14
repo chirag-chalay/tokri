@@ -12,6 +12,7 @@ import {
   createCheckoutOrder,
   getCheckoutConfig,
   getCheckoutOrderStatus,
+  getAppTrackingPurchases,
   startUpiIntent,
   syncIntentPayment,
   syncOnlineOrderPayment,
@@ -179,11 +180,22 @@ router.post('/create-order', async (req, res, next) => {
       userAgent: req.get('user-agent'),
       attribution: metaAttribution(req),
       marketingConsent: cookieValue(req, 'tokriii_marketing_consent') === 'granted',
+      appPlatform: String(req.get('X-App-Platform') || '').toLowerCase(),
+      appBuild: Number(req.get('X-App-Build')),
     })
     res.status(201).json(result)
   } catch (error) {
     next(error)
   }
+})
+
+router.get('/app-purchases', async (req, res, next) => {
+  try {
+    if (!/^Bearer\s+\S+/i.test(req.headers.authorization || '')) return res.status(401).json({ message: 'Please log in to continue.' })
+    res.set('Cache-Control', 'no-store')
+    const purchases = await getAppTrackingPurchases(req.customer, String(req.query.consentId || ''))
+    res.json({ purchases })
+  } catch (error) { next(error) }
 })
 
 router.post('/upi-intent', async (req, res, next) => {

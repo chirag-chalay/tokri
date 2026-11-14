@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { authPost, formatPrice } from '../lib/api'
 import { openUpiApp, upiAppById } from '../lib/upiApps'
+import { recoverPurchases } from '../lib/purchaseTracking'
 
 const OPEN_DELAY_MS = 450
 const POLL_MS = 2000
@@ -18,7 +19,7 @@ export default function UpiPaymentScreen({ navigation, route }) {
   const { colors } = useTheme()
   const styles = useThemedStyles(createStyles)
   const insets = useSafeAreaInsets()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const { clearCart, refreshCart } = useCart()
   const { appId, intentUrl, paymentId, orderNo, amount } = route.params || {}
   const app = upiAppById(appId)
@@ -94,6 +95,7 @@ export default function UpiPaymentScreen({ navigation, route }) {
     const markPaid = async () => {
       if (finished.current) return
       finished.current = true
+      recoverPurchases(token, user?.id).catch(() => {})
       await clearCart().catch(() => {})
       await refreshCart().catch(() => {})
       if (!stopped) setPhase('success')

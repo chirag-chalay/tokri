@@ -7,6 +7,7 @@ import LoadingView from '../components/LoadingView'
 import AppHeader from '../components/AppHeader'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { fetchJson, normalizeCategory, normalizeProduct } from '../lib/api'
+import { getAnalyticsConsentId, trackCommerce } from '../lib/analytics'
 
 const PAGE_SIZE = 24
 const RAIL_WIDTH = 82
@@ -69,6 +70,7 @@ export default function ShopScreen({ navigation }) {
   const canLoadPrevRef = useRef(false)
   const feedToken = useRef(0)
   const activeSlugRef = useRef('')
+  const trackedProducts = useRef(new Set())
 
   const [categories, setCategories] = useState([])
   const [sections, setSections] = useState([])
@@ -332,6 +334,18 @@ export default function ShopScreen({ navigation }) {
   }, [fetchCategoryPage])
 
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (navigation.isFocused() && getAnalyticsConsentId()) {
+      const fresh = []
+      for (const entry of viewableItems) {
+        for (const product of [entry.item?.left, entry.item?.right]) {
+          const key = `${entry.item?.categorySlug || ''}:${product?.slug || ''}`
+          if (!product?.slug || !product?.name || !Number.isFinite(product.priceValue) || trackedProducts.current.has(key)) continue
+          trackedProducts.current.add(key)
+          fresh.push({ ...product, quantity: 1 })
+        }
+      }
+      if (fresh.length) trackCommerce('view_item_list', fresh.slice(0, 200))
+    }
     const first = viewableItems.find((entry) => entry.item?.categorySlug)
     const slug = first?.item?.categorySlug
     if (!slug || slug === activeSlugRef.current) return

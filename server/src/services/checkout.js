@@ -1,3 +1,4 @@
+import { createAppTrackingContext, appPurchasePayload, isCapturedAppPayment } from './appTrackingPurchase.js'
 import { captureTrackingContext, enqueuePurchase, purchaseSummary } from './trackingPurchase.js'
 import { logError } from '../monitoring/database.js'
 import { subtotal } from '../utils/money.js'
@@ -286,6 +287,9 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     }
   })
 
+  // Native tracking is optional and never controls order creation or price calculation.
+  const trackingContext = captureTrackingContext(tracking, meta) || createAppTrackingContext(tracking, meta.appPlatform, totals, orderItemsData, cartItems, meta.appBuild)
+
   const { deliveryPartnerId, ...deliveryFields } = delivery
 
   const order = await prisma.$transaction(async (tx) => {
@@ -297,7 +301,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     const created = await tx.order.create({
       data: {
         orderNo,
-        ...(captureTrackingContext(tracking, meta) ? { trackingContext: captureTrackingContext(tracking, meta) } : {}),
+        ...(trackingContext ? { trackingContext } : {}),
         customer: { connect: { id: user.id } },
         status: 'pending',
         paymentStatus: 'pending',
@@ -359,7 +363,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
 
   return {
     totals,
-    ...(order.trackingContext ? { trackingPurchase: purchaseSummary({ ...order, items: order.items.map((item) => ({ ...item, product: { slug: cartItems.find((entry) => entry.product.id === item.productId)?.slug } })) }) } : {}),
+    ...(order.trackingContext?.source === 'web' ? { trackingPurchase: purchaseSummary({ ...order, items: order.items.map((item) => ({ ...item, product: { slug: cartItems.find((entry) => entry.product.id === item.productId)?.slug } })) }) } : {}),
     order: {
       id: order.id,
       orderNo: order.orderNo,
@@ -664,7 +668,9 @@ export async function confirmCodOrder(user, { orderNo }) {
   if (!order) throw Object.assign(new Error('Order not found.'), { status: 404 })
 
   if (order.paymentMode !== 'cod') throw Object.assign(new Error('This order is not cash on delivery.'), { status: 400 })
-  if (order.trackingContext && !order.trackingContext.codConfirmed) {
+  if (order.trackingContext?.source === 'app') {
+    await recordAppConfirmation(order.id, 'cod').catch(() => console.error('App purchase confirmation recording failed'))
+  } else if (order.trackingContext && !order.trackingContext.codConfirmed) {
     await prisma.order.update({ where: { id: order.id }, data: { trackingContext: { ...order.trackingContext, codConfirmed: true, confirmedAt: Date.now() } } })
   }
   enqueuePurchase(order.id).catch(() => console.error('Tracking purchase enqueue failed'))
@@ -675,4 +681,43 @@ export async function confirmCodOrder(user, { orderNo }) {
   notifyConfirmedOrder(order, { phone: user.phone, name: user.name })
 
   return { orderNo: order.orderNo, paymentStatus: order.paymentStatus, status: order.status }
+}
+
+// Lock the order so repeated confirmations keep their original timestamp.
+async function recordAppConfirmation(orderId, kind) {
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${orderId} FOR UPDATE`
+    const order = await tx.order.findUnique({ where: { id: orderId } })
+    const context = order?.trackingContext
+    if (context?.source !== 'app' || context.confirmedAt) return
+    if (kind === 'cod' && order.paymentMode !== 'cod') return
+    if (kind === 'captured' && (order.paymentMode !== 'online' || order.paymentStatus !== 'paid')) return
+    await tx.order.update({ where: { id: orderId }, data: { trackingContext: { ...context, confirmedAt: Date.now(), ...(kind === 'cod' ? { codConfirmed: true } : { captured: true }) } } })
+  })
+}
+
+// Only recent app-origin orders belonging to a verified bearer customer qualify.
+export async function getAppTrackingPurchases(user, consentId) {
+  if (!/^[a-zA-Z0-9_-]{16,80}$/.test(consentId || '')) return []
+  const orders = await prisma.order.findMany({
+    where: { customerId: user.id, createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+    orderBy: { createdAt: 'desc' }, take: 30,
+  })
+  const purchases = []
+  for (let order of orders) {
+    const context = order.trackingContext
+    if (context?.source !== 'app' || context.consentId !== consentId) continue
+    if (order.paymentMode === 'online' && order.paymentStatus === 'paid' && !context.confirmedAt && order.razorpayPaymentId) {
+      try {
+        const payment = await fetchRazorpayPayment(order.razorpayPaymentId)
+        if (isCapturedAppPayment(order, payment)) {
+          await recordAppConfirmation(order.id, 'captured')
+          order = await prisma.order.findUnique({ where: { id: order.id } })
+        }
+      } catch { continue }
+    }
+    const payload = appPurchasePayload(order, consentId)
+    if (payload) purchases.push(payload)
+  }
+  return purchases
 }

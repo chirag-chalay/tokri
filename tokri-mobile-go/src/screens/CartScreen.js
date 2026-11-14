@@ -17,7 +17,9 @@ import { useSystemBottomInset } from '../lib/safeArea'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useAddress } from '../context/AddressContext'
-import { trackCommerce } from '../lib/analytics'
+import { getAnalyticsConsentId, trackCommerce } from '../lib/analytics'
+import { recoverPurchases } from '../lib/purchaseTracking'
+import { appPlatform } from '../lib/appBuild'
 import { useIsFocused } from '@react-navigation/native'
 
 const PAY_CHOICE_KEY = 'tokri_pay_choice'
@@ -41,7 +43,7 @@ export default function CartScreen({ navigation }) {
   const styles = useThemedStyles(createStyles)
   const insets = useSafeAreaInsets()
   const bottomInset = useSystemBottomInset()
-  const { isLoggedIn, token } = useAuth()
+  const { isLoggedIn, token, user } = useAuth()
   const { selectedAddress, selectedId, openPicker, refresh } = useAddress()
   const canDeliver = Boolean(selectedAddress && selectedAddress.serviceable !== false)
   const {
@@ -229,7 +231,9 @@ export default function CartScreen({ navigation }) {
       }
       const isUpi = Boolean(upiAppById(payChoice))
       trackCommerce('add_payment_info', items, isUpi ? 'upi' : payChoice)
+      const analyticsConsentId = getAnalyticsConsentId()
       const checkout = await authPost('/checkout/create-order', token, {
+        ...(analyticsConsentId ? { tracking: { source: 'app', analytics: true, platform: appPlatform(), consentId: analyticsConsentId } } : {}),
         addressId: selectedId,
         expectedGrandTotal: currentQuote.totals.grandTotal,
         paymentMode: payChoice === 'cod' ? 'cod' : 'online',
@@ -284,6 +288,7 @@ export default function CartScreen({ navigation }) {
         }
       }
 
+      recoverPurchases(token, user?.id).catch(() => {})
       await clearCart()
       await refreshCart()
       navigation.navigate('Orders')
