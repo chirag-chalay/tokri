@@ -60,6 +60,7 @@ const nextConfig = {
     config.module.rules.push({ test: /\.(png|jpe?g|gif|webp|svg)$/i, type: 'asset/resource', generator: { filename: 'static/media/[name].[contenthash][ext]' } })
     config.plugins.push(new webpack.DefinePlugin({
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify('/api/v1'),
+      'import.meta.env.VITE_META_PIXEL_ENABLED': JSON.stringify(process.env.TOKRIII_META_PIXEL_ENABLED || 'false'),
       'import.meta.env.VITE_GA_MEASUREMENT_ID': JSON.stringify(process.env.TOKRIII_GA_MEASUREMENT_ID || ''),
     }))
     return config

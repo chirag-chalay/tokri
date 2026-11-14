@@ -4,6 +4,7 @@ import NextWebsiteMonitoring from './_components/NextWebsiteMonitoring'
 import { headers } from 'next/headers'
 import { indexingEnabled } from '../lib/server/indexing'
 import MarketingConsent from '../components/MarketingConsent'
+import Script from 'next/script'
 
 export async function generateMetadata() {
   const requestHeaders = await headers()
@@ -34,6 +35,7 @@ export default async function RootLayout({ children }) {
         <link rel="stylesheet" href="/fonts/fonts.css" />
       </head>
       <body>
+        <Script src="/frontend-errors.js" strategy="beforeInteractive" />
         <div id="root"><Suspense fallback={null}><NextWebsiteMonitoring /></Suspense>{children}<MarketingConsent /></div>
       </body>
     </html>

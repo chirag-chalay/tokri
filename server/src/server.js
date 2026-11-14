@@ -20,6 +20,7 @@ import mediaRouter from './routes/media.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { prisma } from './lib/prisma.js'
 import { recoverPendingOnlinePayments } from './services/checkout.js'
+import { createFrontendErrorsRouter } from './routes/frontendErrors.js'
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -100,6 +101,8 @@ app.use(
 )
 
 app.use('/uploads', express.static(uploadsPath))
+// Dedicated first-party browser diagnostics, before the general API body parser.
+app.use('/api/v1/frontend-errors', createFrontendErrorsRouter({ allowedOrigins: env.corsOrigins }))
 
 // Next storefront (TOKRIII_NEXT_ORIGIN) keeps this public port for API/admin and proxies pages.
 // Otherwise serve Vite dist/ when present (staging/single-host). Live often uses nginx for HTML.
