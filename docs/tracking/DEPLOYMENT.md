@@ -103,3 +103,15 @@ At the time of that investigation, scroll depth was not an application event in 
 ## Meta scroll tracking
 
 The scroll change records a custom Meta `Scroll` event once per route when a visitor scrolls 90% of the document or the shop's designated product panel, after marketing consent. Both mobile and desktop shop panels are covered. Pixel and CAPI use the same event name and ID for deduplication. A fresh route resets the threshold. The website also supplies a separate `tokri_scroll` event when analytics is allowed; the GTM tag must be configured and published as described in [GTM_SCROLL_SETUP.md](GTM_SCROLL_SETUP.md).
+
+## Mobile tracking backend deployment — 14 November 2026
+
+Backend revision `fa7f4a0` on `marketingdimpal` was activated on 14 November 2026. A private database dump, backend source/environment archive and PM2-state snapshot were saved outside the web directory before applying changes. The reviewed additive `20261114000000_tracking_purchase_lookup` SQL was applied explicitly and marked in Prisma migration history; no reset or broad schema push was used. The full generated-client column preflight passed afterward.
+
+`tokri-server` was reloaded and PM2 state saved. The frontend continued serving its existing release; this deployment did not rebuild the storefront or publish a native app. Both PM2 services reported online after the backend reload.
+
+Focused verification: 29 tracking tests passed before deployment. Public health, catalog, checkout quote with numeric totals, admin login, homepage and existing website tracking configuration returned HTTP 200. `/api/v1/checkout/app-tracking-config` returned `{ "enabled": true, "metaEnabled": true }`. The mobile purchase GET and dispatch POST returned HTTP 401 without customer authentication. No customer login, order, payment or synthetic purchase event was created for these checks.
+
+The mobile SDK implementation still requires the publisher to configure the private Firebase files and Meta build variables in EAS, produce signed Android/iOS builds and verify Google DebugView/Meta Test Events on devices. Generated native configuration and JavaScript exports do not prove iOS Firebase/Meta linking, SDK credential acceptance, event receipt, install attribution or catalog matching. Backend deployment does not update installed apps. iOS Meta collection currently requires marketing consent plus ATT authorization; ATT-denied aggregate measurement is not implemented.
+
+The native SDK send boundary remains uncertain after a crash: backend claims prevent automatic duplicate dispatch but can leave an event unsent. The admin reconciliation response exposes dispatch state to help investigate this case. Dependency advisories also remain for release review.
