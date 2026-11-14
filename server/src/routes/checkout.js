@@ -166,7 +166,7 @@ router.post('/preview-coupon', optionalCustomer, async (req, res, next) => {
 
 router.get('/app-tracking-config', (_req, res) => {
   res.set('Cache-Control', 'no-store')
-  res.json({ enabled: process.env.MOBILE_ANALYTICS_ENABLED !== 'false' })
+  res.json({ enabled: process.env.MOBILE_ANALYTICS_ENABLED !== 'false', metaEnabled: process.env.MOBILE_META_ENABLED === 'true' })
 })
 
 router.use(requireCustomer)
@@ -200,8 +200,9 @@ router.get('/app-purchases', async (req, res, next) => {
   try {
     if (!/^Bearer\s+\S+/i.test(req.headers.authorization || '')) return res.status(401).json({ message: 'Please log in to continue.' })
     res.set('Cache-Control', 'no-store')
-    if (process.env.MOBILE_ANALYTICS_ENABLED === 'false') return res.json({ purchases: [], nextCursor: null })
-    const page = await getAppTrackingPurchases(req.customer, String(req.query.consentId || ''), { cursor: String(req.query.cursor || '') })
+    const destination = req.query.destination === 'meta' ? 'meta' : 'google'
+    if (destination === 'meta' ? process.env.MOBILE_META_ENABLED !== 'true' : process.env.MOBILE_ANALYTICS_ENABLED === 'false') return res.json({ purchases: [], nextCursor: null })
+    const page = await getAppTrackingPurchases(req.customer, String(req.query.consentId || ''), { cursor: String(req.query.cursor || ''), destination })
     res.json(page)
   } catch (error) { next(error) }
 })
@@ -209,7 +210,7 @@ router.get('/app-purchases', async (req, res, next) => {
 router.post('/app-purchases/dispatch', async (req, res, next) => {
   try {
     if (!/^Bearer\s+\S+/i.test(req.headers.authorization || '')) return res.sendStatus(401)
-    if (process.env.MOBILE_ANALYTICS_ENABLED === 'false') return res.json({ accepted: false })
+    if (req.body?.destination === 'meta' ? process.env.MOBILE_META_ENABLED !== 'true' : process.env.MOBILE_ANALYTICS_ENABLED === 'false') return res.json({ accepted: false })
     res.set('Cache-Control', 'no-store')
     res.json({ accepted: await changeAppDispatch(prisma, req.customer.id, req.body || {}) })
   } catch (error) { next(error) }
@@ -218,7 +219,7 @@ router.post('/app-purchases/dispatch', async (req, res, next) => {
 router.post('/app-purchases/revoke', async (req, res, next) => {
   try {
     if (!/^Bearer\s+\S+/i.test(req.headers.authorization || '')) return res.sendStatus(401)
-    await revokeAppTracking(prisma, req.customer.id, req.body?.consentId)
+    await revokeAppTracking(prisma, req.customer.id, req.body?.consentId, req.body?.destination || 'google')
     res.json({ ok: true })
   } catch (error) { next(error) }
 })

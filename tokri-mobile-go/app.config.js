@@ -14,6 +14,10 @@ function resolveApiBaseUrl() {
 
 const apiBaseUrl = resolveApiBaseUrl()
 const isStaging = process.env.APP_VARIANT === 'staging'
+const metaEnabled = !isStaging && process.env.META_ENABLED !== 'false' && Boolean(process.env.META_APP_ID && process.env.META_CLIENT_TOKEN)
+if (process.env.EAS_BUILD && !isStaging && process.env.META_ENABLED !== 'false' && !metaEnabled) {
+  throw new Error('Configure META_APP_ID and META_CLIENT_TOKEN in the production EAS environment, or explicitly set META_ENABLED=false.')
+}
 // Separate file variables must be configured for each EAS environment.
 const androidFirebase = process.env.GOOGLE_SERVICES_JSON || (!isStaging ? './firebase/production/google-services.json' : null)
 const iosFirebase = process.env.GOOGLE_SERVICE_INFO_PLIST || (!isStaging ? './firebase/production/GoogleService-Info.plist' : null)
@@ -70,6 +74,7 @@ module.exports = {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       ...(androidFirebase ? { googleServicesFile: androidFirebase } : {}),
       versionCode: 12,
+      ...(metaEnabled ? { permissions: ['com.google.android.gms.permission.AD_ID'] } : {}),
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
       adaptiveIcon: {
@@ -82,11 +87,24 @@ module.exports = {
     },
     extra: {
       apiBaseUrl,
+      metaEnabled,
+      metaAppId: metaEnabled ? process.env.META_APP_ID : null,
       eas: {
         projectId: '691345d1-b096-4f13-b978-0750f6e66762',
       },
     },
     plugins: [
+      ['react-native-fbsdk-next', {
+        appID: metaEnabled ? process.env.META_APP_ID : '0',
+        clientToken: metaEnabled ? process.env.META_CLIENT_TOKEN : 'disabled',
+        displayName: process.env.META_APP_DISPLAY_NAME || 'Tokriii',
+        scheme: metaEnabled ? `fb${process.env.META_APP_ID}` : 'fb0',
+        isAutoInitEnabled: false,
+        autoLogAppEventsEnabled: false,
+        advertiserIDCollectionEnabled: false,
+        iosUserTrackingPermission: 'Allow Tokriii to measure advertising performance and personalize ads with your permission.',
+      }],
+      ['expo-tracking-transparency', { userTrackingPermission: 'Allow Tokriii to measure advertising performance and personalize ads with your permission.' }],
       '@react-native-firebase/app',
       '@react-native-firebase/analytics',
       ['expo-build-properties', { android: { minSdkVersion: 24, kotlinVersion: '2.4.0' }, ios: { useFrameworks: 'dynamic' } }],

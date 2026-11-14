@@ -1,3 +1,4 @@
+import { loadMetaChoice } from './src/lib/metaTracking'
 import { StatusBar } from 'expo-status-bar'
 import { AppState, View } from 'react-native'
 import { useEffect } from 'react'
@@ -15,7 +16,7 @@ import AppUpdateGate from './src/components/AppUpdateGate'
 function AppShell() {
   const { colors, isDark } = useTheme()
   const { token, user } = useAuth()
-  const { choice } = useAnalyticsSettings()
+  const { choice, marketingChoice } = useAnalyticsSettings()
   useEffect(() => {
     setPurchaseTrackingSession(token ? user?.id : null)
     setAnalyticsCustomer(token ? user?.id : null)
@@ -29,12 +30,12 @@ function AppShell() {
     return () => subscription.remove()
   }, [token, user?.id])
   useEffect(() => {
-    if (!choice || !token || !user?.id) return undefined
-    const recover = () => loadAnalyticsChoice().then(() => recoverPurchases(token, user.id)).catch(() => {})
+    if ((!choice && !marketingChoice) || !token || !user?.id) return undefined
+    const recover = () => Promise.all([loadAnalyticsChoice(), loadMetaChoice().catch(() => null)]).then(() => recoverPurchases(token, user.id)).catch(() => {})
     recover()
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') recover() })
     return () => subscription.remove()
-  }, [choice, token, user?.id])
+  }, [choice, marketingChoice, token, user?.id])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.panel }}>

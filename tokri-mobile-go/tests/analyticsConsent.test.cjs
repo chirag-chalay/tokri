@@ -17,6 +17,7 @@ test('runtime switch preserves consent identity, disables collection and never g
     setConsent: async (_instance, value) => { assert.equal(value.ad_storage, false); assert.equal(value.ad_personalization, false) },
     setUserId: async (_instance, value) => { user = value },
     logEvent: async (_instance, name, value) => { sent.push({ name, value }) },
+    trackMetaAction: () => false, setMetaCustomer: () => {},
     logScreenView: async () => {}, recordTrackingOutcome: () => {},
     buildCommercePayload: () => null, sanitizeSearchTerm: () => '', module: { exports: {} },
   }

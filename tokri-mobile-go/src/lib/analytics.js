@@ -1,3 +1,4 @@
+import { trackMetaAction, setMetaCustomer } from './metaTracking'
 import { recordTrackingOutcome } from './trackingDiagnostics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getAnalytics, logEvent, logScreenView, setAnalyticsCollectionEnabled, setConsent, setUserId } from '@react-native-firebase/analytics'
@@ -78,20 +79,22 @@ export function trackScreen(name) {
 }
 
 export function trackCommerce(event, items, paymentType, listId) {
-  if (!enabled) return
   const payload = buildCommercePayload(event, items)
   if (!payload) return
   if (event === 'add_shipping_info' && ['morning', 'express'].includes(paymentType)) payload.shipping_tier = paymentType
   if (['view_item_list', 'select_item'].includes(event) && /^[a-zA-Z0-9_-]{1,100}$/.test(listId || '')) payload.item_list_id = listId
   if (event === 'add_payment_info' && ['cod', 'upi', 'card', 'netbanking', 'wallet'].includes(paymentType)) payload.payment_type = paymentType
+  trackMetaAction(event, { commerce: payload })
+  if (!enabled) return
   try { logEvent(getAnalytics(), event, payload).catch(() => {}) } catch {}
 }
 
 // Only explicit, sanitized successful searches are sent; never forward arbitrary input.
 export function trackSearch(term) {
-  if (!enabled) return
   const searchTerm = sanitizeSearchTerm(term)
   if (!searchTerm) return
+  trackMetaAction('search', { searchTerm })
+  if (!enabled) return
   try { logEvent(getAnalytics(), 'search', { search_term: searchTerm }).catch(() => {}) } catch {}
 }
 
@@ -111,11 +114,14 @@ export async function trackConfirmedPurchase(payload, expectedConsentId) {
 }
 
 export function trackAuthentication(isNewCustomer) {
-  if (!enabled || typeof isNewCustomer !== 'boolean') return
+  if (typeof isNewCustomer !== 'boolean') return
+  trackMetaAction(isNewCustomer ? 'sign_up' : 'login', { isNewCustomer })
+  if (!enabled) return
   try { logEvent(getAnalytics(), isNewCustomer === true ? 'sign_up' : 'login', { method: 'phone' }).catch(() => {}) } catch {}
 }
 
 export function setAnalyticsCustomer(id) {
+  setMetaCustomer(id)
   customerId = typeof id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(id) ? id : null
   try { setUserId(getAnalytics(), enabled ? customerId : null).catch(() => {}) } catch {}
 }

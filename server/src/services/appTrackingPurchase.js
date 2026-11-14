@@ -7,7 +7,9 @@ const clean = (value) => typeof value === 'string' && value.trim().length <= 100
 
 // Snapshot only server-priced line data. The client cannot supply amounts or IDs.
 export function createAppTrackingContext(input, platform, totals, lines, cartItems, appBuild) {
-  if (input?.source !== 'app' || input.analytics !== true || !['ios', 'android'].includes(platform) || input.platform !== platform || !/^[a-zA-Z0-9_-]{16,80}$/.test(input.consentId || '')) return undefined
+  const analytics = input?.analytics === true && /^[a-zA-Z0-9_-]{16,80}$/.test(input.consentId || '')
+  const marketing = input?.marketing === true && /^[a-zA-Z0-9_-]{16,80}$/.test(input.marketingConsentId || '')
+  if (input?.source !== 'app' || (!analytics && !marketing) || !['ios', 'android'].includes(platform) || input.platform !== platform) return undefined
   try {
     const included = orderPricesIncludeGst(totals)
     const items = lines.map((line, index) => {
@@ -27,14 +29,15 @@ export function createAppTrackingContext(input, platform, totals, lines, cartIte
     const shipping = money(Math.max(0, Number(totals.deliveryCharge || 0) - Math.max(0, Number(totals.discount || 0) - itemDiscount)))
     const tax = money(totals.taxTotal || 0)
     if (![merchandise, shipping, tax].every((value) => Number.isFinite(value) && value >= 0)) return undefined
-    return { source: 'app', platform, ...(Number.isSafeInteger(appBuild) && appBuild > 0 ? { appBuild } : {}), analytics: true, consentId: input.consentId, consentRecordedAt: Date.now(), schemaVersion: 1, snapshot: { currency: 'INR', value: merchandise, tax, shipping, items } }
+    return { source: 'app', platform, ...(Number.isSafeInteger(appBuild) && appBuild > 0 ? { appBuild } : {}), analytics, marketing, ...(analytics ? { consentId: input.consentId } : {}), ...(marketing ? { marketingConsentId: input.marketingConsentId } : {}), consentRecordedAt: Date.now(), schemaVersion: 1, snapshot: { currency: 'INR', value: merchandise, grandTotal: Number(totals.grandTotal), tax, shipping, items } }
   } catch { return undefined }
 }
 
-export function appPurchasePayload(order, currentConsentId) {
+export function appPurchasePayload(order, currentConsentId, destination = 'google') {
   const context = order?.trackingContext
   if (order?.status === 'cancelled' || order?.paymentStatus === 'refunded' || order?.paymentStatus === 'failed') return null
-  if (context?.source !== 'app' || context.analytics !== true || context.consentId !== currentConsentId || !context.confirmedAt || !context.snapshot) return null
+  const permitted = destination === 'meta' ? context?.marketing === true && context.marketingConsentId === currentConsentId && Number.isFinite(context.snapshot?.grandTotal) : context?.analytics === true && context.consentId === currentConsentId
+  if (context?.source !== 'app' || !permitted || !context.confirmedAt || !context.snapshot) return null
   if (!(order.paymentMode === 'cod' && context.codConfirmed) && !(order.paymentMode === 'online' && order.paymentStatus === 'paid' && context.captured === true)) return null
   const transactionId = createHash('sha256').update(`tokri-purchase:${order.id}`).digest('hex')
   return { ...context.snapshot, transaction_id: transactionId }

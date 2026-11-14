@@ -1,3 +1,4 @@
+import { getMetaConsentId } from '../lib/metaTracking'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import RemoteImage from '../components/RemoteImage'
@@ -232,8 +233,9 @@ export default function CartScreen({ navigation }) {
       const isUpi = Boolean(upiAppById(payChoice))
       trackCommerce('add_payment_info', items, isUpi ? 'upi' : payChoice)
       const analyticsConsentId = getAnalyticsConsentId()
+      const marketingConsentId = getMetaConsentId()
       const checkout = await authPost('/checkout/create-order', token, {
-        ...(analyticsConsentId ? { tracking: { source: 'app', analytics: true, platform: appPlatform(), consentId: analyticsConsentId } } : {}),
+        ...((analyticsConsentId || marketingConsentId) ? { tracking: { source: 'app', analytics: Boolean(analyticsConsentId), marketing: Boolean(marketingConsentId), platform: appPlatform(), ...(analyticsConsentId ? { consentId: analyticsConsentId } : {}), ...(marketingConsentId ? { marketingConsentId } : {}) } } : {}),
         addressId: selectedId,
         expectedGrandTotal: currentQuote.totals.grandTotal,
         paymentMode: payChoice === 'cod' ? 'cod' : 'online',

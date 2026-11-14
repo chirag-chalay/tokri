@@ -24,6 +24,8 @@ export async function lookupTrackingPurchase(transactionId, db) {
     confirmedAt: context.confirmedAt || null,
     googleDispatchState: context.googleDispatch?.state || null,
     googleDispatchAt: context.googleDispatch?.at || null,
+    metaDispatchState: context.metaDispatch?.state || null,
+    metaDispatchAt: context.metaDispatch?.at || null,
     currency: summary.currency,
     ga4MerchandiseValue: context.source === 'app' ? summary.value : summary.merchandiseValue,
     grandTotal: Number(order.grandTotal),

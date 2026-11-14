@@ -65,3 +65,13 @@ test('recovery isolates customer and consent and confirms captured payments', as
   assert.deepEqual(fetched, ['rz_payment'])
   assert.ok(result.purchases.every((payload) => !('customerId' in payload) && !('consentId' in payload)))
 })
+
+test('marketing-only consent produces a Meta purchase with grand total without authorizing Google', () => {
+  const context = createAppTrackingContext({ source: 'app', platform: 'android', marketing: true, marketingConsentId: 'marketing_1234567890123456' }, 'android', totals, lines, cart)
+  const order = { id: 'order-marketing', paymentMode: 'cod', paymentStatus: 'pending', trackingContext: { ...context, confirmedAt: 10, codConfirmed: true } }
+  assert.equal(context.analytics, false)
+  assert.equal(appPurchasePayload(order, 'marketing_1234567890123456'), null)
+  const purchase = appPurchasePayload(order, 'marketing_1234567890123456', 'meta')
+  assert.equal(purchase.grandTotal, 210)
+  assert.equal(purchase.value, 172)
+})

@@ -74,7 +74,7 @@ export default function AccountScreen({ navigation }) {
   const insets = useSafeAreaInsets()
   const bottomInset = useSystemBottomInset()
   const { user, isLoggedIn, logout, updateProfile } = useAuth()
-  const { showAnalyticsChoice } = useAnalyticsSettings()
+  const { showAnalyticsChoice, showMarketingChoice, marketingAvailable } = useAnalyticsSettings()
   const { mode, setMode, colors, isDark } = useTheme()
   const styles = useThemedStyles(createStyles)
   const { setCart } = useCart()
@@ -225,6 +225,7 @@ export default function AccountScreen({ navigation }) {
         <Text style={styles.section}>Other information</Text>
         <View style={styles.block}>
           <Row icon="shield-checkmark-outline" label="App analytics preference" onPress={showAnalyticsChoice} />
+          {marketingAvailable ? <Row icon="megaphone-outline" label="Advertising measurement preference" onPress={showMarketingChoice} /> : null}
           <Row icon="share-outline" label="Share the app" onPress={shareApp} />
           <Row
             icon="book-outline"

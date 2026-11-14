@@ -38,3 +38,20 @@ test('withdrawal removes the snapshot and consent identity without changing the 
   assert.equal(db.current().trackingContext.consentId, undefined)
   assert.equal(await changeAppDispatch(db, 'customer1', { orderKey: 'order1', consentId, state: 'claim' }), false)
 })
+
+test('Google and Meta dispatch and revocation stay independent', async () => {
+  const db = database()
+  const order = db.current()
+  order.trackingContext.marketing = true
+  order.trackingContext.marketingConsentId = 'marketing_1234567890123456'
+  order.trackingContext.snapshot.grandTotal = 120
+  assert.equal(await changeAppDispatch(db, 'customer1', { orderKey: 'order1', consentId, state: 'claim' }), true)
+  assert.equal(await changeAppDispatch(db, 'customer1', { orderKey: 'order1', consentId: 'marketing_1234567890123456', destination: 'meta', state: 'claim' }), true)
+  await revokeAppTracking(db, 'customer1', consentId)
+  assert.equal(db.current().trackingContext.marketing, true)
+  assert.ok(db.current().trackingContext.snapshot)
+  assert.equal(db.current().trackingContext.consentId, undefined)
+  await revokeAppTracking(db, 'customer1', 'marketing_1234567890123456', 'meta')
+  assert.equal(db.current().trackingContext.marketing, false)
+  assert.equal(db.current().trackingContext.snapshot, undefined)
+})

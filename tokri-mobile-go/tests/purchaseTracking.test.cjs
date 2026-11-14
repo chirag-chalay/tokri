@@ -15,6 +15,7 @@ function makeHarness(authGet, authPost = async () => ({ accepted: true, ok: true
     AsyncStorage: { getItem: async (key) => store.get(key) || null, setItem: async (key, value) => store.set(key, value) },
     API_BASE_URL: 'https://example.invalid/api/v1', authGet,
     authPost,
+    getMetaConsentId: () => null, trackMetaPurchase: async () => false,
     getAnalyticsConsentId: () => consent,
     trackConfirmedPurchase: async (payload) => { sent.push(payload.transaction_id); return true },
     recordTrackingOutcome: () => {},

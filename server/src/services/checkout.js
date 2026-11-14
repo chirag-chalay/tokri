@@ -714,7 +714,7 @@ async function recordAppConfirmation(orderId, kind) {
 }
 
 // Only recent app-origin orders belonging to a verified bearer customer qualify.
-export async function getAppTrackingPurchases(user, consentId, { db = prisma, fetchPayment = fetchRazorpayPayment, confirm = recordAppConfirmation, now = Date.now, cursor } = {}) {
+export async function getAppTrackingPurchases(user, consentId, { db = prisma, fetchPayment = fetchRazorpayPayment, confirm = recordAppConfirmation, now = Date.now, cursor, destination = 'google' } = {}) {
   if (!/^[a-zA-Z0-9_-]{16,80}$/.test(consentId || '')) return { purchases: [], nextCursor: null }
   const orders = await db.order.findMany({
     where: { customerId: user.id, createdAt: { gte: new Date(now() - 90 * 86400000) } },
@@ -724,7 +724,7 @@ export async function getAppTrackingPurchases(user, consentId, { db = prisma, fe
   const purchases = []
   for (let order of orders) {
     const context = order.trackingContext
-    if (order.customerId !== user.id || context?.source !== 'app' || context.consentId !== consentId || context.googleDispatch) continue
+    if (order.customerId !== user.id || context?.source !== 'app' || (destination === 'meta' ? context.marketingConsentId !== consentId || context.metaDispatch : context.consentId !== consentId || context.googleDispatch)) continue
     if (order.paymentMode === 'online' && order.paymentStatus === 'paid' && !context.confirmedAt && order.razorpayPaymentId) {
       try {
         const payment = await fetchPayment(order.razorpayPaymentId)
@@ -735,7 +735,7 @@ export async function getAppTrackingPurchases(user, consentId, { db = prisma, fe
       } catch { continue }
     }
     if (!order || order.customerId !== user.id) continue
-    const payload = appPurchasePayload(order, consentId)
+    const payload = appPurchasePayload(order, consentId, destination)
     if (payload) purchases.push({ ...payload, orderKey: order.id })
   }
   return { purchases, nextCursor: orders.length === 30 ? orders.at(-1).id : null }
