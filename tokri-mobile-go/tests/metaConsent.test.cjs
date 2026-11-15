@@ -14,8 +14,17 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
     const sent = []
     let hold = false, release
     let configStarted
+    let holdChoice = false, choiceRead, releaseChoice
     const scope = {
-      AsyncStorage: { getItem: async (key) => store.get(key) || null, setItem: async (key, value) => store.set(key, value), removeItem: async (key) => store.delete(key) },
+      AsyncStorage: { getItem: async (key) => {
+        const value = store.get(key) || null
+        if (key === 'tokri_marketing_consent_v1' && holdChoice) {
+          holdChoice = false
+          choiceRead()
+          await new Promise((resolve) => { releaseChoice = resolve })
+        }
+        return value
+      }, setItem: async (key, value) => store.set(key, value), removeItem: async (key) => store.delete(key) },
       Platform: { OS: platform }, AppState: { currentState: 'active' }, Constants: { expoConfig: { extra: { metaEnabled: true } } },
       fetchJson: async () => {
         if (hold) { configStarted?.(); await new Promise((resolve) => { release = resolve }) }
@@ -47,7 +56,8 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
     assert.equal(api.trackMetaAction('view_item', {}), true)
     hold = true
     const started = new Promise((resolve) => { configStarted = resolve })
-    const refresh = api.loadMetaChoice()
+    const promptCount = prompts
+    const refresh = api.requestMetaTrackingPermission()
     await started
     const withdrawing = api.saveMetaChoice(false)
     assert.equal(autoEvents, false, 'Native auto-events stop while older config request is still pending')
@@ -59,5 +69,19 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
     assert.equal(autoEvents, false)
     assert.equal(api.trackMetaAction('view_item', {}), false)
     assert.equal(sent.length, 1)
+    assert.equal(prompts, promptCount, 'A superseded request cannot show ATT after config resolves')
+    await api.saveMetaChoice(true)
+    holdChoice = true
+    const readStarted = new Promise((resolve) => { choiceRead = resolve })
+    const stalePrompt = api.requestMetaTrackingPermission()
+    await readStarted
+    await api.saveMetaChoice(false)
+    const afterWithdrawal = prompts
+    releaseChoice()
+    await stalePrompt
+    assert.equal(prompts, afterWithdrawal)
+    assert.equal(autoEvents, false)
+    assert.equal(api.getMetaConsentId(), null)
+    assert.equal(store.get('tokri_marketing_consent_v1'), 'denied')
   }
 })

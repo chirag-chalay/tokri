@@ -45,6 +45,7 @@ function apply(choice, persist, prompt) {
       try { remote = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.metaEnabled === true } catch {}
     }
     let allowed = Boolean(choice && marker && remote && Constants.expoConfig?.extra?.metaEnabled)
+    if (current !== revision) return
     if (allowed && Platform.OS === 'ios') {
       const permission = prompt && AppState.currentState === 'active' ? await requestTrackingPermissionsAsync() : await getTrackingPermissionsAsync()
       allowed = permission.status === 'granted'
@@ -72,7 +73,9 @@ export async function loadMetaChoice() {
   return choice
 }
 export async function requestMetaTrackingPermission() {
+  const current = revision
   const value = await AsyncStorage.getItem(CHOICE)
+  if (current !== revision) return
   if (['granted', 'default_allowed'].includes(value)) return apply(true, false, true)
 }
 export function saveMetaChoice(choice) { return apply(choice === true, true, choice === true) }
