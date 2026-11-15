@@ -34,6 +34,12 @@ function apply(choice, persist, prompt) {
       else await AsyncStorage.removeItem(ID)
       await AsyncStorage.setItem(CHOICE, choice ? 'granted' : 'denied')
     }
+    // Defaults are stored separately from explicit agreement, but both need a
+    // stable event eligibility marker before ATT/SDK activation can proceed.
+    if (choice && !marker && current === revision) {
+      marker = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
+      await AsyncStorage.setItem(ID, marker)
+    }
     let remote = false
     if (choice) {
       try { remote = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.metaEnabled === true } catch {}

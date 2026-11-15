@@ -9,6 +9,7 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
     const store = new Map()
     let permission = 'denied'
     let initialized = 0
+    let prompts = 0
     let autoEvents = false
     const sent = []
     let hold = false, release
@@ -20,18 +21,24 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
         if (hold) { configStarted?.(); await new Promise((resolve) => { release = resolve }) }
         return { metaEnabled: true }
       },
-      getTrackingPermissionsAsync: async () => ({ status: permission }), requestTrackingPermissionsAsync: async () => ({ status: permission }),
+      getTrackingPermissionsAsync: async () => ({ status: permission }), requestTrackingPermissionsAsync: async () => { prompts += 1; return { status: permission } },
       Settings: { setAutoLogAppEventsEnabled: (value) => { autoEvents = value }, setAdvertiserIDCollectionEnabled: () => {}, setAdvertiserTrackingEnabled: async () => true, initializeSDK: () => { initialized += 1 } },
       AppEventsLogger: { setUserID: () => {}, logEvent: (...args) => sent.push(args), logPurchase: (...args) => sent.push(args) },
       buildMetaAppEvent: () => ({ method: 'event', name: 'content', parameters: {} }), recordTrackingOutcome: () => {}, module: { exports: {} },
     }
     const source = fs.readFileSync(path.join(__dirname, '../src/lib/metaTracking.js'), 'utf8').replace(/^import .*$/gm, '').replace(/^export (async )?function /gm, '$1function ')
-    vm.runInNewContext(source+'\nmodule.exports={loadMetaChoice,saveMetaChoice,getMetaConsentId,trackMetaAction}', scope)
+    vm.runInNewContext(source+'\nmodule.exports={loadMetaChoice,saveMetaChoice,getMetaConsentId,trackMetaAction,requestMetaTrackingPermission}', scope)
     const api = scope.module.exports
     await api.loadMetaChoice()
     assert.equal(initialized, 0)
     assert.equal(autoEvents, false)
-    await api.saveMetaChoice(true)
+    // A default-on install has no marker yet and no explicit agreement record.
+    store.set('tokri_marketing_consent_v1', 'default_allowed')
+    await api.loadMetaChoice()
+    assert.ok(store.get('tokri_marketing_consent_id_v1'))
+    assert.equal(store.get('tokri_marketing_consent_v1'), 'default_allowed')
+    await api.requestMetaTrackingPermission()
+    if (platform === 'ios') assert.equal(prompts, 1)
     if (platform === 'ios') { assert.equal(initialized, 0); assert.equal(api.getMetaConsentId(), null) }
     permission = 'granted'
     await api.loadMetaChoice()
