@@ -46,8 +46,9 @@ test('runtime switch preserves consent identity, disables collection and never g
   assert.equal(user, null)
   assert.equal(api.getAnalyticsConsentId(), null)
   remote = true
-  await api.refreshAnalyticsConfig()
+  assert.equal(await api.refreshAnalyticsConfig(), true, 'Recovery notifies the UI to record the visible screen')
   assert.equal(api.getAnalyticsConsentId(), marker)
+  assert.equal(await api.refreshAnalyticsConfig(), false, 'An unchanged configuration must not resend the screen')
   await api.saveAnalyticsChoice(false)
   assert.equal(collecting, false)
   assert.equal(user, null)

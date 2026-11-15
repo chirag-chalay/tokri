@@ -134,6 +134,7 @@ export function setAnalyticsCustomer(id) {
 export function readAnalyticsConsentId() { return AsyncStorage.getItem(CONSENT_ID_KEY) }
 
 export async function refreshAnalyticsConfig() {
+  const previouslyEnabled = enabled
   let next = false
   try { next = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.enabled === true } catch { recordTrackingOutcome('configUnavailable') }
   if (next !== remoteEnabled) {
@@ -141,4 +142,5 @@ export async function refreshAnalyticsConfig() {
     const stored = ['granted', 'default_allowed'].includes(await AsyncStorage.getItem(STORAGE_KEY))
     await applyChoice(requestedChoice === null ? stored : requestedChoice)
   }
+  return !previouslyEnabled && enabled
 }

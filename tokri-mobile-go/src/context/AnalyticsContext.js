@@ -1,8 +1,9 @@
 import { loadMetaChoice, saveMetaChoice, getMetaConsentId, readMetaConsentId, requestMetaTrackingPermission } from '../lib/metaTracking'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import Constants from 'expo-constants'
-import { Alert, AppState, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
+import { Alert, AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { getTrackingPermissionsAsync } from 'expo-tracking-transparency'
 import { useTheme } from './ThemeContext'
 import { restoreTrackingPreferences } from '../lib/trackingPreferences'
 import { loadAnalyticsChoice, saveAnalyticsChoice, getAnalyticsConsentId, readAnalyticsConsentId, refreshAnalyticsConfig } from '../lib/analytics'
@@ -24,6 +25,7 @@ export function AnalyticsProvider({ children }) {
   const [open, setOpen] = useState(false)
   const [analyticsDraft, setAnalyticsDraft] = useState(false)
   const [marketingDraft, setMarketingDraft] = useState(false)
+  const [trackingPermission, setTrackingPermission] = useState('unknown')
   const [saving, setSaving] = useState(false)
   const [analyticsReady, setAnalyticsReady] = useState(0)
   const { colors } = useTheme()
@@ -47,7 +49,7 @@ export function AnalyticsProvider({ children }) {
   }, [loaded, startupBlocked, navigationReady, foreground])
 
   useEffect(() => {
-    const refresh = () => { if (AppState.currentState === 'active') { refreshAnalyticsConfig().catch(() => {}); loadMetaChoice().catch(() => {}) } }
+    const refresh = () => { if (AppState.currentState === 'active') { refreshAnalyticsConfig().then((becameEnabled) => { if (becameEnabled) setAnalyticsReady((value) => value + 1) }).catch(() => {}); loadMetaChoice().catch(() => {}) } }
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') refresh() })
     const timer = setInterval(refresh, 300000)
     return () => { subscription.remove(); clearInterval(timer) }
@@ -83,6 +85,14 @@ export function AnalyticsProvider({ children }) {
       return true
     } catch { Alert.alert('Could not save preference', 'Please try again from your account settings.'); return false }
   }, [token, user?.id])
+  const refreshTrackingPermission = useCallback(() => {
+    if (Platform.OS === 'ios') getTrackingPermissionsAsync().then((result) => setTrackingPermission(result.status)).catch(() => setTrackingPermission('unknown'))
+  }, [])
+  useEffect(() => {
+    if (open) refreshTrackingPermission()
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active' && open) refreshTrackingPermission() })
+    return () => subscription.remove()
+  }, [open, refreshTrackingPermission])
   const showPreferences = useCallback(() => {
     setAnalyticsDraft(choice === true)
     setMarketingDraft(marketingChoice === true)
@@ -155,6 +165,10 @@ export function AnalyticsProvider({ children }) {
               {marketingAvailable ? <View style={styles.row}>
                 <View style={styles.rowText}><Text style={[styles.label, { color: colors.text }]}>Advertising measurement</Text><Text style={{ color: colors.muted }}>Share app activity and purchases with Meta to measure advertising.</Text></View>
                 <Switch accessibilityLabel="Advertising measurement" value={marketingDraft} onValueChange={setMarketingDraft} />
+              </View> : null}
+              {Platform.OS === 'ios' && marketingAvailable ? <View style={{ gap: 6 }}>
+                <Text style={{ color: colors.muted }}>iPhone tracking permission: {trackingPermission === 'granted' ? 'Allowed' : trackingPermission === 'denied' ? 'Not allowed' : trackingPermission === 'restricted' ? 'Restricted' : trackingPermission === 'undetermined' ? 'Not requested yet' : 'Unavailable'}. Meta measurement also depends on this device permission.</Text>
+                {trackingPermission === 'denied' || trackingPermission === 'restricted' ? <Pressable accessibilityRole="link" onPress={() => Linking.openSettings().catch(() => {})}><Text style={{ color: colors.brand }}>Open iPhone settings</Text></Pressable> : null}
               </View> : null}
               <Pressable accessibilityRole="link" onPress={() => Linking.openURL('https://tokriii.com/privacy-policy').catch(() => {})}><Text style={{ color: colors.brand }}>Read privacy policy</Text></Pressable>
               <Pressable accessibilityRole="button" disabled={saving} style={[styles.button, { backgroundColor: colors.brand }]} onPress={() => savePreferences(analyticsDraft, marketingDraft)}><Text style={[styles.buttonText, { color: colors.ink }]}>{choice === null || (marketingAvailable && marketingChoice === null) ? 'Agree and continue' : 'Save preferences'}</Text></Pressable>
