@@ -57,7 +57,7 @@ export async function loadAnalyticsChoice() {
   try {
     try { remoteEnabled = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.enabled === true } catch { remoteEnabled = false; recordTrackingOutcome('configUnavailable') }
     const value = await AsyncStorage.getItem(STORAGE_KEY)
-    const choice = value === 'granted' ? true : value === 'denied' ? false : null
+    const choice = ['granted', 'default_allowed'].includes(value) ? true : value === 'denied' ? false : null
     if (revision !== choiceRevision) {
       // A first-launch decision can arrive before configuration. Apply the
       // latest choice with the newly resolved gate without overwriting it.
@@ -138,7 +138,7 @@ export async function refreshAnalyticsConfig() {
   try { next = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.enabled === true } catch { recordTrackingOutcome('configUnavailable') }
   if (next !== remoteEnabled) {
     remoteEnabled = next
-    const stored = (await AsyncStorage.getItem(STORAGE_KEY)) === 'granted'
+    const stored = ['granted', 'default_allowed'].includes(await AsyncStorage.getItem(STORAGE_KEY))
     await applyChoice(requestedChoice === null ? stored : requestedChoice)
   }
 }

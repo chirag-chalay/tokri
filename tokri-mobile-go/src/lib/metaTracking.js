@@ -61,9 +61,13 @@ function apply(choice, persist, prompt) {
 export async function loadMetaChoice() {
   const current = revision
   const value = await AsyncStorage.getItem(CHOICE)
-  const choice = value === 'granted' ? true : value === 'denied' ? false : null
+  const choice = ['granted', 'default_allowed'].includes(value) ? true : value === 'denied' ? false : null
   if (current === revision) await apply(choice === true, false, false)
   return choice
+}
+export async function requestMetaTrackingPermission() {
+  const value = await AsyncStorage.getItem(CHOICE)
+  if (['granted', 'default_allowed'].includes(value)) return apply(true, false, true)
 }
 export function saveMetaChoice(choice) { return apply(choice === true, true, choice === true) }
 export function getMetaConsentId() { return effectiveId }

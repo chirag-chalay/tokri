@@ -1,9 +1,10 @@
-import { loadMetaChoice, saveMetaChoice, getMetaConsentId, readMetaConsentId } from '../lib/metaTracking'
+import { loadMetaChoice, saveMetaChoice, getMetaConsentId, readMetaConsentId, requestMetaTrackingPermission } from '../lib/metaTracking'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import Constants from 'expo-constants'
 import { Alert, AppState, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useTheme } from './ThemeContext'
+import { restoreTrackingPreferences } from '../lib/trackingPreferences'
 import { loadAnalyticsChoice, saveAnalyticsChoice, getAnalyticsConsentId, readAnalyticsConsentId, refreshAnalyticsConfig } from '../lib/analytics'
 
 import { recordTrackingOutcome } from '../lib/trackingDiagnostics'
@@ -14,6 +15,8 @@ const AnalyticsContext = createContext({ choice: null, marketingChoice: null, ma
 
 export function AnalyticsProvider({ children }) {
   const { token, user } = useAuth()
+  const defaultEnabled = Constants.expoConfig?.extra?.trackingDefaultMode === 'opt_out'
+  const [notice, setNotice] = useState(false)
   const marketingAvailable = Boolean(Constants.expoConfig?.extra?.metaEnabled)
   const [loaded, setLoaded] = useState(false)
   const [choice, setChoice] = useState(null)
@@ -89,22 +92,26 @@ export function AnalyticsProvider({ children }) {
   useEffect(() => {
     let active = true
     // Preferences must not wait for the network or native SDK startup.
-    Promise.all([
-      AsyncStorage.getItem('tokri_analytics_consent_v1'),
-      AsyncStorage.getItem('tokri_marketing_consent_v1'),
-    ]).then(([analytics, marketing]) => {
+    restoreTrackingPreferences(AsyncStorage, defaultEnabled, marketingAvailable).then(({ values: [analytics, marketing], defaultApplied }) => {
       if (!active) return
-      const parse = (value) => value === 'granted' ? true : value === 'denied' ? false : null
+      const parse = (value) => ['granted', 'default_allowed'].includes(value) ? true : value === 'denied' ? false : null
       const a = parse(analytics), m = parse(marketing)
       setChoice(a); setMarketingChoice(m); setLoaded(true)
+      setNotice(defaultApplied)
+      loadAnalyticsChoice().then(() => { if (active) setAnalyticsReady((value) => value + 1) }).catch(() => {})
+      loadMetaChoice().catch(() => {})
       if (a === null || (marketingAvailable && m === null)) {
         setAnalyticsDraft(a !== false); setMarketingDraft(m !== false); setOpen(true)
       }
     }).catch(() => { if (active) setLoaded(true) })
-    loadAnalyticsChoice().then(() => { if (active) setAnalyticsReady((value) => value + 1) }).catch(() => {})
-    loadMetaChoice().catch(() => {})
     return () => { active = false }
-  }, [marketingAvailable])
+  }, [defaultEnabled, marketingAvailable])
+
+  useEffect(() => {
+    if (presentationReady && marketingChoice === true && marketingAvailable) {
+      requestMetaTrackingPermission().catch(() => {})
+    }
+  }, [presentationReady, marketingChoice, marketingAvailable])
 
   const savePreferences = async (analytics, marketing) => {
     if (saveLock.current) return
@@ -130,12 +137,17 @@ export function AnalyticsProvider({ children }) {
   return (
     <AnalyticsContext.Provider value={value}>
       {children}
+      {notice && presentationReady && !open ? <View style={[styles.notice, { backgroundColor: colors.panel, borderColor: colors.line }]}>
+        <Text style={{ color: colors.text }}>Tokriii uses Google Analytics for app usage and Meta for advertising measurement. You can turn either off in Privacy and measurement.</Text>
+        <Pressable accessibilityRole="button" onPress={showPreferences}><Text style={{ color: colors.brand }}>Privacy settings</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => setNotice(false)}><Text style={{ color: colors.text }}>Dismiss</Text></Pressable>
+      </View> : null}
       <Modal visible={presentationReady && open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={styles.overlay}>
           <View style={[styles.card, { backgroundColor: colors.panel, borderColor: colors.line }]}>
             <ScrollView contentContainerStyle={styles.content}>
               <Text style={[styles.title, { color: colors.text }]}>Privacy and measurement</Text>
-              <Text style={[styles.description, { color: colors.muted }]}>Choose how Tokriii uses optional app activity. Tracking starts only after you agree. You can change these choices in your account at any time.</Text>
+              <Text style={[styles.description, { color: colors.muted }]}>Choose how Tokriii uses optional app activity. Tracking follows these settings and your device permissions. You can change these choices in your account at any time.</Text>
               <View style={styles.row}>
                 <View style={styles.rowText}><Text style={[styles.label, { color: colors.text }]}>App analytics</Text><Text style={{ color: colors.muted }}>Share app activity with Google Analytics to help improve the app.</Text></View>
                 <Switch accessibilityLabel="App analytics" value={analyticsDraft} onValueChange={setAnalyticsDraft} />
@@ -160,6 +172,7 @@ export function useAnalyticsSettings() {
 }
 
 const styles = StyleSheet.create({
+  notice: { position: 'absolute', bottom: 100, left: 20, right: 20, borderRadius: 14, padding: 18, borderWidth: 1, gap: 12 },
   overlay: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.65)' },
   card: { borderWidth: 1, borderRadius: 18, maxHeight: '85%' },
   content: { padding: 22, gap: 16 },

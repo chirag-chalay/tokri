@@ -88,6 +88,7 @@ module.exports = {
     extra: {
       apiBaseUrl,
       metaEnabled,
+      trackingDefaultMode: !isStaging && process.env.TRACKING_DEFAULT_MODE !== 'opt_in' ? 'opt_out' : 'opt_in',
       metaAppId: metaEnabled ? process.env.META_APP_ID : null,
       eas: {
         projectId: '691345d1-b096-4f13-b978-0750f6e66762',
