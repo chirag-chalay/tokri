@@ -51,7 +51,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       ...(iosFirebase ? { googleServicesFile: iosFirebase } : {}),
-      buildNumber: '11',
+      buildNumber: '12',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -73,7 +73,7 @@ module.exports = {
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       ...(androidFirebase ? { googleServicesFile: androidFirebase } : {}),
-      versionCode: 12,
+      versionCode: 13,
       ...(metaEnabled ? { permissions: ['com.google.android.gms.permission.AD_ID'] } : {}),
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).

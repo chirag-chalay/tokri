@@ -36,7 +36,11 @@
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://tokriii.com/api/v1"
       },
-      "node": "24.12.0"
+      "node": "24.12.0",
+      "environment": "production",
+      "android": {
+        "buildType": "app-bundle"
+      }
     },
     "ios-simulator": {
       "distribution": "internal",
