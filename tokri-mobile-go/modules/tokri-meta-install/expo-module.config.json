@@ -1,0 +1,5 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": { "modules": ["TokriMetaInstallModule"] },
+  "android": { "modules": ["expo.modules.tokrimetainstall.TokriMetaInstallModule"] }
+}

@@ -1,7 +1,7 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
 
-const APPLE_APP_ID = ''
+const APPLE_APP_ID = '6822043083'
 
 export function appPlatform() {
   return Platform.OS === 'ios' ? 'ios' : 'android'

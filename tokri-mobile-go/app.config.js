@@ -42,7 +42,7 @@ module.exports = {
   expo: {
     name: isStaging ? 'Tokriii Staging' : 'Tokriii',
     slug: 'tokriii',
-    version: '1.0.6',
+    version: '1.1.1',
     orientation: 'portrait',
     // App icon: website favicon mark (fruit "o") on brand green — used by iOS + Android legacy.
     icon: './assets/icon.png',
@@ -51,7 +51,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       ...(iosFirebase ? { googleServicesFile: iosFirebase } : {}),
-      buildNumber: '12',
+      buildNumber: '13',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -73,7 +73,7 @@ module.exports = {
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       ...(androidFirebase ? { googleServicesFile: androidFirebase } : {}),
-      versionCode: 13,
+      versionCode: 48,
       ...(metaEnabled ? { permissions: ['com.google.android.gms.permission.AD_ID'] } : {}),
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).

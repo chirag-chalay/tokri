@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { AppState, Platform } from 'react-native'
 import Constants from 'expo-constants'
+import { requireOptionalNativeModule } from 'expo'
 import { AppEventsLogger, Settings } from 'react-native-fbsdk-next'
 import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from 'expo-tracking-transparency'
 import { fetchJson } from './api'
@@ -14,6 +15,7 @@ let customerId = null
 let serial = Promise.resolve()
 let revision = 0
 let initialized = false
+let installActivationStarted = false
 
 function apply(choice, persist, prompt) {
   const current = ++revision
@@ -54,12 +56,20 @@ function apply(choice, persist, prompt) {
     // SDK native defaults are OFF. Do not initialize before consent and ATT.
     await Settings.setAdvertiserTrackingEnabled(allowed)
     if (current !== revision) return
-    Settings.setAutoLogAppEventsEnabled(allowed)
     Settings.setAdvertiserIDCollectionEnabled(allowed)
+    Settings.setAutoLogAppEventsEnabled(allowed)
     if (allowed) {
       if (!initialized) { Settings.initializeSDK(); initialized = true }
       AppEventsLogger.setUserID(customerId)
       effectiveId = marker
+      // Delayed SDK initialization can miss the native application-launch
+      // callback. Ask the SDK to activate once permissions and flags are ready.
+      if (!installActivationStarted && AppState.currentState === 'active') {
+        try {
+          const native = requireOptionalNativeModule('TokriMetaInstall')
+          if (native) installActivationStarted = await native.activate()
+        } catch { recordTrackingOutcome('sdkRejected') }
+      }
     } else if (initialized) AppEventsLogger.setUserID(null)
   })
   return serial

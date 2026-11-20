@@ -1,0 +1,12 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+android {
+  namespace 'expo.modules.tokrimetainstall'
+}
+
+dependencies {
+  implementation 'com.facebook.android:facebook-core:18.+'
+}
