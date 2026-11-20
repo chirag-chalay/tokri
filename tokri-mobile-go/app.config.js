@@ -51,7 +51,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       ...(iosFirebase ? { googleServicesFile: iosFirebase } : {}),
-      buildNumber: '13',
+      buildNumber: '14',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
