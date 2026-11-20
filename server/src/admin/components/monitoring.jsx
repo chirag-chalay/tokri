@@ -206,7 +206,7 @@ function TechnicalMonitoring() {
 
 const reasonText = Object.fromEntries(Object.entries(logReasons).map(([code, [label]]) => [code, label]))
 const sessionColumns = [
-  ['sessionId', 'Session'], ['who', 'Who'], ['where', 'Location'], ['device', 'Device'],
+  ['sessionId', 'Session'], ['who', 'Who'], ['where', 'Location'], ['connectionIp', 'IP'], ['device', 'Device'],
   ['startedAt', 'Started (IST)'], ['timestamp', 'Last activity (IST)'],
   ['eventCount', 'Events'], ['cartItemCount', 'Cart items'], ['result', 'Outcome'],
 ]
@@ -521,7 +521,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
         const rows = row.sessionGroup ? timeline?.rows : [row]
         return <React.Fragment key={key}>
           <tr onClick={() => toggleRow(row, key)}>
-            {visibleColumns.map(([field, label]) => <td key={field} data-label={label}>
+            {visibleColumns.map(([field, label]) => <td key={field} data-label={label} title={field === 'connectionIp' ? row.connectionIp : undefined}>
               {field === 'sessionId' ? <>{row.sessionId ? <button type="button" className="business-session-link" title={row.sessionId}
                 aria-label={'Filter to session ' + shortId(row.sessionId)} onClick={event => { event.stopPropagation(); selectVisit(row.sessionId) }}>{shortId(row.sessionId)}</button> : 'No session'}</>
               : field === 'timestamp' || field === 'startedAt' ? row[field] ? ist(row[field]) : 'Unknown'

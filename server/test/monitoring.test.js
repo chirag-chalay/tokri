@@ -226,8 +226,8 @@ test('website and app sessions group by ID, keep verified identity, and preserve
     await fs.writeFile(path.join(dir, 'api-' + day + '.log'), [
       make(8, { ...website, event: 'request.completed', route: '/api/v1/products', visitorKind: 'guest' }),
       make(7, { ...website, event: 'request.completed', route: '/api/v1/geo/pincode', visitorKind: 'guest', enteredPincode: '110001', pincodeServiceable: true }),
-      make(6, { ...website, event: 'customer.login', visitorKind: 'customer', verifiedCustomerId: 'customer-verified' }),
-      make(5, { ...website, event: 'request.completed', route: '/api/v1/account/cart', cartItemCount: 4 }),
+      make(6, { ...website, event: 'customer.login', visitorKind: 'customer', verifiedCustomerId: 'customer-verified', ip: '203.0.113.8' }),
+      make(5, { ...website, event: 'request.completed', route: '/api/v1/account/cart', cartItemCount: 4, ip: undefined }),
       make(4, { ...mobile, event: 'request.completed' }),
       make(3, { ...mobile, event: 'request.completed' }),
     ].map(row => JSON.stringify(row) + '\n').join(''))
@@ -240,6 +240,7 @@ test('website and app sessions group by ID, keep verified identity, and preserve
     assert.equal(group.eventCount, 4)
     assert.equal(group.backgroundCount, 1)
     assert.equal(group.cartItemCount, 4)
+    assert.equal(group.ip, '203.0.113.8')
     const journey = await read({ visitSession: sessionId, journey: true, includeBackground: false })
     assert.equal(journey.total, 3)
     assert.equal(journey.rows.at(-1).enteredPincode, '110001')

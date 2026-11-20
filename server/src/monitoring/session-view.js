@@ -1,3 +1,4 @@
+import { isIP } from 'node:net'
 import { readableStatus } from '../../../shared/monitoring.js'
 import { logSource } from './log-policy.js'
 
@@ -31,6 +32,10 @@ export function addSessionEvent(sessions, row, background) {
   if (time >= session.timestamp) {
     session.timestamp = time
     for (const key of ['platform', 'browser', 'deviceType', 'logSource']) session[key] = row[key] || session[key]
+  }
+  if (isIP(row.ip || '') && (!session.ipAt || time >= session.ipAt)) {
+    session.ipAt = time
+    session.ip = row.ip
   }
   if (row.visitorKind === 'guest' && (!session.guestAt || time < session.guestAt)) session.guestAt = time
   if (row.verifiedCustomerId) {

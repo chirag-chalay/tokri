@@ -131,6 +131,7 @@ async function businessRows(rows, fullAccess) {
   const enriched = await enrichLogRows(rows, prisma)
   return enriched.map(row => {
     const person = customers.get(row.verifiedCustomerId)
+    const connectionIp = isIP(row.ip || '') ? row.ip : undefined
     const phone = String(person?.phone || '').match(/\d{10}$/)?.[0]
     const customerName = person?.name || 'Signed-in customer'
     const maskedPhone = phone ? phone.slice(0, 2) + 'XXXXXX' + phone.slice(-2) : ''
@@ -149,7 +150,7 @@ async function businessRows(rows, fullAccess) {
       : row.platform === 'android' ? 'Android app' : row.platform === 'ios' ? 'iPhone app' : row.visitorKind === 'system' ? 'Not applicable' : 'Unknown'
     return {
       eventId: row.eventId, timestamp: row.timestamp, sessionId: row.sessionId,
-      sessionGroup: row.sessionGroup, startedAt: row.startedAt || row.timestamp,
+      sessionGroup: row.sessionGroup, connectionIp, startedAt: row.startedAt || row.timestamp,
       eventCount: row.eventCount || 1, backgroundCount: row.backgroundCount || 0, cartItemCount: row.cartItemCount,
       who, source, where: where + ({ ip: ' (approximate)', pincode: ' (delivery area)' }[row.locationSource] || ''),
       pincode: pin ? [pin + ', Delivers: ' + coverage, deliveryArea].filter(Boolean).join(' · ') : row.visitorKind === 'system' ? 'Not applicable' : 'Unknown',
@@ -158,7 +159,7 @@ async function businessRows(rows, fullAccess) {
       hint: reasonCode ? logReasons[reasonCode][1] : undefined,
       result: status === 'Failed' ? 'Failed' : status === 'Successful' ? 'Successful' : 'Info',
       device,
-      details: { 'Connection IP': isIP(row.ip || '') ? row.ip : undefined,
+      details: { 'Connection IP': connectionIp,
         'Customer phone': fullAccess ? phone : maskedPhone, 'Request ID': row.requestId, 'Session ID': row.sessionId, 'Reason code': reasonCode || 'Not applicable',
         'Location source': ({ gps: 'GPS', pincode: 'Delivery pincode', ip: 'IP address (approximate)' })[row.locationSource], 'GPS consent': row.gpsConsent === true ? 'Granted' : row.gpsConsent === false ? 'Denied' : undefined,
         Platform: row.platform, 'App build': row.appBuild || (row.platform === 'website' ? 'Not applicable' : undefined) },
