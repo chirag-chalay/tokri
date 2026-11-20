@@ -99,12 +99,12 @@ export default function Header({ onLoginClick, className = '' }) {
               >
                 <img
                   src={tokriLogo}
-                  alt="tokriii"
+                  alt="Tokriii — Premium & Exotic Fruits"
                   className="mobile-header-logo-wordmark"
                 />
                 <img
                   src={tokriMark}
-                  alt="tokriii"
+                  alt="Tokriii"
                   className="mobile-header-logo-symbol"
                 />
               </Link>

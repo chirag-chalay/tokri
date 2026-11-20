@@ -5,6 +5,7 @@ import { parseDocument } from 'htmlparser2'
 import { findAll, textContent } from 'domutils'
 import { publicGet } from './public-api'
 import { canonicalOrigin } from './indexing'
+import { toAbsoluteUrl } from './seo-defaults'
 
 export const getProduct = cache((slug) => publicGet(`/products/${encodeURIComponent(slug)}`))
 export const getBlog = cache((slug) => publicGet(`/blogs/${encodeURIComponent(slug)}`))
@@ -30,15 +31,31 @@ export function assetUrl(value) {
 
 export function detailMetadata(kind, item) {
   const title = kind === 'product' ? item.name : item.title
-  const description = plainText(kind === 'product' ? item.description : item.excerpt)
+  let description = plainText(kind === 'product' ? item.description : item.excerpt)
+  if (!description && kind === 'product') {
+    description = `Buy fresh ${item.name}${item.weight ? ` (${item.weight})` : ''} online at Tokriii. Handpicked grade-A quality fruit, clean packaging, and morning doorstep delivery in Delhi NCR & Gurugram.`
+  }
   const canonical = `${canonicalOrigin}/${kind}/${encodeURIComponent(item.slug)}`
-  const image = kind === 'product' ? item.image : item.coverImage
+  const rawImage = kind === 'product' ? item.image : item.coverImage
+  const absoluteImage = toAbsoluteUrl(rawImage)
+
   return {
-    title: `${title} · Tokriii`, ...(description ? { description } : {}),
+    title: `${title} · Tokriii`,
+    ...(description ? { description } : {}),
     alternates: { canonical },
-    openGraph: { title: `${title} · Tokriii`, ...(description ? { description } : {}), url: canonical,
+    openGraph: {
+      title: `${title} · Tokriii`,
+      ...(description ? { description } : {}),
+      url: canonical,
       type: kind === 'blog' ? 'article' : 'website',
-      ...(typeof image === 'string' && /^https?:\/\//i.test(image) ? { images: [image] } : {}) },
+      ...(absoluteImage ? { images: [{ url: absoluteImage, alt: title }] } : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} · Tokriii`,
+      ...(description ? { description } : {}),
+      ...(absoluteImage ? { images: [absoluteImage] } : {}),
+    },
   }
 }
 

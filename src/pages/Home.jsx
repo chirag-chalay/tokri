@@ -43,6 +43,7 @@ export default function Home({ initialData }) {
 
   return (
     <main>
+      <h1 className="sr-only">Tokriii — Farm-Fresh, Exotic &amp; Imported Fruits Delivered in Delhi NCR</h1>
       <Banner
         image={home.bannerImage}
         mobileImage={home.mobileBannerImage}

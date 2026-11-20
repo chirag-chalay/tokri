@@ -34,10 +34,14 @@ export default async function RootLayout({ children }) {
   const renderNoScriptPixel = productionHost && consent
 
   return (
-    <html lang="en">
+    <html lang="en-IN">
       <head>
         <link rel="preload" href="/fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="stylesheet" href="/fonts/fonts.css" />
+        <meta name="geo.region" content="IN-DL" />
+        <meta name="geo.placename" content="New Delhi, Gurugram" />
+        <meta name="geo.position" content="28.7159;77.1783" />
+        <meta name="ICBM" content="28.7159, 77.1783" />
       </head>
       <body>
         <div id="root"><Suspense fallback={null}><NextWebsiteMonitoring /></Suspense>{children}<MarketingConsent /></div>
