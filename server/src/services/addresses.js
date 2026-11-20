@@ -57,13 +57,13 @@ function sanitizeAddressInput(input = {}, fallbackPhone = '') {
   const landmark = String(input.landmark || '').trim()
   const phone = normalizePhone(input.phone) || fallbackPhone
 
-  if (!name) throw Object.assign(new Error('Full name is required.'), { status: 400 })
-  if (!line1) throw Object.assign(new Error('House / flat details are required.'), { status: 400 })
-  if (!line2) throw Object.assign(new Error('Street / area is required.'), { status: 400 })
-  if (!city) throw Object.assign(new Error('City is required.'), { status: 400 })
-  if (!state) throw Object.assign(new Error('State is required.'), { status: 400 })
-  if (pincode.length !== 6) throw Object.assign(new Error('Enter a valid 6-digit pincode.'), { status: 400 })
-  if (!phone) throw Object.assign(new Error('A valid mobile number is required.'), { status: 400 })
+  if (!name) throw Object.assign(new Error('Full name is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
+  if (!line1) throw Object.assign(new Error('House / flat details are required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
+  if (!line2) throw Object.assign(new Error('Street / area is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
+  if (!city) throw Object.assign(new Error('City is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
+  if (!state) throw Object.assign(new Error('State is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
+  if (pincode.length !== 6) throw Object.assign(new Error('Enter a valid 6-digit pincode.'), { status: 400, reasonCode: 'PINCODE_INVALID' })
+  if (!phone) throw Object.assign(new Error('A valid mobile number is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
 
   return {
     label,
@@ -91,6 +91,7 @@ export async function snapshotCurrentAddress(user, input = {}) {
   if (pincode.length !== 6) {
     throw Object.assign(new Error('Could not detect a valid pincode for this location. Please add a delivery address.'), {
       status: 400,
+      reasonCode: 'PINCODE_INVALID',
     })
   }
   await assertPincodeServiceable(pincode)

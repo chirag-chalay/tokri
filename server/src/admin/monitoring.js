@@ -1,6 +1,7 @@
 import { isIP } from 'node:net'
+import { failureAlertEnabled } from '../monitoring/failure-alerts.js'
 import { ipLocationProvider } from '../monitoring/ip-location.js'
-import { ACTIVITY_RETENTION_DAYS, ADMIN_RETENTION_DAYS, logSource } from '../monitoring/log-policy.js'
+import { ACTIVITY_RETENTION_DAYS, ADMIN_RETENTION_DAYS, logSource, recordedReason } from '../monitoring/log-policy.js'
 import { isLogReason, validVisitorSession, logReasons } from '../../../shared/logReasons.js'
 import { phoneLookupHash } from '../monitoring/visit.js'
 import { readableStatus } from '../../../shared/monitoring.js'
@@ -20,7 +21,7 @@ export async function monitoringHandler(request, _response, context) {
   const businessRead = post && request.payload?.action === 'business-read'
   const query = businessRead ? request.payload.filters || {} : request.query || {}
   const tab = ['website', 'app', 'errors', 'admin'].includes(query.tab) ? query.tab : 'website'
-  if (!post && query.view === 'access') return { fullAccess, activityDays: ACTIVITY_RETENTION_DAYS, adminDays: ADMIN_RETENTION_DAYS, ipLocationProvider: ipLocationProvider() }
+  if (!post && query.view === 'access') return { fullAccess, activityDays: ACTIVITY_RETENTION_DAYS, adminDays: ADMIN_RETENTION_DAYS, ipLocationProvider: ipLocationProvider(), failureAlertEnabled: failureAlertEnabled() }
   if (!businessRead && !fullAccess) throw new ForbiddenError('You do not have access to these logs.')
   if (post) {
     const headers = logContext.getStore()?.req?.headers || request.headers || {}
@@ -41,6 +42,8 @@ export async function monitoringHandler(request, _response, context) {
   if (businessRead) {
     filters.business = true
     filters.tab = tab
+    filters.checkoutOnly = query.checkoutOnly === true
+    filters.customerOnly = query.customerOnly !== false && query.customerOnly !== 'false' && tab !== 'admin'
     if (['Website', 'Android app', 'iPhone app', 'Backoffice', 'Payment provider', 'Server API', 'System'].includes(query.source)) filters.source = query.source
     for (const key of ['from', 'to']) {
       if (!query[key]) continue
@@ -56,7 +59,10 @@ export async function monitoringHandler(request, _response, context) {
     if (validVisitorSession(query.visitSession)) {
       filters.visitSession = query.visitSession
       filters.journey = query.journey === '1'
-      if (filters.journey && tab !== 'admin') delete filters.tab
+      if (filters.journey) {
+        delete filters.customerOnly
+        if (tab !== 'admin') delete filters.tab
+      }
     }
     if (query.phone) {
       if (!fullAccess) {
@@ -75,6 +81,7 @@ export async function monitoringHandler(request, _response, context) {
         if (!filters.phoneHash) throw new ValidationError({}, { message: 'Enter a valid phone number.' })
       }
     }
+    filters.includeInsights = !filters.journey && query.export !== 'csv' && (!query.page || Number(query.page) === 1)
     if (query.export === 'csv') { filters.export = 'csv'; filters.page = '1' }
   }
   const outbox = businessRead ? undefined : await outboxHealth()
@@ -89,7 +96,7 @@ export async function monitoringHandler(request, _response, context) {
     const result = await workerCall('read', filters)
     const rows = filters.business ? await businessRows(result.rows, fullAccess) : await enrichLogRows(result.rows, prisma)
     if (filters.export === 'csv') return { csv: toCsv(rows), total: result.total, count: rows.length }
-    if (businessRead) return { rows, total: result.total, perPage: result.perPage, summary: result.summary }
+    if (businessRead) return { rows, total: result.total, perPage: result.perPage, summary: result.summary, insights: result.insights }
     return { ...result, rows: rows.map(({ phoneLookupHash: _hash, ...row }) => row), ...monitoringState(), outbox, canManageDebug: fullAccess }
   }
   catch { return { rows: [], files: [], total: 0, totalBytes: 0, page: 1, perPage: 50, ...monitoringState(), outbox, canManageDebug, storageError: 'Log storage is unavailable. Check the supervisor stderr stream and storage permissions.' } }
@@ -124,14 +131,14 @@ async function businessRows(rows, fullAccess) {
     const maskedPhone = phone ? phone.slice(0, 2) + 'XXXXXX' + phone.slice(-2) : ''
     const source = logSource(row)
     const staff = source === 'Backoffice' ? row.staffName || row.presentation?.actor : undefined
-    const who = staff && staff !== 'Name not recorded' ? staff : source === 'Backoffice' ? 'Unknown staff member' : row.visitorKind === 'guest' ? 'Guest' : row.visitorKind === 'system' || row.category === 'audit' && !row.verifiedCustomerId ? 'System' :
+    const who = staff && staff !== 'Name not recorded' ? staff : source === 'Backoffice' ? 'Unknown staff member' : row.visitorKind === 'guest' ? 'Guest' : row.visitorKind === 'system' || !row.verifiedCustomerId && ['Server API', 'System', 'Payment provider'].includes(source) ? 'System' :
       row.visitorKind === 'customer' ? [person?.name || 'Signed-in customer', maskedPhone].filter(Boolean).join(' · ') : 'Unknown'
     const where = [row.locationCity, row.locationState, row.locationCountry].filter(Boolean).join(', ') || 'Unknown'
     const pin = row.enteredPincode || row.deliveryPin
     const coverage = (row.pincodeServiceable === true || row.deliveryCoverage === 'serviceable') ? 'Yes' : (row.pincodeServiceable === false || row.deliveryCoverage === 'unserviceable') ? 'No' : 'Unknown'
     const deliveryArea = [row.deliveryCity, row.deliveryState].filter(Boolean).join(', ')
     const status = readableStatus(row)
-    const reasonCode = status === 'Failed' ? (isLogReason(row.reasonCode) ? row.reasonCode : 'UNKNOWN') : undefined
+    const reasonCode = status === 'Failed' ? recordedReason(row) : undefined
     const device = source === 'Backoffice' ? 'Backoffice' : row.platform === 'website' ? ['Website', [row.browser, row.deviceType].filter(Boolean).join(' ')].filter(Boolean).join(', ')
       : row.platform === 'android' ? 'Android app' : row.platform === 'ios' ? 'iPhone app' : row.visitorKind === 'system' ? 'Not applicable' : 'Unknown'
     return {
@@ -156,7 +163,7 @@ function toCsv(rows) {
     return '"' + (/^[\s\u0000-\u001f]*[=+@-]/.test(text) ? "'" + text : text).replaceAll('"', '""') + '"'
   }
   return [
-    ['Time (IST)', 'Who', 'Where', 'Pincode', 'What happened', 'Why', 'Device', 'Source'],
-    ...rows.map(row => [new Date(row.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }), row.who, row.where, row.pincode, row.action + ' · ' + row.result, row.why, row.device, row.source]),
+    ['Time (IST)', 'Who', 'Where', 'Pincode', 'What happened', 'Result', 'Why', 'Device', 'Source'],
+    ...rows.map(row => [new Date(row.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }), row.who, row.where, row.pincode, row.action, row.result, row.why, row.device, row.source]),
   ].map(row => row.map(quote).join(',')).join('\r\n')
 }

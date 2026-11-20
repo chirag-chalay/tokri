@@ -10,7 +10,7 @@ import { isMonitoringRequest, safeEndpoint, safePage } from '../../../shared/mon
 import { safeFailureFacts, checkoutFacts, checkoutPaymentFacts, adminActionFacts } from './event-facts.js'
 import { visitFacts } from './visit.js'
 import { isLogReason } from '../../../shared/logReasons.js'
-import { logSource, ACTIVITY_RETENTION_DAYS } from './log-policy.js'
+import { logSource, recordedReason, ACTIVITY_RETENTION_DAYS } from './log-policy.js'
 import { categories, sanitize } from './sanitize.js'
 
 export const logContext = new AsyncLocalStorage()
@@ -64,7 +64,9 @@ export function prepareLogRecord(category, event, details = {}) {
   const staff = req?.session?.adminUser
   const staffName = staff?.name || details.staffName
   const logOrigin = logSource({ ...visit, ...details, event, staffName, logSource: staff ? 'Backoffice' : undefined }, category)
-  return { ...sanitize({ ...visit, ...(failure ? { failureReason: context?.accessError?.failureReason, code: context?.accessError?.code } : {}), ...details, ...(failure ? { reasonCode: [details.reasonCode, context?.accessError?.reasonCode].find(isLogReason) || (event === 'request.aborted' ? 'NETWORK_ERROR' : 'UNKNOWN') } : {}), event, staffName, logSource: logOrigin, requestId: context?.id,
+  const failureFacts = { ...context?.accessError, ...details, event }
+  if (!isLogReason(details.reasonCode) || details.reasonCode === 'UNKNOWN') failureFacts.reasonCode = context?.accessError?.reasonCode
+  return { ...sanitize({ ...visit, ...(failure ? { failureReason: context?.accessError?.failureReason, code: context?.accessError?.code } : {}), ...details, ...(failure ? { reasonCode: recordedReason(failureFacts) } : {}), event, staffName, logSource: logOrigin, requestId: context?.id,
     actorId: req?.session?.adminUser?.id || req?.customer?.id || req?.partner?.id || details.actorId,
     ip: req?.ip || details.ip }), eventId: randomUUID(), timestamp: new Date().toISOString() }
 }

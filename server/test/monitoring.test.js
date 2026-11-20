@@ -170,6 +170,40 @@ test('tab retention preserves older audit activity, expires customer logs and co
     assert.deepEqual((await read('errors')).rows.map(entry => entry.platform).sort(), ['ios', 'website'])
   } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
 })
+test('customer insights count sessions, known reasons and non-duplicated hourly failures', async () => {
+  const { createLogInsights, hasFailureSpike } = await import('../src/monitoring/log-insights.js')
+  const { recordedReason, isCustomerActivity } = await import('../src/monitoring/log-policy.js')
+  const now = Date.parse('2026-11-20T12:50:00Z')
+  const insights = createLogInsights(now)
+  const add = (clock, event, extras = {}, category = 'api') => insights.observe({
+    timestamp: '2026-11-20T' + clock + ':00Z', event, platform: 'website', logSource: 'Website',
+    visitorKind: 'guest', locationCity: 'Delhi', ...extras,
+  }, category)
+  add('11:00', 'request.completed', { status: 404, requestId: 'previous' })
+  add('11:01', 'request.completed', { status: 403, logSource: 'Server API' })
+  add('11:45', 'request.completed', { status: 400, reasonCode: 'PINCODE_NOT_SERVICEABLE', route: '/api/v1/geo/pincode', enteredPincode: '560001', requestId: 'pin' })
+  add('11:45', 'operation.failed', { status: 400, reasonCode: 'PINCODE_NOT_SERVICEABLE', route: '/api/v1/geo/pincode', enteredPincode: '560001', requestId: 'pin' }, 'error')
+  add('11:50', 'website.navigation', { status: 'observed', pagePath: '/checkout', sessionId: 'visit-a' }, 'website')
+  add('11:51', 'website.navigation', { status: 'observed', pagePath: '/checkout', sessionId: 'visit-b' }, 'website')
+  add('12:05', 'checkout.guest.blocked', { status: 'failure', reasonCode: 'AUTH_REQUIRED', sessionId: 'visit-a' }, 'website')
+  add('12:10', 'frontend.error', { status: 'failure', locationSource: 'ip' }, 'website')
+  add('12:40', 'frontend.error', { status: 'failure' }, 'website')
+  const result = insights.result()
+  assert.deepEqual(result.demand, { pin: '560001', count: 1 })
+  assert.deepEqual(result.checkout, { reached: 2, blocked: 1 })
+  assert.equal(result.city.name, 'Delhi')
+  assert.equal(result.city.approximate, true)
+  assert.equal(result.trends.website.today.failedCheckouts, 1)
+  assert.equal(result.hourly.previous, 1)
+  assert.equal(result.hourly.latest, 3)
+  assert.equal(hasFailureSpike(result.hourly), true)
+  assert.equal(hasFailureSpike({ latest: 2, previous: 1 }), false)
+  assert.equal(hasFailureSpike({ latest: 1, previous: 0 }), false)
+  assert.equal(recordedReason({ reasonCode: 'UNKNOWN', failureReason: 'product_missing', status: 404 }), 'RESOURCE_NOT_FOUND')
+  assert.equal(recordedReason({ status: 500 }), 'UNKNOWN')
+  assert.equal(isCustomerActivity({ logSource: 'Server API' }), false)
+})
+
 test('AdminJS transport enforces fresh admin privileges and same-origin debug controls', async () => {
   const { default: express } = await import('express')
   const { routeHandler } = await import('../node_modules/@adminjs/express/lib/buildRouter.js')

@@ -207,25 +207,61 @@ function TechnicalMonitoring() {
 const reasonText = Object.fromEntries(Object.entries(logReasons).map(([code, [label]]) => [code, label]))
 const columns = [
   ['timestamp', 'Time (IST)'], ['who', 'Who'], ['where', 'Where'], ['pincode', 'Pincode'],
-  ['action', 'What happened'], ['why', 'Why'], ['device', 'Device'], ['source', 'Source'],
+  ['action', 'What happened'], ['result', 'Result'], ['why', 'Why'], ['device', 'Device'], ['source', 'Source'],
 ]
-const visitDefaults = { from: '', to: '', status: '', reason: '', pin: '', coverage: '', device: '', source: '', search: '' }
+const visitDefaults = { from: '', to: '', status: '', reason: '', pin: '', coverage: '', device: '', source: '', search: '', customerOnly: true }
+const istDay = (daysAgo = 0) => new Date(Date.now() + 330 * 60000 - daysAgo * 86400000).toISOString().slice(0, 10)
+const displayDay = iso => iso.split('-').reverse().join('/')
+function parseLogDate(value) {
+  if (value === '') return ''
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim())
+  if (!match) return null
+  const date = match[3] + '-' + match[2] + '-' + match[1]
+  const parsed = new Date(date)
+  return Number.isFinite(+parsed) && parsed.toISOString().slice(0, 10) === date ? date : null
+}
+const makeDateRange = days => ({ from: displayDay(istDay(days - 1)), to: displayDay(istDay()) })
+const initialFilters = tab => ({ ...visitDefaults, ...makeDateRange(1), customerOnly: tab !== 'admin' })
+
+function LogTrend({ today, yesterday }) {
+  if (today === undefined || yesterday === undefined) return null
+  const sign = today > yesterday ? '↑' : today < yesterday ? '↓' : '→'
+  return <small className="business-trend"><span aria-hidden="true">{sign}</span> Today {today} · Yesterday {yesterday}</small>
+}
+
+function WeeklyLogInsights({ insights, alertEnabled }) {
+  if (!insights) return null
+  const { demand, checkout, peak, city } = insights
+  return <section className="business-insights" aria-label="This week’s activity insights">
+    <h2>This week</h2>
+    <dl>
+      <div><dt>Unserviceable demand</dt><dd>{demand ? <>{demand.pin} checked {demand.count} {demand.count === 1 ? 'time' : 'times'}. Consider expanding delivery.</> : 'No unserviceable pincode checks recorded.'}</dd></div>
+      <div><dt>Guest checkout drop-off</dt><dd>{checkout.reached ? <>{Math.round(100 * checkout.blocked / checkout.reached)}% hit the sign-in requirement ({checkout.blocked} of {checkout.reached} website guest sessions).</> : 'No website guest checkout sessions recorded.'}</dd></div>
+      <div><dt>Busiest hour and top city</dt><dd>{peak ? peak.hour + ':00–' + String((Number(peak.hour) + 1) % 24).padStart(2, '0') + ':00 IST · ' + peak.count + ' events' : 'No customer activity recorded.'}
+        {city && <><br />{city.name}{city.approximate ? ' (includes approximate locations)' : ''} · {city.count} events</>}</dd></div>
+      <div><dt>Hourly failure alert</dt><dd>{alertEnabled ? 'Email alerts enabled' : 'Email alerts awaiting setup'}</dd></div>
+    </dl>
+  </section>
+}
 const sources = ['Website', 'Android app', 'iPhone app', 'Backoffice', 'Payment provider', 'Server API', 'System']
 const tabs = { website: 'Website', app: 'Mobile App (API)', errors: 'Errors', admin: 'Admin/System' }
 
 async function businessQuery(filters, page, extra = {}) {
-  const { search, ...rest } = filters
+  const { search, from, to, ...rest } = filters
+  const start = parseLogDate(from), end = parseLogDate(to)
+  if (start === null || end === null || start && end && start > end) throw new Error('Enter a valid date range in dd/mm/yyyy format.')
   const value = search.trim()
   const lookup = !value ? {} : /^[a-f0-9-]{36}$/.test(value) ? { visitSession: value } : { phone: value }
-  const result = await api.getPage({ pageName: 'logs', method: 'POST', headers: { 'X-Tokri-Monitoring': '1' }, data: { action: 'business-read', filters: { ...rest, ...lookup, page, ...extra } } })
+  const result = await api.getPage({ pageName: 'logs', method: 'POST', headers: { 'X-Tokri-Monitoring': '1' }, data: { action: 'business-read', filters: { ...rest, from: start, to: end, ...lookup, page, ...extra } } })
   if (result.data.storageError) throw new Error('Logs unavailable')
   return result.data
 }
 
 function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
-  const [draft, setDraft] = useState(visitDefaults)
-  const [active, setActive] = useState(visitDefaults)
+  const [draft, setDraft] = useState(() => initialFilters(tab))
+  const [active, setActive] = useState(() => initialFilters(tab))
   const [data, setData] = useState(null)
+  const [insights, setInsights] = useState(null)
   const [page, setPage] = useState(1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -239,7 +275,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
     setBusy(true)
     setError('')
     businessQuery(active, page, { tab })
-      .then(result => { if (current) setData(result) })
+      .then(result => { if (current) { setData(result); if (result.insights) setInsights(result.insights) } })
       .catch(() => { if (current) { setData(null); setError('Could not load the logs. Check the filters and try again.') } })
       .finally(() => { if (current) setBusy(false) })
     return () => { current = false }
@@ -269,18 +305,37 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
     finally { setExporting(false) }
   }
 
-  function openDetails(row, withJourney = false) {
+  function openDetails(row) {
     setSelected(row)
-    setJourney(withJourney ? { requested: true } : null)
+    setJourney(null)
     dialog.current.showModal()
   }
 
-  useEffect(() => { if (selected && journey?.requested) showJourney() }, [selected, journey?.requested])
+  function applyFilters(filters) {
+    const start = parseLogDate(filters.from), end = parseLogDate(filters.to)
+    if (start === null || end === null || start && end && start > end) {
+      setError('Enter a valid date range in dd/mm/yyyy format.')
+      return
+    }
+    setPage(1)
+    setDraft(filters)
+    setActive({ ...filters })
+  }
+
   const summary = data?.summary
+  const trend = insights?.trends?.[tab]
   const top = entries => Object.entries(entries || {}).sort((a, b) => b[1] - a[1]).slice(0, 3)
-  const period = active.from || active.to ? 'Selected dates · IST' : 'Last 24 hours'
+  const period = active.from || active.to ? [active.from || 'Earliest', active.to || 'Today'].join(' – ') + ' · IST' : 'Last 24 hours'
+  const pageCount = Math.max(1, Math.ceil((data?.total || 0) / (data?.perPage || 50)))
+  const first = data?.total ? (page - 1) * data.perPage + 1 : 0
+  const last = Math.min(page * (data?.perPage || 50), data?.total || 0)
   const fullPhoneSearch = access.fullAccess
-  const update = event => setDraft({ ...draft, [event.target.name]: event.target.value })
+  const update = event => {
+    const { name, value } = event.target
+    const digits = value.replace(/\D/g, '').slice(0, 8)
+    const date = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean).join('/')
+    setDraft({ ...draft, [name]: name === 'from' || name === 'to' ? date : value })
+  }
 
   return <section className="business-logs">
     <style>{`
@@ -294,14 +349,30 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       .business-cards article,.business-table{background:#fff;border:1px solid #dce5df;border-radius:8px;padding:12px}
       .business-cards ul{margin:0;padding-left:16px}.business-filters label{display:grid;gap:4px;font-size:13px}
       .business-filters :is(input,select){width:100%;min-width:0;min-height:36px;border:1px solid #bbcfc5;border-radius:6px;padding:6px;background:#fff;color:#16352c}
-      .business-table{overflow:auto;padding:0}.business-table table{border-collapse:collapse;width:100%;text-align:left}
-      .business-table :is(th,td){padding:10px;vertical-align:top;border-bottom:1px solid #e7eee9;font-size:13px;overflow-wrap:anywhere}
-      .business-table th{background:#ecf4ef}.business-table td small{display:block;color:#52665c;margin-top:4px}.business-table button{margin-top:5px}
-      .business-badge{display:table;padding:3px 7px;border-radius:12px;font-size:11px;margin-bottom:5px;background:#eef2f0;color:#405b4d}
+      .business-table{overflow:auto;max-height:62vh;padding:0}.business-table table{border-collapse:separate;border-spacing:0;width:100%;text-align:left;table-layout:fixed}
+      .business-table :is(th,td){padding:8px 10px;border-bottom:1px solid #e7eee9;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .business-table th{position:sticky;top:0;background:#ecf4ef;z-index:1}
+      .business-table tbody tr{cursor:pointer}.business-table tbody tr:hover,.business-table tbody tr:focus-within{background:#f1f6f3}
+      .business-table .business-detail-trigger{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0;border:0;background:transparent;text-decoration:underline;text-underline-offset:3px;text-align:left}
+      .business-badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;background:#eef2f0;color:#405b4d}
       .business-badge[data-result=Failed]{background:#fbe8eb;color:#921d2e}.business-badge[data-result=Successful]{background:#e3f4e8;color:#21603a}
+      .business-quick{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+      .business-trend{display:block;color:#435f52;margin-top:5px}
+      .business-cards li + li{margin-top:5px}.business-cards button{white-space:normal;text-align:left}
+      .business-insights{margin:12px 0;padding:12px;background:#fff;border:1px solid #dce5df;border-radius:8px}
+      .business-insights dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:10px;margin:0}
+      .business-table td:first-child,.business-table th:first-child{width:15%}
+      .business-table th:nth-child(5){width:18%}.business-table th:nth-child(6){width:100px}
       .business-logs dialog{position:fixed;inset:0 0 0 auto;margin:0;height:100dvh;max-height:100dvh;width:min(100vw,440px);max-width:100vw;padding:20px;border:1px solid #bcd1c5;background:#fff;color:#16352c}
       .business-logs dialog::backdrop{background:#15382d59}.business-logs dd{overflow-wrap:anywhere;margin:3px 0 12px}.business-logs dt{font-weight:600}.business-journey li{margin-bottom:12px}
-      @media(max-width:800px){.business-table{background:transparent;border:0}.business-table :is(table,tbody,tr,td){display:block}.business-table thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}.business-table tr{margin-bottom:10px;padding:8px;background:#fff;border:1px solid #dce5df;border-radius:8px}.business-table td{padding:5px;border:0}.business-table td::before{content:attr(data-label);display:block;font-size:11px;font-weight:600;color:#52665c}}
+      @media(max-width:950px){
+        .business-table{background:transparent;border:0;max-height:none}
+        .business-table :is(table,tbody){display:block}.business-table thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+        .business-table tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 8px;margin-bottom:10px;padding:10px;background:#fff;border:1px solid #dce5df;border-radius:8px}
+        .business-table td,.business-table td:first-child{display:block;width:auto;white-space:normal;overflow-wrap:anywhere;padding:4px;border:0}
+        .business-table td::before{content:attr(data-label);display:block;font-size:11px;font-weight:600;color:#52665c}
+        .business-table td[data-label="What happened"]{grid-column:1/-1}.business-table .business-detail-trigger{white-space:normal}
+      }
     `}</style>
     <header className="business-top"><div><h1>Customer activity logs</h1><p>{period}</p></div>{onTechnical && <button type="button" onClick={onTechnical}>Technical logs</button>}</header>
     <nav className="business-actions business-tabs" aria-label="Log tabs">
@@ -310,15 +381,24 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
     </nav>
     <p>{tab === 'admin' ? 'Kept for 1 year' : 'Kept for ' + access.activityDays + ' days'}</p>
     <div className="business-cards">
-      <article><h2>Failed checkouts</h2><strong>{summary?.failedCheckouts ?? 'Unknown'}</strong></article>
-      <article><h2>Top failure reasons</h2>{top(summary?.reasons).length ? <ul>{top(summary.reasons).map(([code, count]) => <li key={code}>{reasonText[code] || reasonText.UNKNOWN} ({count})</li>)}</ul> : <p>{summary ? 'None recorded' : 'Unknown'}</p>}</article>
-      <article><h2>Top unserviceable pincodes</h2>{top(summary?.pincodes).length ? <ul>{top(summary.pincodes).map(([pin, count]) => <li key={pin}>{pin} ({count})</li>)}</ul> : <p>{summary ? 'None recorded' : 'Unknown'}</p>}</article>
-      <article><h2>Website vs app activity</h2><p>Website {summary?.website ?? 'Unknown'}</p><p>App {summary?.app ?? 'Unknown'}</p></article>
+      <article><h2>Failed checkouts</h2><button type="button" onClick={() => applyFilters({ ...active, status: 'Failed', reason: '', checkoutOnly: true })}>{summary?.failedCheckouts ?? 'Unknown'}</button>
+        <LogTrend today={trend?.today.failedCheckouts} yesterday={trend?.yesterday.failedCheckouts} /></article>
+      <article><h2>Top failure reasons</h2>{top(summary?.reasons).length ? <ul>{top(summary.reasons).map(([code, count]) => <li key={code}><button type="button" onClick={() => applyFilters({ ...active, status: 'Failed', reason: code, checkoutOnly: false })}>{reasonText[code]} ({count})</button></li>)}</ul> : <p>{summary ? 'None recorded' : 'Unknown'}</p>}
+        {summary?.unclassified > 0 && <button type="button" onClick={() => applyFilters({ ...active, status: 'Failed', reason: 'UNKNOWN', checkoutOnly: false })}>{summary.unclassified} without a recorded cause</button>}</article>
+      <article><h2>Unserviceable pincodes</h2>{top(summary?.pincodes).length ? <ul>{top(summary.pincodes).map(([pin, count]) => <li key={pin}><button type="button" onClick={() => applyFilters({ ...active, pin, reason: 'PINCODE_NOT_SERVICEABLE', coverage: '', status: 'Failed', checkoutOnly: false })}>{pin} ({count})</button>
+        <LogTrend today={trend?.today.pincodes[pin] ?? (trend ? 0 : undefined)} yesterday={trend?.yesterday.pincodes[pin] ?? (trend ? 0 : undefined)} /></li>)}</ul> : <p>{summary ? 'None recorded' : 'Unknown'}</p>}</article>
+      <article><h2>Website vs app activity</h2><p>Website {summary?.website ?? 'Unknown'}</p><p>App {summary?.app ?? 'Unknown'}</p><LogTrend today={trend?.today.activity} yesterday={trend?.yesterday.activity} /></article>
     </div>
-    <form onSubmit={event => { event.preventDefault(); setPage(1); setActive({ ...draft }) }}>
+    {tab !== 'admin' && <WeeklyLogInsights insights={insights} alertEnabled={access.failureAlertEnabled} />}
+    <div className="business-quick">
+      {[[1, 'Today'], [7, '7 days'], [30, '30 days']].map(([days, label]) => <button type="button" key={days} onClick={() => applyFilters({ ...draft, ...makeDateRange(days) })}>{label}</button>)}
+      {tab !== 'admin' && <label><input type="checkbox" checked={active.customerOnly} onChange={event => applyFilters({ ...active, customerOnly: event.target.checked })} /> Customer activity only</label>}
+      {active.checkoutOnly && <button type="button" onClick={() => applyFilters({ ...active, checkoutOnly: false })}>Clear checkout filter</button>}
+    </div>
+    <form onSubmit={event => { event.preventDefault(); applyFilters(draft) }}>
       <div className="business-filters">
-        <label>From<input type="date" name="from" value={draft.from} onChange={update} /></label>
-        <label>To<input type="date" name="to" value={draft.to} onChange={update} /></label>
+        <label>From<input name="from" inputMode="numeric" placeholder="dd/mm/yyyy" maxLength={10} value={draft.from} onChange={update} /></label>
+        <label>To<input name="to" inputMode="numeric" placeholder="dd/mm/yyyy" maxLength={10} value={draft.to} onChange={update} /></label>
         <label>Result<select name="status" value={draft.status} onChange={update}><option value="">All</option><option>Failed</option><option>Successful</option></select></label>
         <label>Reason<select name="reason" value={draft.reason} onChange={update}><option value="">All reasons</option>{Object.entries(reasonText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
         <label>Pincode<input name="pin" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={draft.pin} onChange={update} /></label>
@@ -332,18 +412,26 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
     {error && <p role="alert">{error}</p>}
     <p aria-live="polite">{busy ? 'Loading activity…' : data?.total ? data.total + ' matching events' : 'No matching activity'}</p>
     <div className="business-table"><table><thead><tr>{columns.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead><tbody>
-      {(data?.rows || []).map((row, index) => <tr key={row.eventId || row.timestamp + index}>{columns.map(([key, label]) => <td key={key} data-label={label}>
-        {key === 'timestamp' ? row.timestamp ? ist(row.timestamp) : 'Unknown' : key === 'action' ? <>
-          <span className="business-badge" data-result={row.result}>{row.result}</span>{row.action}
-          <small><button onClick={() => openDetails(row)}>View details</button>{row.sessionId && <button onClick={() => openDetails(row, true)}>View journey</button>}</small>
-        </> : row[key] || 'Unknown'}
-      </td>)}</tr>)}
+      {(data?.rows || []).map((row, index) => <tr key={row.eventId || row.timestamp + index} onClick={() => openDetails(row)}>
+        {columns.map(([key, label]) => <td key={key} data-label={label} title={key === 'timestamp' || key === 'result' ? undefined : row[key]}>
+          {key === 'timestamp' ? row.timestamp ? ist(row.timestamp) : 'Unknown'
+            : key === 'result' ? <span className="business-badge" data-result={row.result}>{row.result}</span>
+            : key === 'action' ? <button type="button" className="business-detail-trigger" aria-label={'View details for ' + row.action} onClick={event => { event.stopPropagation(); openDetails(row) }}>{row.action}</button>
+            : row[key] || 'Unknown'}
+        </td>)}
+      </tr>)}
     </tbody></table></div>
-    <nav className="business-actions" aria-label="Log pages"><button disabled={busy || page <= 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page}</span><button disabled={busy || !data || page * data.perPage >= data.total} onClick={() => setPage(page + 1)}>Next</button></nav>
+    <nav className="business-actions" aria-label="Log pages">
+      <button type="button" disabled={busy || page <= 1} onClick={() => setPage(1)}>First</button>
+      <button type="button" disabled={busy || page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
+      <span>Page {page} of {pageCount} · {first}–{last} of {data?.total || 0}</span>
+      <button type="button" disabled={busy || page >= pageCount} onClick={() => setPage(page + 1)}>Next</button>
+      <button type="button" disabled={busy || page >= pageCount} onClick={() => setPage(pageCount)}>Last</button>
+    </nav>
     <dialog ref={dialog} onClose={() => { setSelected(null); setJourney(null) }}>
       <form method="dialog"><button autoFocus>Close</button></form>
       {selected && <><h2>{selected.action}</h2><p>{selected.why}</p>{selected.hint && <p>{selected.hint}</p>}
-        <dl>{Object.entries(selected.details).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value || (selected.who === 'System' ? 'Not applicable' : 'Unknown')}</dd></div>)}</dl>
+        <dl>{Object.entries({ Who: selected.who, Where: selected.where, Pincode: selected.pincode, Device: selected.device, Source: selected.source, ...selected.details }).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value || (selected.who === 'System' ? 'Not applicable' : 'Unknown')}</dd></div>)}</dl>
         {selected.sessionId && <button type="button" onClick={showJourney}>Show visitor journey</button>}
         {journey?.loading && <p>Loading journey…</p>}{journey?.error && <p role="alert">{journey.error}</p>}
         {journey?.rows && <><h2>Visitor journey</h2>{journey.total > journey.rows.length && <p>Showing the oldest {journey.rows.length} events.</p>}<ol className="business-journey">{journey.rows.map((row, index) => <li key={row.eventId || row.timestamp + index}><strong>{row.action} · {row.result}</strong><br />{ist(row.timestamp)} · {row.pincode}</li>)}</ol></>}

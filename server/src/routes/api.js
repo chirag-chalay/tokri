@@ -92,7 +92,7 @@ router.get('/categories/:slug', async (req, res, next) => {
     })
 
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' })
+      return res.status(404).json({ message: 'Category not found', reasonCode: 'RESOURCE_NOT_FOUND' })
     }
 
     const products = await prisma.product.findMany({
@@ -243,7 +243,7 @@ router.get('/products/:slug', async (req, res, next) => {
     })
 
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' })
+      return res.status(404).json({ message: 'Product not found', reasonCode: 'RESOURCE_NOT_FOUND' })
     }
 
     res.json(formatProduct(product))
@@ -296,7 +296,7 @@ router.get('/blogs/:slug', async (req, res, next) => {
         isPublished: true,
       },
     })
-    if (!post) return res.status(404).json({ message: 'Blog post not found' })
+    if (!post) return res.status(404).json({ message: 'Blog post not found', reasonCode: 'RESOURCE_NOT_FOUND' })
     res.json(formatBlog(post))
   } catch (error) {
     next(error)
@@ -313,7 +313,7 @@ router.get('/pages/:slug', async (req, res, next) => {
     })
 
     if (!page) {
-      return res.status(404).json({ message: 'Page not found' })
+      return res.status(404).json({ message: 'Page not found', reasonCode: 'RESOURCE_NOT_FOUND' })
     }
 
     res.json(formatPage(page))

@@ -5,6 +5,7 @@ import express from 'express'
 import { requestLogging, startCriticalOutbox, closeMonitoring, installProcessErrorLogging, installGracefulShutdown } from './monitoring/index.js'
 import { logError } from './monitoring/database.js'
 import { ipLocationReady } from './monitoring/ip-location.js'
+import { startFailureSpikeAlerts } from './monitoring/failure-alerts.js'
 import cors from 'cors'
 import fs from 'fs'
 import http from 'http'
@@ -195,7 +196,11 @@ async function start() {
       setTimeout(recover, 8000)
       setInterval(recover, 5 * 60 * 1000)
     })
-    installGracefulShutdown(listener, () => prisma.$disconnect())
+    const stopFailureAlerts = startFailureSpikeAlerts()
+    installGracefulShutdown(listener, () => {
+      stopFailureAlerts()
+      return prisma.$disconnect()
+    })
   } catch (error) {
     logError(error, 'server-start')
     await closeMonitoring().catch(() => {})

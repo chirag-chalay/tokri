@@ -29,7 +29,8 @@ export function createFrontendErrorsRouter({ allowedOrigins, write = createFront
       for (const event of events) {
         let page
         try { page = safePage(new URL(event.page).pathname) } catch {}
-        log('website', 'frontend.error', { source: 'website', origin: 'browser', status: 'failure', page: page?.pageLabel, pagePath: page?.pagePath })
+        const reasonCode = { resource: 'RESOURCE_LOAD_FAILED', network: 'NETWORK_ERROR', http: 'UNKNOWN' }[event.kind] || 'BROWSER_ERROR'
+        log('website', 'frontend.error', { reasonCode, httpStatus: event.status, source: 'website', origin: 'browser', status: 'failure', page: page?.pageLabel, pagePath: page?.pagePath })
       }
       return res.sendStatus(204)
     } catch {

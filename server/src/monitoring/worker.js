@@ -1,4 +1,3 @@
-import { isLogReason } from '../../../shared/logReasons.js'
 import { parentPort, workerData } from 'node:worker_threads'
 import fs from 'node:fs/promises'
 import { createInterface } from 'node:readline'
@@ -7,7 +6,8 @@ import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { presentLog } from '../admin/monitoring-presentation.js'
 import { isMonitoringRequest, readableStatus } from '../../../shared/monitoring.js'
-import { ADMIN_RETENTION_DAYS, DAY_MS, logSource, logTab } from './log-policy.js'
+import { ADMIN_RETENTION_DAYS, DAY_MS, activityKey, countableActivity, isCheckout, isCustomerActivity, logSource, logTab, recordedReason } from './log-policy.js'
+import { createLogInsights } from './log-insights.js'
 import { categories, sanitize, istDate } from './sanitize.js'
 
 const { directory, maxBytes, retentionDays, readerOnly, preserveRetention, frontendErrorDirectory } = workerData
@@ -247,25 +247,41 @@ async function legacyErrors(start, end) {
       const date = istDate(new Date(time))
       if (!byDay.has(date)) byDay.set(date, [])
       byDay.get(date).push({ timestamp: new Date(time).toISOString(), category: 'error', event: 'frontend.error',
-        platform: 'website', logSource: 'Website', reasonCode: 'UNKNOWN', status: 'failure', file: 'legacy-frontend-errors' })
+        platform: 'website', logSource: 'Website', reasonCode: row.kind === 'resource' ? 'RESOURCE_LOAD_FAILED' : row.kind === 'network' ? 'NETWORK_ERROR' : 'BROWSER_ERROR', status: 'failure', file: 'legacy-frontend-errors' })
     }
   }
   return byDay
 }
 
+async function readInsights(allFiles, alertOnly, now) {
+  const metrics = createLogInsights(now, { alertOnly })
+  const oldest = istDate(new Date(metrics.start))
+  for (const file of allFiles) {
+    if (file.date < oldest || file.category === 'debug') continue
+    for await (const line of reverseLines(file)) {
+      let row
+      try { row = JSON.parse(line) } catch { continue }
+      if (row && typeof row === 'object') metrics.observe(row, file.category)
+    }
+  }
+  return metrics.result()
+}
+
 async function read(query) {
   const allFiles = await files()
+  if (query.insightsOnly) return readInsights(allFiles, Boolean(query.alertOnly), Date.now())
   totalBytes = allFiles.reduce((sum, f) => sum + f.size, 0)
   const current = Date.now()
   const retentionCutoff = current - (query.tab === 'admin' || query.journey ? ADMIN_RETENTION_DAYS : retentionDays) * DAY_MS
   const start = query.from ? Date.parse(query.from + 'T00:00:00+05:30') : query.visitSession || query.to ? retentionCutoff : current - DAY_MS
   const end = query.to ? Date.parse(query.to + 'T23:59:59.999+05:30') : current
-  const summary = { failedCheckouts: 0, website: 0, app: 0, reasons: {}, pincodes: {} }
+  const summary = { failedCheckouts: 0, website: 0, app: 0, reasons: {}, pincodes: {}, unclassified: 0 }
+  const failures = new Map()
   const list = allFiles.filter((f) => (!query.category || f.category === query.category) && (!query.date || f.date === query.date)
     && (!query.business || (f.date >= istDate(new Date(Math.max(start, retentionCutoff))) && (f.date <= istDate(new Date(end)) || f.date === istDate())))).reverse()
   const journey = query.journey === true && Boolean(query.visitSession)
-  const legacy = query.tab === 'errors' && !query.visitSession && !query.phoneHash && !query.maskedCustomerIds && !query.pin && !query.coverage &&
-    (!query.status || query.status === 'Failed') && (!query.reason || query.reason === 'UNKNOWN') &&
+  const legacy = query.tab === 'errors' && !query.checkoutOnly && !query.visitSession && !query.phoneHash && !query.maskedCustomerIds && !query.pin && !query.coverage &&
+    (!query.status || query.status === 'Failed') &&
     (!query.source || query.source === 'Website') && (!query.device || query.device === 'website') ?
     await legacyErrors(Math.max(start, retentionCutoff), end) : new Map()
   const perPage = query.export === 'csv' ? 5000 : Number(query.perPage) === 100 ? 100 : 50
@@ -286,10 +302,12 @@ async function read(query) {
         if (query.business) {
           const time = Date.parse(row.timestamp)
           const outcome = readableStatus({ ...row, category: file.category })
-          const reason = outcome === 'Failed' ? (isLogReason(row.reasonCode) ? row.reasonCode : 'UNKNOWN') : undefined
+          const reason = outcome === 'Failed' ? recordedReason(row) : undefined
           const tab = logTab(row, file.category)
           if (time < Math.max(start, current - (tab === 'admin' ? ADMIN_RETENTION_DAYS : retentionDays) * DAY_MS) || time > end) continue
           if (query.tab && tab !== query.tab) continue
+          if (query.checkoutOnly && !isCheckout(row)) continue
+          if (query.customerOnly && !isCustomerActivity(row, file.category)) continue
           if (query.source && logSource(row, file.category) !== query.source) continue
           if (query.visitSession && row.sessionId !== query.visitSession) continue
           if (query.phoneHash && row.phoneLookupHash !== query.phoneHash) continue
@@ -303,12 +321,12 @@ async function read(query) {
           if (query.status && outcome !== query.status) continue
           if (app) summary.app++
           if (row.platform === 'website') summary.website++
-          if (reason && file.category !== 'debug' && !(file.category === 'error' && row.requestId) && !(row.event === 'checkout.request' && row.requestId && Number(row.httpStatus) >= 400)) {
-            const checkout = String(row.event || '').startsWith('checkout.') || row.route === '/api/v1/checkout/create-order'
-            if (checkout) summary.failedCheckouts++
-            summary.reasons[reason] = (summary.reasons[reason] || 0) + 1
-            const pin = row.enteredPincode || row.deliveryPin
-            if (reason === 'PINCODE_NOT_SERVICEABLE' && pin && /^\d{6}$/.test(pin)) summary.pincodes[pin] = (summary.pincodes[pin] || 0) + 1
+          if (reason && countableActivity(row, file.category)) {
+            const key = activityKey(row)
+            const previous = failures.get(key)
+            if (!previous || previous.reason === 'UNKNOWN' && reason !== 'UNKNOWN') {
+              failures.set(key, { reason, checkout: isCheckout(row) || previous?.checkout, pin: row.enteredPincode || row.deliveryPin })
+            }
           }
         }
         if (query.status && (['Successful', 'Failed', 'Warning', 'Pending'].includes(query.status) ? readableStatus({ ...row, category: file.category }) !== query.status : ![row.status, row.outcome].some((value) => String(value ?? '') === query.status))) continue
@@ -326,8 +344,9 @@ async function read(query) {
   // plus the requested page; do not load daily files or earlier pages into RAM.
   async function* matchingLegacy(rows) {
     for (const row of rows.sort((a, b) => b.timestamp.localeCompare(a.timestamp))) {
+      if (query.reason && query.reason !== row.reasonCode) continue
       summary.website++
-      summary.reasons.UNKNOWN = (summary.reasons.UNKNOWN || 0) + 1
+      failures.set(activityKey(row), { reason: row.reasonCode })
       yield row
     }
   }
@@ -350,8 +369,14 @@ async function read(query) {
       }
     } finally { for (const stream of streams) await stream.iterator.return() }
   }
+  for (const { reason, checkout, pin } of failures.values()) {
+    if (checkout) summary.failedCheckouts++
+    if (reason === 'UNKNOWN') summary.unclassified++
+    else summary.reasons[reason] = (summary.reasons[reason] || 0) + 1
+    if (reason === 'PINCODE_NOT_SERVICEABLE' && /^\d{6}$/.test(pin || '')) summary.pincodes[pin] = (summary.pincodes[pin] || 0) + 1
+  }
   if (journey) rows.reverse().sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-  return { rows, total, page, perPage, summary, files: list, days: [...new Set(allFiles.filter(file => !query.category || file.category === query.category).map(file => file.date))].sort().reverse(), totalBytes, corruptRows }
+  return { rows, total, page, perPage, summary, insights: query.includeInsights ? await readInsights(allFiles, false, current) : undefined, files: list, days: [...new Set(allFiles.filter(file => !query.category || file.category === query.category).map(file => file.date))].sort().reverse(), totalBytes, corruptRows }
 }
 let chain = Promise.resolve()
 if (!readerOnly) setInterval(() => {
