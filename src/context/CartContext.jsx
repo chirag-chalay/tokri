@@ -1,3 +1,4 @@
+import { setVisitCartItems } from '../lib/logVisit'
 import { trackCommerce } from '../lib/telemetry'
 import { recordWebsiteDebug } from '../lib/websiteMonitoring'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
@@ -152,6 +153,9 @@ export function CartProvider({ children }) {
   const currentQuoteKey = useRef(null)
   useEffect(() => { try { if (coupon?.code) sessionStorage.setItem('tokri_selected_coupon', coupon.code); else sessionStorage.removeItem('tokri_selected_coupon') } catch { /* Storage may be unavailable. */ } }, [coupon?.code])
   const cartItemsRef = useRef(cartItems)
+  useEffect(() => {
+    setVisitCartItems(cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0))
+  }, [cartItems])
   cartItemsRef.current = cartItems
 
   const skipServerPush = useRef(true)

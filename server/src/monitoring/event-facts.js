@@ -68,7 +68,13 @@ export function checkoutFacts(body) {
   for (const key of ['itemsTotal', 'discount', 'grandTotal', 'deliveryCharge', 'handlingCharge', 'taxTotal']) {
     if (totals[key] != null && totals[key] !== '' && Number.isFinite(Number(totals[key])) && Number(totals[key]) >= 0) facts[key] = Number(totals[key])
   }
-  if (Array.isArray(totals.lineItems)) facts.productCount = totals.lineItems.length
+  if (Array.isArray(totals.lineItems)) {
+    facts.productCount = totals.lineItems.length
+    if (totals.lineItems.every(item => Number.isInteger(item?.quantity) && item.quantity > 0)) {
+      const count = totals.lineItems.reduce((sum, item) => sum + item.quantity, 0)
+      if (count <= 10000) facts.cartItemCount = count
+    }
+  }
   else if (Array.isArray(body.items)) facts.productCount = body.items.length
   // Only the server-confirmed selected code, never the customer's raw input.
   const code = body.coupon?.code || (body.couponStatus?.status === 'applied' ? body.couponStatus.code : undefined)

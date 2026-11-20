@@ -42,6 +42,9 @@ export async function monitoringHandler(request, _response, context) {
   if (businessRead) {
     filters.business = true
     filters.tab = tab
+    filters.groupSessions = query.groupSessions === true && ['website', 'app'].includes(tab)
+    filters.includeBackground = query.includeBackground === true
+    if (/^[a-f0-9]{8}$/.test(String(query.sessionPrefix || ''))) filters.sessionPrefix = query.sessionPrefix
     filters.checkoutOnly = query.checkoutOnly === true
     filters.customerOnly = query.customerOnly !== false && query.customerOnly !== 'false' && tab !== 'admin'
     if (['Website', 'Android app', 'iPhone app', 'Backoffice', 'Payment provider', 'Server API', 'System'].includes(query.source)) filters.source = query.source
@@ -61,7 +64,8 @@ export async function monitoringHandler(request, _response, context) {
       filters.journey = query.journey === '1'
       if (filters.journey) {
         delete filters.customerOnly
-        if (tab !== 'admin') delete filters.tab
+        delete filters.groupSessions
+        if (tab !== 'admin') { filters.customerJourney = true; delete filters.tab }
       }
     }
     if (query.phone) {
@@ -95,7 +99,7 @@ export async function monitoringHandler(request, _response, context) {
   try {
     const result = await workerCall('read', filters)
     const rows = filters.business ? await businessRows(result.rows, fullAccess) : await enrichLogRows(result.rows, prisma)
-    if (filters.export === 'csv') return { csv: toCsv(rows), total: result.total, count: rows.length }
+    if (filters.export === 'csv') return { csv: toCsv(rows, filters.groupSessions), total: result.total, count: rows.length }
     if (businessRead) return { rows, total: result.total, perPage: result.perPage, summary: result.summary, insights: result.insights }
     return { ...result, rows: rows.map(({ phoneLookupHash: _hash, ...row }) => row), ...monitoringState(), outbox, canManageDebug: fullAccess }
   }
@@ -128,11 +132,13 @@ async function businessRows(rows, fullAccess) {
   return enriched.map(row => {
     const person = customers.get(row.verifiedCustomerId)
     const phone = String(person?.phone || '').match(/\d{10}$/)?.[0]
+    const customerName = person?.name || 'Signed-in customer'
     const maskedPhone = phone ? phone.slice(0, 2) + 'XXXXXX' + phone.slice(-2) : ''
     const source = logSource(row)
     const staff = source === 'Backoffice' ? row.staffName || row.presentation?.actor : undefined
     const who = staff && staff !== 'Name not recorded' ? staff : source === 'Backoffice' ? 'Unknown staff member' : row.visitorKind === 'guest' ? 'Guest' : row.visitorKind === 'system' || !row.verifiedCustomerId && ['Server API', 'System', 'Payment provider'].includes(source) ? 'System' :
-      row.visitorKind === 'customer' ? [person?.name || 'Signed-in customer', maskedPhone].filter(Boolean).join(' · ') : 'Unknown'
+      row.visitorKind === 'customer' ? row.sessionGroup ? (row.guestTransition ? 'Guest → ' : '') + customerName :
+        [customerName, maskedPhone].filter(Boolean).join(' · ') : 'Unknown'
     const where = [row.locationCity, row.locationState, row.locationCountry].filter(Boolean).join(', ') || 'Unknown'
     const pin = row.enteredPincode || row.deliveryPin
     const coverage = (row.pincodeServiceable === true || row.deliveryCoverage === 'serviceable') ? 'Yes' : (row.pincodeServiceable === false || row.deliveryCoverage === 'unserviceable') ? 'No' : 'Unknown'
@@ -143,6 +149,8 @@ async function businessRows(rows, fullAccess) {
       : row.platform === 'android' ? 'Android app' : row.platform === 'ios' ? 'iPhone app' : row.visitorKind === 'system' ? 'Not applicable' : 'Unknown'
     return {
       eventId: row.eventId, timestamp: row.timestamp, sessionId: row.sessionId,
+      sessionGroup: row.sessionGroup, startedAt: row.startedAt || row.timestamp,
+      eventCount: row.eventCount || 1, backgroundCount: row.backgroundCount || 0, cartItemCount: row.cartItemCount,
       who, source, where: where + ({ ip: ' (approximate)', pincode: ' (delivery area)' }[row.locationSource] || ''),
       pincode: pin ? [pin + ', Delivers: ' + coverage, deliveryArea].filter(Boolean).join(' · ') : row.visitorKind === 'system' ? 'Not applicable' : 'Unknown',
       action: row.route === '/api/v1/geo/pincode' ? 'Delivery pincode checked' : Object.hasOwn(actions, row.event) ? actions[row.event] : row.presentation?.action || 'Activity recorded',
@@ -157,13 +165,19 @@ async function businessRows(rows, fullAccess) {
     }
   })
 }
-function toCsv(rows) {
+function toCsv(rows, grouped = false) {
   const quote = value => {
     const text = String(value ?? 'Unknown')
     return '"' + (/^[\s\u0000-\u001f]*[=+@-]/.test(text) ? "'" + text : text).replaceAll('"', '""') + '"'
   }
+  const time = value => new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+  if (grouped) return [
+    ['Session', 'Who', 'Location', 'Device', 'Started (IST)', 'Last activity (IST)', 'Events', 'Background calls', 'Cart items', 'Outcome'],
+    ...rows.map(row => [row.sessionId || 'No session', row.who, [row.where, row.pincode].join(' · '), row.device,
+      time(row.startedAt), time(row.timestamp), row.eventCount, row.backgroundCount, row.cartItemCount, row.result]),
+  ].map(row => row.map(quote).join(',')).join('\r\n')
   return [
     ['Time (IST)', 'Who', 'Where', 'Pincode', 'What happened', 'Result', 'Why', 'Device', 'Source'],
-    ...rows.map(row => [new Date(row.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }), row.who, row.where, row.pincode, row.action, row.result, row.why, row.device, row.source]),
+    ...rows.map(row => [time(row.timestamp), row.who, row.where, row.pincode, row.action, row.result, row.why, row.device, row.source]),
   ].map(row => row.map(quote).join(',')).join('\r\n')
 }

@@ -205,11 +205,17 @@ function TechnicalMonitoring() {
 }
 
 const reasonText = Object.fromEntries(Object.entries(logReasons).map(([code, [label]]) => [code, label]))
+const sessionColumns = [
+  ['sessionId', 'Session'], ['who', 'Who'], ['where', 'Location'], ['device', 'Device'],
+  ['startedAt', 'Started (IST)'], ['timestamp', 'Last activity (IST)'],
+  ['eventCount', 'Events'], ['cartItemCount', 'Cart items'], ['result', 'Outcome'],
+]
+const shortId = id => id ? id.slice(0, 8) : 'No session'
 const columns = [
-  ['timestamp', 'Time (IST)'], ['who', 'Who'], ['where', 'Where'], ['pincode', 'Pincode'],
+  ['timestamp', 'Time (IST)'], ['sessionId', 'Session'], ['who', 'Who'], ['where', 'Where'], ['pincode', 'Pincode'],
   ['action', 'What happened'], ['result', 'Result'], ['why', 'Why'], ['device', 'Device'], ['source', 'Source'],
 ]
-const visitDefaults = { from: '', to: '', status: '', reason: '', pin: '', coverage: '', device: '', source: '', search: '', customerOnly: true }
+const visitDefaults = { from: '', to: '', status: '', reason: '', pin: '', coverage: '', device: '', source: '', search: '', customerOnly: true, includeBackground: false }
 const istDay = (daysAgo = 0) => new Date(Date.now() + 330 * 60000 - daysAgo * 86400000).toISOString().slice(0, 10)
 const displayDay = iso => iso.split('-').reverse().join('/')
 function parseLogDate(value) {
@@ -251,13 +257,22 @@ async function businessQuery(filters, page, extra = {}) {
   const start = parseLogDate(from), end = parseLogDate(to)
   if (start === null || end === null || start && end && start > end) throw new Error('Enter a valid date range in dd/mm/yyyy format.')
   const value = search.trim()
-  const lookup = !value ? {} : /^[a-f0-9-]{36}$/.test(value) ? { visitSession: value } : { phone: value }
+  const lookup = !value ? {} : /^[a-f0-9-]{36}$/i.test(value) ? { visitSession: value.toLowerCase() }
+    : /^[a-f0-9]{8}$/i.test(value) ? { sessionPrefix: value.toLowerCase() } : { phone: value }
   const result = await api.getPage({ pageName: 'logs', method: 'POST', headers: { 'X-Tokri-Monitoring': '1' }, data: { action: 'business-read', filters: { ...rest, from: start, to: end, ...lookup, page, ...extra } } })
   if (result.data.storageError) throw new Error('Logs unavailable')
   return result.data
 }
 
+function AttributionFooter() {
+  return <footer className="business-footer">
+    <a href="https://db-ip.com">IP geolocation by DB-IP</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
+  </footer>
+}
+
 function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
+  const grouped = tab === 'website' || tab === 'app'
+  const visibleColumns = grouped ? sessionColumns : columns
   const [draft, setDraft] = useState(() => initialFilters(tab))
   const [active, setActive] = useState(() => initialFilters(tab))
   const [data, setData] = useState(null)
@@ -269,17 +284,45 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
   const [journey, setJourney] = useState(null)
   const [exporting, setExporting] = useState(false)
   const dialog = useRef(null)
+  const [expanded, setExpanded] = useState(null)
+  const [timeline, setTimeline] = useState(null)
 
   useEffect(() => {
     let current = true
     setBusy(true)
     setError('')
-    businessQuery(active, page, { tab })
+    setExpanded(null)
+    businessQuery(active, page, { tab, groupSessions: grouped })
       .then(result => { if (current) { setData(result); if (result.insights) setInsights(result.insights) } })
       .catch(() => { if (current) { setData(null); setError('Could not load the logs. Check the filters and try again.') } })
       .finally(() => { if (current) setBusy(false) })
     return () => { current = false }
-  }, [active, page, tab])
+  }, [active, page, tab, grouped])
+
+  useEffect(() => {
+    if (JSON.stringify(active) === JSON.stringify(draft)) return
+    const wait = setTimeout(() => {
+      const start = parseLogDate(draft.from), end = parseLogDate(draft.to)
+      if (start === null || end === null || start && end && start > end) {
+        if (draft.from.length === 10 || draft.to.length === 10) setError('Enter a valid date range in dd/mm/yyyy format.')
+        return
+      }
+      setPage(1)
+      setActive(draft)
+    }, 325)
+    return () => clearTimeout(wait)
+  }, [active, draft])
+
+  useEffect(() => {
+    if (!expanded?.row.sessionGroup) return
+    let current = true
+    setTimeline({ loading: true })
+    businessQuery(visitDefaults, expanded.page, {
+      tab, visitSession: expanded.row.sessionId, journey: '1', perPage: '100', includeBackground: expanded.background,
+    }).then(result => { if (current) setTimeline(result) })
+      .catch(() => { if (current) setTimeline({ error: 'Could not load this timeline.' }) })
+    return () => { current = false }
+  }, [expanded, tab])
 
   async function showJourney() {
     const row = selected
@@ -293,7 +336,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
   async function exportCsv() {
     setExporting(true)
     try {
-      const result = await businessQuery(active, 1, { tab, export: 'csv' })
+      const result = await businessQuery(active, 1, { tab, export: 'csv', groupSessions: grouped })
       const url = URL.createObjectURL(new Blob(['\uFEFF', result.csv], { type: 'text/csv;charset=utf-8' }))
       const link = document.createElement('a')
       link.href = url
@@ -322,6 +365,17 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
     setActive({ ...filters })
   }
 
+  function selectVisit(id) {
+    applyFilters({ ...initialFilters(tab), from: '', to: '', search: id, includeBackground: true })
+  }
+
+  function toggleRow(row, key) {
+    if (!grouped) { openDetails(row); return }
+    if (expanded?.key === key) { setExpanded(null); return }
+    setTimeline(null)
+    setExpanded({ row, key, page: 1, background: false })
+  }
+
   const summary = data?.summary
   const trend = insights?.trends?.[tab]
   const top = entries => Object.entries(entries || {}).sort((a, b) => b[1] - a[1]).slice(0, 3)
@@ -330,6 +384,19 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
   const first = data?.total ? (page - 1) * data.perPage + 1 : 0
   const last = Math.min(page * (data?.perPage || 50), data?.total || 0)
   const fullPhoneSearch = access.fullAccess
+  const activeChips = [
+    active.from || active.to ? { label: [active.from, active.to].filter(Boolean).join(' – '), clear: { from: '', to: '' } } : null,
+    active.status ? { label: active.status, clear: { status: '' } } : null,
+    active.device ? { label: 'Device: ' + active.device, clear: { device: '' } } : null,
+    active.search ? { label: /^[a-f0-9-]{36}$/.test(active.search) ? 'Session ' + shortId(active.search) : 'Search applied', clear: { search: '' } } : null,
+    active.reason ? { label: reasonText[active.reason], clear: { reason: '' } } : null,
+    active.pin ? { label: 'Pincode ' + active.pin, clear: { pin: '' } } : null,
+    active.coverage ? { label: active.coverage === 'true' ? 'Delivers' : 'Outside delivery area', clear: { coverage: '' } } : null,
+    active.source ? { label: active.source, clear: { source: '' } } : null,
+    active.checkoutOnly ? { label: 'Failed checkouts', clear: { checkoutOnly: false } } : null,
+    active.includeBackground ? { label: 'Background calls', clear: { includeBackground: false } } : null,
+    !active.customerOnly && tab !== 'admin' ? { label: 'System activity included', clear: { customerOnly: true } } : null,
+  ].filter(Boolean)
   const update = event => {
     const { name, value } = event.target
     const digits = value.replace(/\D/g, '').slice(0, 8)
@@ -361,8 +428,19 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       .business-cards li + li{margin-top:5px}.business-cards button{white-space:normal;text-align:left}
       .business-insights{margin:12px 0;padding:12px;background:#fff;border:1px solid #dce5df;border-radius:8px}
       .business-insights dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:10px;margin:0}
-      .business-table td:first-child,.business-table th:first-child{width:15%}
-      .business-table th:nth-child(5){width:18%}.business-table th:nth-child(6){width:100px}
+      .business-toolbar,.business-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+      .business-toolbar :is(select,input){min-height:36px;border:1px solid #bbcfc5;border-radius:6px;padding:5px;color:#16352c;background:white}
+      .business-chips button{padding:4px 8px;border-radius:999px;font-size:12px}
+      .business-more{margin:10px 0}.business-more summary{cursor:pointer;width:max-content;font-weight:600}
+      .business-preset[aria-pressed=true]{background:#e3f4e8;border-color:#72947e}
+      .business-table tbody .business-timeline-row{cursor:auto;background:#f6f9f7}
+      .business-table .business-timeline-cell{white-space:normal;padding:12px;overflow:visible}
+      .business-inline-timeline ol{margin:10px 0;padding-left:22px}.business-inline-timeline li{padding:5px 0;border-bottom:1px solid #e7eee9}
+      .business-inline-timeline li button{margin:0 6px}.business-inline-timeline small{display:block}
+      .business-table .business-session-link{padding:2px 4px;text-decoration:underline;border:0}
+      .business-table td small{display:block;color:#435f52}
+      .business-footer{position:static;margin-top:24px;padding:12px 0;border-top:1px solid #dce5df;font-size:12px}
+      .business-technical-footer{padding:12px 24px}
       .business-logs dialog{position:fixed;inset:0 0 0 auto;margin:0;height:100dvh;max-height:100dvh;width:min(100vw,440px);max-width:100vw;padding:20px;border:1px solid #bcd1c5;background:#fff;color:#16352c}
       .business-logs dialog::backdrop{background:#15382d59}.business-logs dd{overflow-wrap:anywhere;margin:3px 0 12px}.business-logs dt{font-weight:600}.business-journey li{margin-bottom:12px}
       @media(max-width:950px){
@@ -371,7 +449,8 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
         .business-table tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 8px;margin-bottom:10px;padding:10px;background:#fff;border:1px solid #dce5df;border-radius:8px}
         .business-table td,.business-table td:first-child{display:block;width:auto;white-space:normal;overflow-wrap:anywhere;padding:4px;border:0}
         .business-table td::before{content:attr(data-label);display:block;font-size:11px;font-weight:600;color:#52665c}
-        .business-table td[data-label="What happened"]{grid-column:1/-1}.business-table .business-detail-trigger{white-space:normal}
+        .business-table td[data-label="What happened"],.business-table td[data-label="Location"],.business-table .business-timeline-cell{grid-column:1/-1}
+        .business-table .business-timeline-cell::before{content:none}.business-table .business-detail-trigger{white-space:normal}
       }
     `}</style>
     <header className="business-top"><div><h1>Customer activity logs</h1><p>{period}</p></div>{onTechnical && <button type="button" onClick={onTechnical}>Technical logs</button>}</header>
@@ -390,36 +469,82 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       <article><h2>Website vs app activity</h2><p>Website {summary?.website ?? 'Unknown'}</p><p>App {summary?.app ?? 'Unknown'}</p><LogTrend today={trend?.today.activity} yesterday={trend?.yesterday.activity} /></article>
     </div>
     {tab !== 'admin' && <WeeklyLogInsights insights={insights} alertEnabled={access.failureAlertEnabled} />}
-    <div className="business-quick">
-      {[[1, 'Today'], [7, '7 days'], [30, '30 days']].map(([days, label]) => <button type="button" key={days} onClick={() => applyFilters({ ...draft, ...makeDateRange(days) })}>{label}</button>)}
-      {tab !== 'admin' && <label><input type="checkbox" checked={active.customerOnly} onChange={event => applyFilters({ ...active, customerOnly: event.target.checked })} /> Customer activity only</label>}
-      {active.checkoutOnly && <button type="button" onClick={() => applyFilters({ ...active, checkoutOnly: false })}>Clear checkout filter</button>}
+    <div className="business-toolbar">
+      {[[1, 'Today'], [7, '7 days'], [30, '30 days']].map(([days, label]) => {
+        const range = makeDateRange(days)
+        return <button type="button" className="business-preset" key={days} aria-pressed={active.from === range.from && active.to === range.to}
+          onClick={() => applyFilters({ ...draft, ...range })}>{label}</button>
+      })}
+      <select aria-label="Result" name="status" value={draft.status} onChange={update}><option value="">All results</option><option>Failed</option><option>Successful</option></select>
+      <select aria-label="Device" name="device" value={draft.device} onChange={update}><option value="">All devices</option><option value="website">Website</option><option value="app">App</option></select>
+      <input aria-label="Search by session or phone" name="search" maxLength={40} value={draft.search} onChange={update}
+        placeholder={fullPhoneSearch ? 'Session ID or phone' : 'Session ID or masked phone'} />
+      <button type="button" onClick={() => applyFilters(initialFilters(tab))}>Reset</button>
+      <button type="button" onClick={exportCsv} disabled={busy || exporting || !data}>Export CSV</button>
     </div>
-    <form onSubmit={event => { event.preventDefault(); applyFilters(draft) }}>
+    {activeChips.length > 0 && <div className="business-chips" aria-label="Active filters">
+      {activeChips.map(chip => <button type="button" key={chip.label} aria-label={'Clear filter: ' + chip.label}
+        onClick={() => applyFilters({ ...active, ...chip.clear })}>{chip.label} ×</button>)}
+    </div>}
+    {tab !== 'admin' && <label><input type="checkbox" checked={active.customerOnly}
+      onChange={event => applyFilters({ ...active, customerOnly: event.target.checked })} /> Customer activity only</label>}
+    <details className="business-more">
+      <summary>More filters</summary>
       <div className="business-filters">
         <label>From<input name="from" inputMode="numeric" placeholder="dd/mm/yyyy" maxLength={10} value={draft.from} onChange={update} /></label>
         <label>To<input name="to" inputMode="numeric" placeholder="dd/mm/yyyy" maxLength={10} value={draft.to} onChange={update} /></label>
-        <label>Result<select name="status" value={draft.status} onChange={update}><option value="">All</option><option>Failed</option><option>Successful</option></select></label>
         <label>Reason<select name="reason" value={draft.reason} onChange={update}><option value="">All reasons</option>{Object.entries(reasonText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
-        <label>Pincode<input name="pin" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={draft.pin} onChange={update} /></label>
+        <label>Pincode<input name="pin" inputMode="numeric" maxLength={6} value={draft.pin} onChange={update} /></label>
         <label>Delivers<select name="coverage" value={draft.coverage} onChange={update}><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select></label>
-        <label>Device<select name="device" value={draft.device} onChange={update}><option value="">All devices</option><option value="website">Website</option><option value="app">App</option></select></label>
         <label>Source<select name="source" value={draft.source} onChange={update}><option value="">All sources</option>{sources.map(source => <option key={source}>{source}</option>)}</select></label>
-        <label>{fullPhoneSearch ? 'Session ID or phone' : 'Session ID or masked phone'}<input name="search" maxLength={40} value={draft.search} onChange={update} placeholder={fullPhoneSearch ? 'Exact session ID or phone' : 'Session ID or 98XXXXXX21'} /></label>
       </div>
-      <div className="business-actions"><button type="submit" disabled={busy}>Apply filters</button><button type="button" onClick={exportCsv} disabled={busy || exporting || !data}>Export CSV</button></div>
-    </form>
+      {grouped && <label><input type="checkbox" checked={active.includeBackground}
+        onChange={event => applyFilters({ ...active, includeBackground: event.target.checked })} /> Include background-only activity</label>}
+    </details>
     {error && <p role="alert">{error}</p>}
-    <p aria-live="polite">{busy ? 'Loading activity…' : data?.total ? data.total + ' matching events' : 'No matching activity'}</p>
-    <div className="business-table"><table><thead><tr>{columns.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead><tbody>
-      {(data?.rows || []).map((row, index) => <tr key={row.eventId || row.timestamp + index} onClick={() => openDetails(row)}>
-        {columns.map(([key, label]) => <td key={key} data-label={label} title={key === 'timestamp' || key === 'result' ? undefined : row[key]}>
-          {key === 'timestamp' ? row.timestamp ? ist(row.timestamp) : 'Unknown'
-            : key === 'result' ? <span className="business-badge" data-result={row.result}>{row.result}</span>
-            : key === 'action' ? <button type="button" className="business-detail-trigger" aria-label={'View details for ' + row.action} onClick={event => { event.stopPropagation(); openDetails(row) }}>{row.action}</button>
-            : row[key] || 'Unknown'}
-        </td>)}
-      </tr>)}
+    <p aria-live="polite">{busy ? 'Loading activity…' : data?.total ? data.total + (grouped ? ' matching rows' : ' matching events') : 'No matching activity'}</p>
+    <div className="business-table"><table><thead><tr>{visibleColumns.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead><tbody>
+      {(data?.rows || []).map((row, index) => {
+        const key = row.sessionGroup ? row.sessionId : row.eventId || row.timestamp + index
+        const open = expanded?.key === key
+        const rows = row.sessionGroup ? timeline?.rows : [row]
+        return <React.Fragment key={key}>
+          <tr onClick={() => toggleRow(row, key)}>
+            {visibleColumns.map(([field, label]) => <td key={field} data-label={label}>
+              {field === 'sessionId' ? <>{row.sessionId ? <button type="button" className="business-session-link" title={row.sessionId}
+                aria-label={'Filter to session ' + shortId(row.sessionId)} onClick={event => { event.stopPropagation(); selectVisit(row.sessionId) }}>{shortId(row.sessionId)}</button> : 'No session'}</>
+              : field === 'timestamp' || field === 'startedAt' ? row[field] ? ist(row[field]) : 'Unknown'
+              : field === 'result' ? <span className="business-badge" data-result={row.result}>{row.result}</span>
+              : field === 'eventCount' ? <>{row.eventCount}{row.backgroundCount > 0 && <small>{row.backgroundCount} background {row.backgroundCount === 1 ? 'call' : 'calls'}</small>}</>
+              : field === 'action' || grouped && field === 'who' ? <button type="button" className="business-detail-trigger"
+                aria-expanded={grouped ? open : undefined} aria-label={(grouped ? 'Toggle timeline for ' : 'View details for ') + row[field]}
+                onClick={event => { event.stopPropagation(); toggleRow(row, key) }}>{row[field]}</button>
+              : field === 'where' && grouped ? <>{row.where}<small>{row.pincode}</small></>
+              : row[field] ?? 'Unknown'}
+            </td>)}
+          </tr>
+          {grouped && open && <tr className="business-timeline-row"><td className="business-timeline-cell" colSpan={visibleColumns.length}>
+            <section className="business-inline-timeline" aria-label="Event timeline">
+              <h2>{shortId(row.sessionId)} · Event timeline</h2>
+              {row.backgroundCount > 0 && <label><input type="checkbox" checked={expanded.background}
+                onChange={event => setExpanded({ ...expanded, page: 1, background: event.target.checked })} /> Show {row.backgroundCount} background calls</label>}
+              {timeline?.loading && row.sessionGroup && <p>Loading timeline…</p>}
+              {timeline?.error && row.sessionGroup && <p role="alert">{timeline.error}</p>}
+              {rows?.length > 0 && <ol>{rows.map((event, i) => <li key={event.eventId || event.timestamp + i}>
+                {ist(event.timestamp)} <button type="button" onClick={() => openDetails(event)}>{event.action}</button>
+                <span className="business-badge" data-result={event.result}>{event.result}</span>
+                <small>{event.pincode} · {event.why}</small>
+              </li>)}</ol>}
+              {rows?.length === 0 && <p>No foreground events.</p>}
+              {row.sessionGroup && timeline?.total > timeline.perPage && <div className="business-actions" aria-label="Timeline pages">
+                <button type="button" disabled={expanded.page <= 1} onClick={() => setExpanded({ ...expanded, page: expanded.page - 1 })}>Earlier events</button>
+                <button type="button" disabled={expanded.page * timeline.perPage >= timeline.total}
+                  onClick={() => setExpanded({ ...expanded, page: expanded.page + 1 })}>Later events</button>
+              </div>}
+            </section>
+          </td></tr>}
+        </React.Fragment>
+      })}
     </tbody></table></div>
     <nav className="business-actions" aria-label="Log pages">
       <button type="button" disabled={busy || page <= 1} onClick={() => setPage(1)}>First</button>
@@ -437,6 +562,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
         {journey?.rows && <><h2>Visitor journey</h2>{journey.total > journey.rows.length && <p>Showing the oldest {journey.rows.length} events.</p>}<ol className="business-journey">{journey.rows.map((row, index) => <li key={row.eventId || row.timestamp + index}><strong>{row.action} · {row.result}</strong><br />{ist(row.timestamp)} · {row.pincode}</li>)}</ol></>}
       </>}
     </dialog>
+    {access.ipLocationProvider === 'db-ip' && <AttributionFooter />}
   </section>
 }
 
@@ -455,10 +581,8 @@ export default function Monitoring() {
   }, [])
   if (!access) return <p role="status">{unavailable ? 'Could not open logs. Refresh to try again.' : 'Loading logs…'}</p>
   return <>
-    {technical && access.fullAccess ? <><button type="button" onClick={() => setTechnical(false)}>Back to customer activity</button><TechnicalMonitoring /></>
+    {technical && access.fullAccess ? <><button type="button" onClick={() => setTechnical(false)}>Back to customer activity</button><TechnicalMonitoring />
+      {access.ipLocationProvider === 'db-ip' && <div style={{ padding: '12px 24px', fontSize: 12 }}><AttributionFooter /></div>}</>
     : <BusinessMonitoring key={tab} tab={tab} onTab={setTab} access={access} onTechnical={access.fullAccess ? () => setTechnical(true) : undefined} />}
-    {access.ipLocationProvider === 'db-ip' && <footer style={{ padding: '12px 24px' }}>
-      <a href="https://db-ip.com">IP Geolocation by DB-IP</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
-    </footer>}
   </>
 }

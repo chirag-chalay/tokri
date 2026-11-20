@@ -2,8 +2,9 @@ import { processTrackingDeliveries } from './services/trackingPurchase.js'
 
 import websiteMonitoring from './monitoring/website.js'
 import express from 'express'
-import { requestLogging, startCriticalOutbox, closeMonitoring, installProcessErrorLogging, installGracefulShutdown } from './monitoring/index.js'
+import { requestLogging, startCriticalOutbox, closeMonitoring, workerCall, installProcessErrorLogging, installGracefulShutdown } from './monitoring/index.js'
 import { logError } from './monitoring/database.js'
+import { restoreDeliveryContexts } from './monitoring/session-context.js'
 import { ipLocationReady } from './monitoring/ip-location.js'
 import { startFailureSpikeAlerts } from './monitoring/failure-alerts.js'
 import cors from 'cors'
@@ -175,6 +176,8 @@ async function start() {
     await prisma.$connect()
     await startCriticalOutbox()
     await ipLocationReady
+    const recentDelivery = await workerCall('read', { restoreDeliveryContexts: true }).catch(() => [])
+    restoreDeliveryContexts(recentDelivery)
     const listener = app.listen({ port: env.port, host: process.env.TOKRIII_LISTEN_HOST || undefined }, () => {
       console.log(`Tokriii server listening on port ${env.port}`)
       console.log(`Public site: ${env.clientUrl}`)

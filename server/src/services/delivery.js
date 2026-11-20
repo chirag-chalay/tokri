@@ -96,7 +96,7 @@ export async function assertPincodeServiceable(pincode) {
 
   const row = await prisma.serviceablePincode.findUnique({
     where: { pincode: code },
-    include: { partner: true },
+    include: { partner: true, state: { select: { name: true } } },
   })
   const availability = deliveryAvailability(row)
   const context = logContext.getStore()

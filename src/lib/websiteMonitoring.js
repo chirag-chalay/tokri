@@ -1,4 +1,4 @@
-import { visitHeaders, setVisitPincode } from './logVisit'
+import { visitHeaders, currentVisitId, setVisitPincode } from './logVisit'
 import { browserEvents, businessBrowserEvents, deliveryPinSources, safePage, safeEndpoint, productReference, validDeliveryPin } from '../../shared/monitoring.js'
 
 let reconnectTimer, backoff = 1000
@@ -33,7 +33,10 @@ function stopDebug() {
 function flush() {
   clearTimeout(flushTimer); flushTimer = undefined
   if (!nativeFetch || !base || !queue.length) return
-  const events = queue.splice(0, 25).filter(row => row.event === 'website.navigation' || businessBrowserEvents.has(row.event) || enabled())
+  const session = currentVisitId()
+  const events = queue.splice(0, 25)
+    .filter(row => row.visitId === session && (row.event === 'website.navigation' || businessBrowserEvents.has(row.event) || enabled()))
+    .map(({ visitId, ...event }) => event)
   if (events.length) {
     // Bounded, best effort and independent of checkout promises. No retries/loops.
     nativeFetch(`${base}/monitoring/events`, { method: 'POST', credentials: 'same-origin', headers: visitHeaders({
@@ -45,8 +48,13 @@ function flush() {
 }
 function enqueue(row) {
   if (queue.length >= 100) return
-  queue.push(row)
+  queue.push({ ...row, visitId: currentVisitId() })
   if (!flushTimer) flushTimer = setTimeout(flush, 1000)
+}
+export function endWebsiteVisit() {
+  recordWebsiteDebug('customer.session.ended')
+  flush()
+  currentVisitId({ activity: true, rotate: true })
 }
 export function recordWebsiteDebug(event, details = {}) {
   try {
@@ -78,7 +86,7 @@ export function recordWebsiteDebug(event, details = {}) {
 }
 export function recordWebsiteNavigation(pathname, locationKey, restored = false) {
   try {
-    visitHeaders()
+    currentVisitId({ activity: true })
     const key = keyOf(locationKey)
     if (key === lastKey && !restored) return // React StrictMode, duplicate shell and route-state updates.
     const page = safePage(pathname)
@@ -175,13 +183,23 @@ export function installWebsiteMonitoring(apiBase) {
       const traversal = event => { if (event.navigationType === 'traverse') popTarget = keyOf(event.destination.url) }
       const navigation = window.navigation
       const leave = () => flush()
+      let lastActivity = 0
+      const keepVisitActive = event => {
+        if (!event.isTrusted || document.hidden || Date.now() - lastActivity < 10000) return
+        lastActivity = Date.now()
+        currentVisitId({ activity: true })
+      }
+      const activityEvents = ['pointerdown', 'keydown', 'scroll']
+      for (const name of activityEvents) window.addEventListener(name, keepVisitActive, { capture: true, passive: true })
       const shown = event => { if (event.persisted) recordWebsiteNavigation(location.pathname, location.pathname + '?' + location.search.slice(1), true); connect() }
       const visibility = () => { if (document.hidden) { clearTimeout(reconnectTimer); stream?.close(); stream = undefined; stopDebug(); flush() } else connect() }
       // Run before router bubble handlers can commit the new page synchronously.
       if (navigation) navigation.addEventListener('navigate', traversal)
       else window.addEventListener('popstate', pop, true)
       window.addEventListener('pagehide', leave); window.addEventListener('pageshow', shown); document.addEventListener('visibilitychange', visibility)
-      disconnectBase = () => { navigation?.removeEventListener('navigate', traversal); window.removeEventListener('popstate', pop, true); window.removeEventListener('pagehide', leave); window.removeEventListener('pageshow', shown); document.removeEventListener('visibilitychange', visibility) }
+      disconnectBase = () => {
+        for (const name of activityEvents) window.removeEventListener(name, keepVisitActive, true)
+        navigation?.removeEventListener('navigate', traversal); window.removeEventListener('popstate', pop, true); window.removeEventListener('pagehide', leave); window.removeEventListener('pageshow', shown); document.removeEventListener('visibilitychange', visibility) }
     }
     let released = false
     return () => { if (released) return; released = true; if (--owners === 0) { clearTimeout(reconnectTimer); disconnectBase(); stream?.close(); stream = undefined; stopDebug(); flush() } }

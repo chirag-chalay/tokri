@@ -14,7 +14,7 @@ export function phoneLookupHash(value) {
 
 export function deliveryLogFacts(pincode, row, serviceable) {
   return { enteredPincode: allowedPin(pincode), pincodeServiceable: typeof serviceable === 'boolean' ? serviceable : undefined,
-    deliveryCity: place(row?.city), deliveryState: place(row?.state) }
+    deliveryCity: place(row?.city), deliveryState: place(row?.state?.name || row?.state) }
 }
 
 export function visitFacts(req) {
@@ -22,7 +22,9 @@ export function visitFacts(req) {
   const platform = ['android', 'ios'].includes(headers['x-app-platform']) ? headers['x-app-platform'] : undefined
   const provided = headers['x-session-id']
   const cookie = String(headers.cookie || '').split(/;\s*/).find(value => value.startsWith(visitorCookie + '='))?.split('=')[1]
-  const sessionId = validVisitorSession(cookie) && (!provided || provided === cookie) ? cookie : undefined
+  const sessionId = platform
+    ? (validVisitorSession(provided) ? provided : undefined)
+    : (validVisitorSession(cookie) && (!provided || provided === cookie) ? cookie : undefined)
   const ua = String(headers['user-agent'] || '').slice(0, 500)
   const website = Boolean(sessionId || req?.logWebsite || /^Mozilla\//.test(ua))
   const customer = req?.verifiedLogCustomer
@@ -36,7 +38,9 @@ export function visitFacts(req) {
   const { city, state, country } = location
   const source = hasGps ? 'gps' : place(city) || place(state) || place(country) ? 'ip' : 'none'
   const browser = /Edg[A-Za-z]*\//.test(ua) ? 'Edge' : /(?:Chrome|CriOS)\//.test(ua) ? 'Chrome' : /(?:Firefox|FxiOS)\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : undefined
-  return { sessionId, enteredPincode: allowedPin(headers['x-delivery-pincode']),
+  const count = headers['x-cart-item-count']
+  const cartItemCount = sessionId && typeof count === 'string' && /^\d{1,5}$/.test(count) && Number(count) <= 10000 ? Number(count) : undefined
+  return { sessionId, cartItemCount, enteredPincode: allowedPin(headers['x-delivery-pincode']),
     platform: platform || (website ? 'website' : undefined),
     appBuild: platform && /^\d{1,10}$/.test(headers['x-app-build'] || '') ? headers['x-app-build'] : undefined,
     browser: website && !platform ? browser : undefined,

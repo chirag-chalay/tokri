@@ -17,5 +17,6 @@ export const logReasons = {
   UNKNOWN: ['Failed, cause could not be determined', 'Look at the related events in this visit.'],
 }
 export const isLogReason = value => typeof value === 'string' && Object.hasOwn(logReasons, value)
+export const visitorIdleSeconds = 30 * 60
 export const visitorCookie = 'tokri_visit'
 export const validVisitorSession = value => typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value)

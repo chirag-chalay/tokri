@@ -8,6 +8,7 @@ import { writeSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { isMonitoringRequest, safeEndpoint, safePage } from '../../../shared/monitoring.js'
 import { safeFailureFacts, checkoutFacts, checkoutPaymentFacts, adminActionFacts } from './event-facts.js'
+import { carryDeliveryContext } from './session-context.js'
 import { visitFacts } from './visit.js'
 import { isLogReason } from '../../../shared/logReasons.js'
 import { logSource, recordedReason, ACTIVITY_RETENTION_DAYS } from './log-policy.js'
@@ -55,9 +56,11 @@ export function prepareLogRecord(category, event, details = {}) {
   const context = logContext.getStore()
   const req = context?.req
   const failure = Number(details.status) >= 400 || details.status === 'failure' || details.status === 'failed' || Number(details.httpStatus) >= 400 || category === 'error'
-  const visit = { ...visitFacts(req), ...context?.deliveryFacts }
-  const deliveryCity = details.deliveryCity || visit.deliveryCity
-  const deliveryState = details.deliveryState || visit.deliveryState
+  const visit = visitFacts(req)
+  const confirmedDelivery = carryDeliveryContext(visit.sessionId, { ...context?.deliveryFacts, ...details })
+  const delivery = confirmedDelivery || context?.deliveryFacts
+  const deliveryCity = delivery?.deliveryCity
+  const deliveryState = delivery?.deliveryState
   if (visit.locationSource !== 'gps' && (deliveryCity || deliveryState)) {
     Object.assign(visit, { locationCity: deliveryCity, locationState: deliveryState, locationCountry: 'India', locationSource: 'pincode' })
   }
@@ -66,7 +69,7 @@ export function prepareLogRecord(category, event, details = {}) {
   const logOrigin = logSource({ ...visit, ...details, event, staffName, logSource: staff ? 'Backoffice' : undefined }, category)
   const failureFacts = { ...context?.accessError, ...details, event }
   if (!isLogReason(details.reasonCode) || details.reasonCode === 'UNKNOWN') failureFacts.reasonCode = context?.accessError?.reasonCode
-  return { ...sanitize({ ...visit, ...(failure ? { failureReason: context?.accessError?.failureReason, code: context?.accessError?.code } : {}), ...details, ...(failure ? { reasonCode: recordedReason(failureFacts) } : {}), event, staffName, logSource: logOrigin, requestId: context?.id,
+  return { ...sanitize({ ...visit, ...(failure ? { failureReason: context?.accessError?.failureReason, code: context?.accessError?.code } : {}), ...details, ...delivery, ...(failure ? { reasonCode: recordedReason(failureFacts) } : {}), event, staffName, logSource: logOrigin, requestId: context?.id,
     actorId: req?.session?.adminUser?.id || req?.customer?.id || req?.partner?.id || details.actorId,
     ip: req?.ip || details.ip }), eventId: randomUUID(), timestamp: new Date().toISOString() }
 }

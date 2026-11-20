@@ -49,7 +49,7 @@ router.post('/geo/pincode', optionalCustomer, async (req, res, next) => {
       return res.status(400).json({ message: 'Enter a valid six-digit pincode.', reasonCode: 'PINCODE_INVALID' })
     }
     const row = await assertPincodeServiceable(req.body.pincode)
-    return res.json({ serviceable: true, city: row.city || null, state: row.state || null })
+    return res.json({ serviceable: true, city: row.city || null, state: row.state?.name || null })
   } catch (error) { return next(error) }
 })
 

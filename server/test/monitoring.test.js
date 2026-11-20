@@ -204,6 +204,68 @@ test('customer insights count sessions, known reasons and non-duplicated hourly 
   assert.equal(isCustomerActivity({ logSource: 'Server API' }), false)
 })
 
+test('website and app sessions group by ID, keep verified identity, and preserve separate no-session rows', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokri-session-view-'))
+  const sessionId = '3c24b5c9-2444-424e-a2fc-f5f0ca504cc7'
+  const day = istDate()
+  const clock = Date.now()
+  const make = (minutes, extra) => ({ timestamp: new Date(clock - minutes * 60000).toISOString(), status: 200, ip: '203.0.113.5', ...extra })
+  const website = { sessionId, platform: 'website', logSource: 'Website' }
+  const mobile = { platform: 'android', logSource: 'Android app', route: '/api/v1/account/cart' }
+  const worker = new Worker(new URL('../src/monitoring/worker.js', import.meta.url), {
+    workerData: { directory: dir, readerOnly: true, retentionDays: 90 },
+  })
+  let id = 0
+  const read = query => new Promise((resolve, reject) => {
+    const listener = message => { worker.off('error', reject); message.error ? reject(new Error(message.error)) : resolve(message.result) }
+    worker.once('error', reject)
+    worker.once('message', listener)
+    worker.postMessage({ id: ++id, type: 'read', query: { business: true, ...query } })
+  })
+  try {
+    await fs.writeFile(path.join(dir, 'api-' + day + '.log'), [
+      make(8, { ...website, event: 'request.completed', route: '/api/v1/products', visitorKind: 'guest' }),
+      make(7, { ...website, event: 'request.completed', route: '/api/v1/geo/pincode', visitorKind: 'guest', enteredPincode: '110001', pincodeServiceable: true }),
+      make(6, { ...website, event: 'customer.login', visitorKind: 'customer', verifiedCustomerId: 'customer-verified' }),
+      make(5, { ...website, event: 'request.completed', route: '/api/v1/account/cart', cartItemCount: 4 }),
+      make(4, { ...mobile, event: 'request.completed' }),
+      make(3, { ...mobile, event: 'request.completed' }),
+    ].map(row => JSON.stringify(row) + '\n').join(''))
+    const result = await read({ tab: 'website', groupSessions: true, customerOnly: true })
+    assert.equal(result.total, 1)
+    const [group] = result.rows
+    assert.equal(group.sessionId, sessionId)
+    assert.equal(group.verifiedCustomerId, 'customer-verified')
+    assert.equal(group.guestTransition, true)
+    assert.equal(group.eventCount, 4)
+    assert.equal(group.backgroundCount, 1)
+    assert.equal(group.cartItemCount, 4)
+    const journey = await read({ visitSession: sessionId, journey: true, includeBackground: false })
+    assert.equal(journey.total, 3)
+    assert.equal(journey.rows.at(-1).enteredPincode, '110001')
+    const app = await read({ tab: 'app', groupSessions: true, customerOnly: true })
+    assert.equal(app.total, 2)
+    assert.ok(app.rows.every(row => !row.sessionId && !row.sessionGroup))
+    const recovered = await read({ restoreDeliveryContexts: true })
+    assert.equal(recovered[0].pincodeServiceable, true)
+  } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
+})
+
+test('verified delivery facts carry only inside the identified visit and native IDs require an app platform', async () => {
+  const { carryDeliveryContext } = await import('../src/monitoring/session-context.js')
+  const { visitFacts } = await import('../src/monitoring/visit.js')
+  const session = '4c24b5c9-2444-424e-a2fc-f5f0ca504cc7'
+  const other = '5c24b5c9-2444-424e-a2fc-f5f0ca504cc7'
+  const delivery = { enteredPincode: '560001', pincodeServiceable: false, deliveryCity: 'Bengaluru', deliveryState: 'Karnataka' }
+  assert.deepEqual(carryDeliveryContext(session, delivery, 1), delivery)
+  assert.deepEqual(carryDeliveryContext(session, { enteredPincode: '110001' }, 60000), delivery)
+  assert.equal(carryDeliveryContext(other, {}, 70000), undefined)
+  assert.equal(carryDeliveryContext(session, {}, 1860001), undefined)
+  assert.equal(visitFacts({ headers: { 'x-app-platform': 'android', 'x-session-id': session } }).sessionId, session)
+  assert.equal(visitFacts({ headers: { 'x-session-id': session } }).sessionId, undefined)
+  assert.equal(visitFacts({ headers: { 'x-app-platform': 'ios' } }).sessionId, undefined)
+})
+
 test('AdminJS transport enforces fresh admin privileges and same-origin debug controls', async () => {
   const { default: express } = await import('express')
   const { routeHandler } = await import('../node_modules/@adminjs/express/lib/buildRouter.js')

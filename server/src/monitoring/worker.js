@@ -1,3 +1,4 @@
+import { validVisitorSession, visitorIdleSeconds } from '../../../shared/logReasons.js'
 import { parentPort, workerData } from 'node:worker_threads'
 import fs from 'node:fs/promises'
 import { createInterface } from 'node:readline'
@@ -7,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { presentLog } from '../admin/monitoring-presentation.js'
 import { isMonitoringRequest, readableStatus } from '../../../shared/monitoring.js'
 import { ADMIN_RETENTION_DAYS, DAY_MS, activityKey, countableActivity, isCheckout, isCustomerActivity, logSource, logTab, recordedReason } from './log-policy.js'
+import { addSessionEvent, belongsToSessionTab, carryTimelineDelivery, finishSession, isBackgroundCall } from './session-view.js'
 import { createLogInsights } from './log-insights.js'
 import { categories, sanitize, istDate } from './sanitize.js'
 
@@ -267,16 +269,39 @@ async function readInsights(allFiles, alertOnly, now) {
   return metrics.result()
 }
 
+async function recentDeliveryContexts(allFiles) {
+  const now = Date.now()
+  const cutoff = now - visitorIdleSeconds * 1000
+  const day = istDate(new Date(cutoff))
+  const known = new Map()
+  for (const file of allFiles) {
+    if (file.date < day || file.admin || file.category === 'debug') continue
+    for await (const line of reverseLines(file)) {
+      let row
+      try { row = JSON.parse(line) } catch { continue }
+      if (!row || !validVisitorSession(row.sessionId) || typeof row.pincodeServiceable !== 'boolean' || !/^\d{6}$/.test(row.enteredPincode || '')) continue
+      const timestamp = Date.parse(row.timestamp)
+      if (!Number.isFinite(timestamp) || timestamp <= cutoff || timestamp > now || known.get(row.sessionId)?.timestamp >= row.timestamp) continue
+      const { sessionId, enteredPincode, pincodeServiceable, deliveryCity, deliveryState } = sanitize(row)
+      known.set(sessionId, { timestamp: row.timestamp, sessionId, enteredPincode, pincodeServiceable, deliveryCity, deliveryState })
+    }
+  }
+  return [...known.values()]
+}
+
 async function read(query) {
   const allFiles = await files()
+  if (query.restoreDeliveryContexts) return recentDeliveryContexts(allFiles)
   if (query.insightsOnly) return readInsights(allFiles, Boolean(query.alertOnly), Date.now())
   totalBytes = allFiles.reduce((sum, f) => sum + f.size, 0)
   const current = Date.now()
-  const retentionCutoff = current - (query.tab === 'admin' || query.journey ? ADMIN_RETENTION_DAYS : retentionDays) * DAY_MS
+  const retentionCutoff = current - (query.tab === 'admin' || query.journey && !query.customerJourney ? ADMIN_RETENTION_DAYS : retentionDays) * DAY_MS
   const start = query.from ? Date.parse(query.from + 'T00:00:00+05:30') : query.visitSession || query.to ? retentionCutoff : current - DAY_MS
   const end = query.to ? Date.parse(query.to + 'T23:59:59.999+05:30') : current
   const summary = { failedCheckouts: 0, website: 0, app: 0, reasons: {}, pincodes: {}, unclassified: 0 }
   const failures = new Map()
+  const grouped = query.groupSessions && ['website', 'app'].includes(query.tab)
+  const sessions = new Map()
   const list = allFiles.filter((f) => (!query.category || f.category === query.category) && (!query.date || f.date === query.date)
     && (!query.business || (f.date >= istDate(new Date(Math.max(start, retentionCutoff))) && (f.date <= istDate(new Date(end)) || f.date === istDate())))).reverse()
   const journey = query.journey === true && Boolean(query.visitSession)
@@ -299,17 +324,24 @@ async function read(query) {
           row = sanitize(row)
         } catch { corruptRows++; continue }
         if (file.category !== 'audit' && (row.event === 'monitoring.viewed' || (['request.completed', 'request.aborted', 'request.timing'].includes(row.event) && isMonitoringRequest(row.route)))) continue
+        let session
         if (query.business) {
           const time = Date.parse(row.timestamp)
           const outcome = readableStatus({ ...row, category: file.category })
           const reason = outcome === 'Failed' ? recordedReason(row) : undefined
           const tab = logTab(row, file.category)
           if (time < Math.max(start, current - (tab === 'admin' ? ADMIN_RETENTION_DAYS : retentionDays) * DAY_MS) || time > end) continue
-          if (query.tab && tab !== query.tab) continue
-          if (query.checkoutOnly && !isCheckout(row)) continue
+          const item = { ...row, category: file.category }
+          const background = isBackgroundCall(item)
+          if (query.tab && tab !== query.tab && !(grouped && tab === 'errors' && validVisitorSession(row.sessionId) && belongsToSessionTab(item, query.tab))) continue
+          if (query.checkoutOnly && !isCheckout(row) && !grouped) continue
           if (query.customerOnly && !isCustomerActivity(row, file.category)) continue
-          if (query.source && logSource(row, file.category) !== query.source) continue
           if (query.visitSession && row.sessionId !== query.visitSession) continue
+          if (query.sessionPrefix && !row.sessionId?.startsWith(query.sessionPrefix)) continue
+          if (grouped && validVisitorSession(row.sessionId) && belongsToSessionTab(item, query.tab)) session = addSessionEvent(sessions, item, background)
+          if (query.checkoutOnly && !isCheckout(row)) continue
+          if (background && (grouped && !query.includeBackground || journey && query.includeBackground === false)) continue
+          if (query.source && logSource(row, file.category) !== query.source) continue
           if (query.phoneHash && row.phoneLookupHash !== query.phoneHash) continue
           if (maskedCustomers && !maskedCustomers.has(row.verifiedCustomerId)) continue
           if (query.reason && reason !== query.reason) continue
@@ -318,7 +350,7 @@ async function read(query) {
           if (query.coverage && (typeof coverage !== 'boolean' || String(coverage) !== query.coverage)) continue
           const app = ['android', 'ios'].includes(row.platform)
           if (query.device === 'app' && !app || query.device === 'website' && row.platform !== 'website') continue
-          if (query.status && outcome !== query.status) continue
+          if (!session && query.status && outcome !== query.status) continue
           if (app) summary.app++
           if (row.platform === 'website') summary.website++
           if (reason && countableActivity(row, file.category)) {
@@ -329,7 +361,7 @@ async function read(query) {
             }
           }
         }
-        if (query.status && (['Successful', 'Failed', 'Warning', 'Pending'].includes(query.status) ? readableStatus({ ...row, category: file.category }) !== query.status : ![row.status, row.outcome].some((value) => String(value ?? '') === query.status))) continue
+        if (!session && query.status && (['Successful', 'Failed', 'Warning', 'Pending'].includes(query.status) ? readableStatus({ ...row, category: file.category }) !== query.status : ![row.status, row.outcome].some((value) => String(value ?? '') === query.status))) continue
         if (query.user && ![row.actorId, row.userId].some((v) => String(v || '').includes(query.user))) continue
         if (query.orderId && ![row.orderId, row.orderNo, row.razorpayOrderId, row.razorpayPaymentId, row.new?.orderNo, row.resourceId].some((v) => String(v || '').includes(query.orderId))) continue
         if (query.ip && row.ip !== query.ip) continue
@@ -337,6 +369,7 @@ async function read(query) {
           const needle = query.search.toLowerCase()
           if (!JSON.stringify(row).toLowerCase().includes(needle) && !JSON.stringify(presentLog({ ...row, category: file.category })).toLowerCase().includes(needle)) continue
         }
+        if (session) { session.matched = true; continue }
         yield { ...row, category: file.category, file: file.name }
     }
   }
@@ -362,8 +395,8 @@ async function read(query) {
         const stream = available[0]
         if (journey) {
           rows.push(stream.head.value)
-          if (rows.length > perPage) rows.shift()
-        } else if (total >= offset && rows.length < perPage) rows.push(stream.head.value)
+          if (rows.length > offset + perPage) rows.shift()
+        } else if (grouped ? rows.length < offset + perPage : total >= offset && rows.length < perPage) rows.push(stream.head.value)
         total++
         stream.head = await stream.iterator.next()
       }
@@ -375,8 +408,19 @@ async function read(query) {
     else summary.reasons[reason] = (summary.reasons[reason] || 0) + 1
     if (reason === 'PINCODE_NOT_SERVICEABLE' && /^\d{6}$/.test(pin || '')) summary.pincodes[pin] = (summary.pincodes[pin] || 0) + 1
   }
-  if (journey) rows.reverse().sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-  return { rows, total, page, perPage, summary, insights: query.includeInsights ? await readInsights(allFiles, false, current) : undefined, files: list, days: [...new Set(allFiles.filter(file => !query.category || file.category === query.category).map(file => file.date))].sort().reverse(), totalBytes, corruptRows }
+  let pageRows = rows
+  if (journey) {
+    const chronological = carryTimelineDelivery(rows.reverse().sort((a, b) => a.timestamp.localeCompare(b.timestamp)))
+    // Journey pages are collected from the oldest end of the log.
+    pageRows = chronological.slice(offset, offset + perPage)
+  }
+  if (grouped) {
+    const matchedSessions = [...sessions.values()].filter(session => session.matched).map(finishSession)
+      .filter(session => !query.status || readableStatus(session) === query.status)
+    total += matchedSessions.length
+    pageRows = [...rows, ...matchedSessions].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(offset, offset + perPage)
+  }
+  return { rows: pageRows, total, page, perPage, summary, insights: query.includeInsights ? await readInsights(allFiles, false, current) : undefined, files: list, days: [...new Set(allFiles.filter(file => !query.category || file.category === query.category).map(file => file.date))].sort().reverse(), totalBytes, corruptRows }
 }
 let chain = Promise.resolve()
 if (!readerOnly) setInterval(() => {
