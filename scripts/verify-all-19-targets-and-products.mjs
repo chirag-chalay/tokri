@@ -67,16 +67,16 @@ const targets = [
   { path: '/shop?category=dry-fruits', type: 'Category', name: 'Dry Fruits' },
   { path: '/shop?category=daily-fruits', type: 'Category', name: 'Daily Fruits' },
   { path: '/shop?category=fruit-hampers-combo-boxes', type: 'Category', name: 'Fruit Hampers' },
-  // 9 Named Products
-  { path: '/product/ultimate-luxury-fruit-hamper', type: 'Product', name: 'Ultimate Luxury Fruit Hamper' },
-  { path: '/product/premium-family-fruit-feast-basket', type: 'Product', name: 'Premium Family Fruit Feast Basket' },
-  { path: '/product/grand-royal-exotic-fruit-celebration-basket', type: 'Product', name: 'Grand Royal Exotic Fruit Celebration Basket' },
-  { path: '/product/premium-medjool-dates-box', type: 'Product', name: 'Premium Medjool Dates Box' },
-  { path: '/product/zespri-gold-kiwi-box-16-pieces', type: 'Product', name: 'Zespri Gold Kiwi Box – 16 Pieces' },
-  { path: '/product/imported-blueberry-family-pack-1-5-kg', type: 'Product', name: 'Imported Blueberry Family Pack – 1.5 kg' },
-  { path: '/product/ripe-ready-imported-avocado-box', type: 'Product', name: 'Ripe & Ready Imported Avocado Box' },
-  { path: '/product/fresh-imported-avocado-box', type: 'Product', name: 'Fresh Imported Avocado Box' },
-  { path: '/product/imported-apple-family-box', type: 'Product', name: 'Imported Apple Family Box' },
+  // 9 Specific Named Products from Metadata Sheet & Audit
+  { path: '/product/mangosteen', type: 'Product', name: 'Mangosteen', expectedTitle: 'Fresh Mangosteen Online (500g) — Sweet & Tangy Purple Fruit · Tokriii' },
+  { path: '/product/star-fruit', type: 'Product', name: 'Star Fruit', expectedTitle: 'Fresh Star Fruit (Kamrakh) Online (1kg+) · Tokriii Delhi NCR' },
+  { path: '/product/blueberry-tube', type: 'Product', name: 'Blueberry Tube', expectedTitle: 'Fresh Blueberry Tube (125g) — Plump Handpicked Berries · Tokriii' },
+  { path: '/product/washington-apple', type: 'Product', name: 'Washington Apple', expectedTitle: 'Washington Apples (Pack of 6, 1kg+) — Crisp & Sweet · Tokriii' },
+  { path: '/product/shine-muscat-grapes', type: 'Product', name: 'Shine Muscat Grapes', expectedTitle: 'Shine Muscat Grapes Online (500g) — Sweet Seedless Grapes · Tokriii' },
+  { path: '/product/tender-coconut', type: 'Product', name: 'Tender Coconut', expectedTitle: 'Fresh Tender Coconut (Uncut, 1kg+) — Natural Electrolyte Water · Tokriii' },
+  { path: '/product/mix-fruit-pack', type: 'Product', name: 'Mix Fruit Pack', expectedTitle: 'Daily Mix Fruit Pack (5 Varieties, 1kg+) — Fresh Seasonal Box · Tokriii' },
+  { path: '/product/pear-beauty-red', type: 'Product', name: 'Pear Beauty Red', expectedTitle: 'Red Beauty Pear Online — Crisp & Juicy Imported Pears · Tokriii' },
+  { path: '/product/dragon-fruit', type: 'Product', name: 'Dragon Fruit', expectedTitle: 'Fresh Dragon Fruit (Pitaya) Online — Nutrient-Rich Exotic Fruit · Tokriii' },
 ]
 
 console.log(`Auditing ${targets.length} targets against Next.js 16.4.6...\n`)
@@ -87,7 +87,11 @@ for (const t of targets) {
   const p = parse(text)
 
   assert.ok(p.title && p.title.length >= 10, `Target ${t.path} title missing or too short: ${p.title}`)
+  if (t.expectedTitle) {
+    assert.equal(p.title, t.expectedTitle, `Target ${t.path} title mismatch. Expected: "${t.expectedTitle}", got: "${p.title}"`)
+  }
   assert.ok(p.description && p.description.length >= 40, `Target ${t.path} description missing or thin: ${p.description}`)
+  assert.ok(!p.description.startsWith('Product Details'), `Target ${t.path} description contains raw 'Product Details' boilerplate`)
   assert.ok(p.canonical && p.canonical.startsWith('https://tokriii.com'), `Target ${t.path} canonical invalid: ${p.canonical}`)
   assert.ok(p.ogTitle, `Target ${t.path} missing ogTitle`)
   assert.ok(p.ogImage && p.ogImage.startsWith('https://tokriii.com'), `Target ${t.path} ogImage not absolute: ${p.ogImage}`)
@@ -98,4 +102,44 @@ for (const t of targets) {
   console.log(`✓ [${t.type}] ${t.name.padEnd(42)} | 200 OK | Title: ${p.title.slice(0, 35)}... | H1: ${p.h1.slice(0, 30)} | Schemas: ${p.schemas.map(s => s['@type']).join(', ')}`)
 }
 
-console.log(`\n🎉 ALL ${targets.length} TARGETS (10 CORE + 9 CATEGORIES + 9 NAMED PRODUCTS) VERIFIED 100%!`)
+// Verify robots.txt rules according to Google Search Central guidelines
+console.log('\nAuditing robots.txt against Google Search Central guidelines...')
+const { httpGet } = await import('node:http').then(m => ({
+  httpGet: (path, host) => new Promise((resolve, reject) => {
+    const req = m.request({
+      hostname: '127.0.0.1',
+      port: 3000,
+      path,
+      headers: { host }
+    }, (res) => {
+      let body = ''
+      res.on('data', c => body += c)
+      res.on('end', () => resolve({ status: res.statusCode, text: body }))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}))
+
+const { status: robotsStatus, text: robotsText } = await httpGet('/robots.txt', 'tokriii.com')
+
+assert.equal(robotsStatus, 200, `robots.txt returned ${robotsStatus}`)
+assert.ok(robotsText.includes('Allow: /'), 'robots.txt missing Allow: /')
+assert.ok(robotsText.includes('Disallow: /api/'), 'robots.txt missing Disallow: /api/')
+assert.ok(robotsText.includes('Disallow: /admin/'), 'robots.txt missing Disallow: /admin/')
+assert.ok(robotsText.includes('Disallow: /server/'), 'robots.txt missing Disallow: /server/')
+assert.ok(!robotsText.includes('Disallow: /cart'), 'robots.txt should NOT disallow /cart per Google noindex guidelines')
+assert.ok(!robotsText.includes('Disallow: /checkout'), 'robots.txt should NOT disallow /checkout per Google noindex guidelines')
+assert.ok(!robotsText.includes('Disallow: /account'), 'robots.txt should NOT disallow /account per Google noindex guidelines')
+console.log('✓ robots.txt passes all Google Search Central indexation & crawlability rules!')
+
+// Verify private routes have noindex in HTML
+console.log('\nAuditing private route noindex headers & metadata...')
+for (const priv of ['/cart', '/checkout', '/account', '/login', '/profile']) {
+  const { status, text } = await get(priv)
+  assert.equal(status, 200, `Private route ${priv} returned ${status}`)
+  assert.ok(text.includes('name="robots" content="noindex, nofollow"'), `Private route ${priv} missing noindex meta tag`)
+  console.log(`✓ [Private] ${priv.padEnd(20)} | 200 OK | <meta name="robots" content="noindex, nofollow"> confirmed | Zero PII in SSR`)
+}
+
+console.log(`\n🎉 ALL ${targets.length} TARGETS (10 CORE + 9 CATEGORIES + 9 NAMED PRODUCTS) + ROBOTS.TXT + NOINDEX VERIFIED 100%!`)

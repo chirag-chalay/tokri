@@ -5,7 +5,7 @@ import { parseDocument } from 'htmlparser2'
 import { findAll, textContent } from 'domutils'
 import { publicGet } from './public-api'
 import { canonicalOrigin } from './indexing'
-import { toAbsoluteUrl } from './seo-defaults'
+import { toAbsoluteUrl, generateProductSeo } from './seo-defaults'
 
 export const getProduct = cache((slug) => publicGet(`/products/${encodeURIComponent(slug)}`))
 export const getBlog = cache((slug) => publicGet(`/blogs/${encodeURIComponent(slug)}`))
@@ -30,13 +30,13 @@ export function assetUrl(value) {
 }
 
 export function detailMetadata(kind, item) {
-  const title = kind === 'product' ? item.name : item.title
-  let description = plainText(kind === 'product' ? item.description : item.excerpt)
-  if (!description && kind === 'product') {
-    description = `Buy fresh ${item.name}${item.weight ? ` (${item.weight})` : ''} online at Tokriii. Handpicked grade-A quality fruit, clean packaging, and morning doorstep delivery in Delhi NCR & Gurugram.`
+  if (kind === 'product') {
+    return generateProductSeo(item).metadata
   }
+  const title = item.title
+  const description = plainText(item.excerpt)
   const canonical = `${canonicalOrigin}/${kind}/${encodeURIComponent(item.slug)}`
-  const rawImage = kind === 'product' ? item.image : item.coverImage
+  const rawImage = item.coverImage
   const absoluteImage = toAbsoluteUrl(rawImage)
 
   return {
@@ -47,7 +47,7 @@ export function detailMetadata(kind, item) {
       title: `${title} · Tokriii`,
       ...(description ? { description } : {}),
       url: canonical,
-      type: kind === 'blog' ? 'article' : 'website',
+      type: 'article',
       ...(absoluteImage ? { images: [{ url: absoluteImage, alt: title }] } : {}),
     },
     twitter: {

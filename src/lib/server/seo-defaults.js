@@ -126,6 +126,45 @@ export const CATEGORY_METADATA = {
   },
 }
 
+export const PRODUCT_SEO_DEFAULTS = {
+  'mangosteen': {
+    title: 'Fresh Mangosteen Online (500g) — Sweet & Tangy Purple Fruit · Tokriii',
+    description: 'Buy fresh premium purple mangosteen online at Tokriii. Handpicked queen of fruits, juicy white segments, and morning doorstep delivery in Delhi NCR & Gurugram.',
+  },
+  'star-fruit': {
+    title: 'Fresh Star Fruit (Kamrakh) Online (1kg+) · Tokriii Delhi NCR',
+    description: 'Order crisp, tangy, and juicy star fruit (carambola/kamrakh) online at Tokriii. Rich in vitamin C, handpicked fresh, with fast delivery in Delhi NCR.',
+  },
+  'blueberry-tube': {
+    title: 'Fresh Blueberry Tube (125g) — Plump Handpicked Berries · Tokriii',
+    description: 'Buy fresh, plump imported blueberries in convenient 125g tubes at Tokriii. High in antioxidants, naturally sweet, with cold-chain morning delivery in Delhi NCR.',
+  },
+  'washington-apple': {
+    title: 'Washington Apples (Pack of 6, 1kg+) — Crisp & Sweet · Tokriii',
+    description: 'Order authentic crisp, juicy Washington State red apples online at Tokriii. Hand-graded for sweetness and crunch, delivered fresh to your door in Delhi NCR.',
+  },
+  'shine-muscat-grapes': {
+    title: 'Shine Muscat Grapes Online (500g) — Sweet Seedless Grapes · Tokriii',
+    description: 'Experience Japan\'s famous Shine Muscat seedless green grapes. Extra sweet, floral aroma, crisp skin, delivered fresh with cold-chain delivery in Delhi NCR.',
+  },
+  'tender-coconut': {
+    title: 'Fresh Tender Coconut (Uncut, 1kg+) — Natural Electrolyte Water · Tokriii',
+    description: 'Buy fresh uncut green tender coconuts online at Tokriii. Sweet, nutrient-rich coconut water and tender malai delivered fresh every morning in Delhi NCR.',
+  },
+  'mix-fruit-pack': {
+    title: 'Daily Mix Fruit Pack (5 Varieties, 1kg+) — Fresh Seasonal Box · Tokriii',
+    description: 'Get a curated daily mix fruit pack with 5 handpicked seasonal fruit varieties. Washed, graded, and delivered fresh to Delhi NCR households before 7 AM.',
+  },
+  'pear-beauty-red': {
+    title: 'Red Beauty Pear Online — Crisp & Juicy Imported Pears · Tokriii',
+    description: 'Buy sweet, aromatic Red Beauty pears online at Tokriii. Flawless blush skin, meltingly tender juicy flesh, with morning delivery across Delhi NCR & Gurugram.',
+  },
+  'dragon-fruit': {
+    title: 'Fresh Dragon Fruit (Pitaya) Online — Nutrient-Rich Exotic Fruit · Tokriii',
+    description: 'Order vibrant fresh dragon fruit online at Tokriii. Handpicked for peak ripeness, rich in dietary fiber and antioxidants, delivered morning fresh in Delhi NCR.',
+  },
+}
+
 export function toAbsoluteUrl(url) {
   if (!url) return DEFAULT_OG_IMAGE
   try {
@@ -143,16 +182,29 @@ export function toAbsoluteUrl(url) {
 
 export function generateProductSeo(product) {
   if (!product) return {}
+  const slug = product.slug || product.id
+  const preset = PRODUCT_SEO_DEFAULTS[slug]
+
+  const rawManualTitle = (product.metaTitle || product.seoTitle || product.meta_title || '').trim()
+  const rawManualDesc = (product.metaDescription || product.seoDescription || product.meta_description || '').trim()
+
+  const isGenericDesc = (desc) => !desc || desc.startsWith('Product Details') || desc.startsWith('Health Benefits') || desc.length < 30
+  const isGenericTitle = (title) => !title || title === product.name || title === `${product.name} · Tokriii`
+
+  const manualTitle = !isGenericTitle(rawManualTitle) ? rawManualTitle : null
+  const manualDesc = !isGenericDesc(rawManualDesc) ? rawManualDesc : null
+
   const name = product.name || 'Fresh Fruit'
   const weight = product.weight ? ` (${product.weight})` : ''
-  const title = `${name}${weight} · Tokriii`
+
+  const title = manualTitle || preset?.title || `${name}${weight} · Tokriii`
   
-  let description = plainText(product.description)
-  if (!description || description.length < 50) {
+  let description = manualDesc || preset?.description || plainText(product.description)
+  if (isGenericDesc(description)) {
     description = `Buy fresh ${name}${weight} online at Tokriii. Handpicked grade-A quality fruit, clean packaging, and morning doorstep delivery in Delhi NCR & Gurugram.`
   }
 
-  const canonical = `${canonicalOrigin}/product/${encodeURIComponent(product.slug || product.id)}`
+  const canonical = `${canonicalOrigin}/product/${encodeURIComponent(slug)}`
   const image = toAbsoluteUrl(product.image)
 
   return {
