@@ -307,11 +307,15 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
         if (draft.from.length === 10 || draft.to.length === 10) setError('Enter a valid date range in dd/mm/yyyy format.')
         return
       }
+      const search = draft.search.trim()
+      if (search && !/^(?:[a-f0-9]{8}|[a-f0-9-]{36}|\d{2}X{6}\d{2})$/i.test(search) &&
+        (!access.fullAccess || !/^(?:91)?\d{10}$/.test(search.replace(/[+ ()-]/g, '')))) return
+      if (draft.pin && !/^\d{6}$/.test(draft.pin)) return
       setPage(1)
       setActive(draft)
     }, 325)
     return () => clearTimeout(wait)
-  }, [active, draft])
+  }, [active, draft, access.fullAccess])
 
   useEffect(() => {
     if (!expanded?.row.sessionGroup) return
@@ -527,7 +531,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
             <section className="business-inline-timeline" aria-label="Event timeline">
               <h2>{shortId(row.sessionId)} · Event timeline</h2>
               {row.backgroundCount > 0 && <label><input type="checkbox" checked={expanded.background}
-                onChange={event => setExpanded({ ...expanded, page: 1, background: event.target.checked })} /> Show {row.backgroundCount} background calls</label>}
+                onChange={event => setExpanded({ ...expanded, page: 1, background: event.target.checked })} /> Show {row.backgroundCount} background {row.backgroundCount === 1 ? 'call' : 'calls'}</label>}
               {timeline?.loading && row.sessionGroup && <p>Loading timeline…</p>}
               {timeline?.error && row.sessionGroup && <p role="alert">{timeline.error}</p>}
               {rows?.length > 0 && <ol>{rows.map((event, i) => <li key={event.eventId || event.timestamp + i}>
@@ -536,7 +540,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
                 <small>{event.pincode} · {event.why}</small>
               </li>)}</ol>}
               {rows?.length === 0 && <p>No foreground events.</p>}
-              {row.sessionGroup && timeline?.total > timeline.perPage && <div className="business-actions" aria-label="Timeline pages">
+              {row.sessionGroup && timeline?.total > timeline?.perPage && <div className="business-actions" aria-label="Timeline pages">
                 <button type="button" disabled={expanded.page <= 1} onClick={() => setExpanded({ ...expanded, page: expanded.page - 1 })}>Earlier events</button>
                 <button type="button" disabled={expanded.page * timeline.perPage >= timeline.total}
                   onClick={() => setExpanded({ ...expanded, page: expanded.page + 1 })}>Later events</button>
