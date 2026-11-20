@@ -29,6 +29,11 @@ export async function renderCms(slug) {
           {page.body ? <div className="cms-page-content mt-3 sm:mt-4" dangerouslySetInnerHTML={{ __html: body }} /> : (
             <p className="mt-3 text-sm leading-6 text-muted sm:mt-4 sm:text-base sm:leading-7">Content for this page has not been added yet. Edit it in the admin under Content → Pages.</p>
           )}
+          {slug === 'privacy-policy' ? <section className="cms-page-content mt-5">
+            <h2>Delivery location and service logs</h2>
+            <p>Tokriii uses a first-party session cookie to link actions during your visit and diagnose delivery, checkout and payment issues. Service logs may include your selected delivery pincode, whether we deliver there, your IP address and an approximate area derived from it, device information, and a reference to your account if you sign in.</p>
+            <p>If you allow location access, we use your location to help find your delivery area. The service logs keep the area and omit precise coordinates. Authorized staff can access the logs. We keep website activity, mobile app API activity and error logs for up to 90 days. We keep backoffice and system audit logs for up to one year, including records waiting to be written to the audit log.</p>
+          </section> : null}
           <Link href="/" className="mt-5 inline-flex rounded-full bg-brand px-6 py-3 text-sm font-semibold text-black hover:bg-brand-hover sm:mt-6">Back to Home</Link>
         </div>
       </div>

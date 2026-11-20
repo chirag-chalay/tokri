@@ -13,7 +13,7 @@ process.env.LOG_OUTBOX_ENABLED = 'false'
 const { requestLogging, log, setDebug, websiteDebugState, subscribeWebsiteDebug, closeWebsiteStreams, workerCall, closeMonitoring } = await import('../src/monitoring/index.js')
 const { createWebsiteMonitoringRouter } = await import('../src/monitoring/website.js')
 const { logError } = await import('../src/monitoring/database.js')
-const client = { product: { findMany: async () => [{ id: 'apple-id', slug: 'apple', name: 'Apple Royal Gala' }] } }
+const client = { serviceablePincode: { count: async () => 1, findMany: async () => [] }, product: { findMany: async () => [{ id: 'apple-id', slug: 'apple', name: 'Apple Royal Gala' }] } }
 const app = express()
 app.use(requestLogging)
 app.use((req, _res, next) => { req.customer = { id: 'PRIVATE_CUSTOMER_ID' }; next() })
@@ -29,8 +29,8 @@ app.get('/api/pages/logs', (_req, res) => res.json({}))
 app.get('/checkout', (_req, res) => res.type('html').send('checkout'))
 const server = await new Promise(resolve => { const current = app.listen(0, '127.0.0.1', () => resolve(current)) })
 const origin = `http://127.0.0.1:${server.address().port}`
-const send = async (events, generation = websiteDebugState().generation) => {
-  const response = await fetch(`${origin}/api/v1/monitoring/events`, { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ generation, events }) })
+const send = async (events, generation = websiteDebugState().generation, headers = {}) => {
+  const response = await fetch(`${origin}/api/v1/monitoring/events`, { method: 'POST', headers: { 'content-type': 'application/json', origin, ...headers }, body: JSON.stringify({ generation, events }) })
   return { status: response.status, data: await response.json().catch(() => ({})) }
 }
 const event = (name, extra = {}) => ({ id: randomUUID(), event: name, path: '/checkout', ...extra })
@@ -57,6 +57,9 @@ test('website visits are anonymous, deduplicated and separate from backend API t
   assert.ok(api.rows.some(row => row.method === 'GET' && row.route === '/api/v1/products' && row.httpStatus === 200 && row.durationMs >= 0))
   assert.ok(!JSON.stringify(website.rows).includes('PRIVATE'))
   assert.ok(!JSON.stringify(api.rows).includes('PRIVATE_TOKEN'))
+  const customerActivity = await rows({ business: true, tab: 'website' })
+  assert.ok(customerActivity.rows.some(row => row.route === '/api/v1/products' && row.logSource === 'Server API'))
+  assert.ok(!(await rows({ business: true, tab: 'admin' })).rows.some(row => row.route === '/api/v1/products'))
 })
 test('optional events reject OFF, stale generations and expired deadlines; critical audits remain independent', async () => {
   assert.equal((await send([event('cart.added', { productRef: 'apple' })])).data.accepted, 0)
@@ -133,11 +136,42 @@ test('old self-event files remain intact but are omitted from viewer results; au
   await workerCall('deliver', { category: 'audit', record: { eventId: randomUUID(), timestamp, event: 'test.preserved.audit', route: '/api/pages/logs' } })
   assert.equal((await rows({ category: 'access', search: 'monitoring.viewed' })).total, 0)
   assert.equal((await rows({ category: 'audit', search: 'test.preserved.audit' })).total, 1)
-  const old = (await fs.readdir(directory)).find(name => name.startsWith('access-'))
+  const old = (await fs.readdir(directory)).find(name => name.startsWith('admin-access-'))
   assert.ok((await fs.readFile(path.join(directory, old), 'utf8')).includes('monitoring.viewed'))
 })
 test('status filters use the same canonical category as the visible status badge', async () => {
   await workerCall('deliver', { category: 'error', record: { eventId: randomUUID(), timestamp: new Date().toISOString(), event: 'process.fatal' } })
   assert.equal((await rows({ category: 'error', status: 'Failed', search: 'process.fatal' })).total, 1)
   assert.equal((await rows({ category: 'error', status: 'Warning', search: 'process.fatal' })).total, 0)
+})
+
+test('a guest journey records coverage, checkout block and cart events with location denied', async () => {
+  const session = randomUUID()
+  const headers = { cookie: 'tokri_visit=' + session, 'x-session-id': session, 'x-location-permission': 'denied',
+    'x-visit-location': encodeURIComponent(JSON.stringify({ city: 'Delhi', latitude: 28, longitude: 77 })) }
+  const response = await send([
+    event('delivery.pin.checked', { deliveryPin: '999999', pinSource: 'address_form' }),
+    event('cart.added', { productRef: 'apple', quantity: 1 }),
+    event('checkout.guest.blocked'),
+  ], undefined, headers)
+  assert.equal(response.data.accepted, 3)
+  const journey = await rows({ business: true, visitSession: session, journey: true })
+  assert.equal(journey.total, 3)
+  assert.equal(journey.summary.failedCheckouts, 1)
+  assert.equal(journey.summary.pincodes['999999'], 1)
+  assert.equal(journey.rows[0].reasonCode, 'PINCODE_NOT_SERVICEABLE')
+  assert.equal(journey.rows[0].enteredPincode, '999999')
+  assert.equal(journey.rows[0].pincodeServiceable, false)
+  assert.equal(journey.rows[2].reasonCode, 'AUTH_REQUIRED')
+  for (const row of journey.rows) {
+    assert.equal(row.sessionId, session)
+    assert.equal(row.visitorKind, 'guest')
+    assert.equal(row.gpsConsent, false)
+    assert.equal(row.locationCity, undefined)
+    assert.equal(row.latitude, undefined)
+    assert.equal(row.longitude, undefined)
+    assert.equal(row.phoneLookupHash, undefined)
+  }
+  const unknown = await rows({ business: true, reason: 'UNKNOWN' })
+  assert.ok(unknown.rows.some(row => row.event === 'operation.failed' && row.reasonCode === 'UNKNOWN'))
 })

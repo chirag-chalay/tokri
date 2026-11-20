@@ -1,3 +1,4 @@
+import { isLogReason } from '../../../shared/logReasons.js'
 // Fixed translations of actual application failures, never arbitrary messages.
 export const failureReasons = {
   product_name_required: 'A product name was required before this change could continue.',
@@ -53,6 +54,7 @@ const exact = new Map([
   ['Order not found.', 'order_missing'], ['Payment details do not match this order.', 'payment_mismatch'], ['Cash on delivery is not available for this order.', 'cod_unavailable'],
 ])
 export function safeFailureFacts(error) {
+  if (isLogReason(error?.reasonCode)) return { reasonCode: error.reasonCode }
   let failureReason = exact.get(error?.message)
   if (!failureReason && error?.code === 'MINIMUM_SUBTOTAL') failureReason = 'coupon_minimum'
   if (!failureReason && /^Product ".+" is no longer available\.$/.test(error?.message || '')) failureReason = 'product_unavailable'
@@ -79,7 +81,7 @@ export function checkoutPaymentFacts(body) {
   const paymentStatus = body?.paymentStatus || body?.status || body?.order?.paymentStatus
   const facts = {}
   if (['paid', 'captured', 'failed', 'pending', 'refunded'].includes(paymentStatus)) facts.paymentStatus = paymentStatus
-  if (paymentStatus === 'failed') Object.assign(facts, safeFailureFacts(body))
+  if (paymentStatus === 'failed') Object.assign(facts, { reasonCode: 'PAYMENT_FAILED' }, safeFailureFacts(body))
   if (paymentStatus === 'failed' && ['insufficient_funds', 'payment_declined', 'payment_timed_out'].includes(body?.message)) { facts.reason = body.message; facts.failureReason = body.message }
   const orderNo = body?.orderNo || body?.order?.orderNo
   if (typeof orderNo === 'string') facts.orderNo = orderNo

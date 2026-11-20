@@ -1,4 +1,4 @@
-import { recordWebsiteDebug } from '../lib/websiteMonitoring'
+import { recordWebsiteDebug, setMonitoringCustomerToken } from '../lib/websiteMonitoring'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { authGet, authPatch } from '../lib/api'
 
@@ -28,6 +28,7 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser)
+  useEffect(() => { setMonitoringCustomerToken(user?.token) }, [user?.token])
 
   const persist = useCallback((nextUser) => {
     if (nextUser) {

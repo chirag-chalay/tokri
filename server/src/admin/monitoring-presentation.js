@@ -1,5 +1,5 @@
 import { failureReasons } from '../monitoring/event-facts.js'
-import { readableStatus } from '../../../shared/monitoring.js'
+import { readableStatus, validDeliveryPin, validDiagnosticSession } from '../../../shared/monitoring.js'
 import { isIP } from 'node:net'
 import { sanitize } from '../monitoring/sanitize.js'
 
@@ -133,6 +133,8 @@ export function presentLog(row, names = {}) {
     action = 'Website sign-in session'; description = event.endsWith('started') ? 'A customer sign-in session started on the website.' : 'A customer sign-in session ended on the website.'
   } else if (event === 'delivery.selected') {
     action = 'Delivery selected'; description = ['morning', 'express'].includes(row.deliveryOption) ? `Customer selected the ${row.deliveryOption} delivery option.` : 'The website delivery selection changed.'
+  } else if (event === 'delivery.pin.checked') {
+    action = 'Delivery PIN checked'; description = 'The storefront reported a PIN from a delivery location action.'
   } else if (event === 'frontend.api.completed' || event === 'frontend.api.failed') {
     ;({ action, description } = requestExplanation(row, result))
   } else if (event === 'frontend.page.failed' || event === 'website.response.failed') {
@@ -275,6 +277,20 @@ function readableDetails(row, names, view) {
   for (const [key, label] of [['itemsTotal', 'Subtotal'], ['discount', 'Discount'], ['deliveryCharge', 'Delivery charge'], ['handlingCharge', 'Handling charge'], ['taxTotal', 'Tax'], ['grandTotal', 'Final amount']]) if (numeric(facts[key])) add(label, money(facts[key]))
   if (typeof facts.couponCode === 'string' && /^[A-Z][A-Z0-9_-]{0,39}$/.test(facts.couponCode) && displayText(facts.couponCode)) add('Coupon', displayText(facts.couponCode))
   if (['morning', 'express'].includes(facts.deliveryOption)) add('Delivery', facts.deliveryOption === 'morning' ? 'Morning delivery' : 'Express delivery')
+
+  if (row.event === 'delivery.pin.checked') {
+    if (validDeliveryPin(row.deliveryPin)) add('Delivery PIN', row.deliveryPin)
+    if (row.deliveryCoverage === 'serviceable') add('Delivery coverage', 'Available')
+    else if (row.deliveryCoverage === 'unserviceable') add('Delivery coverage', 'Outside delivery area')
+    else add('Delivery coverage', 'Unavailable to verify')
+    const sources = { location: 'Browser location', address_form: 'Address form', saved_address: 'Saved address' }
+    const viewports = { mobile: 'Mobile', tablet: 'Tablet', desktop: 'Desktop' }
+    if (Object.hasOwn(sources, row.pinSource)) add('Location method', sources[row.pinSource])
+    if (Object.hasOwn(viewports, row.viewportType)) add('Viewport type', viewports[row.viewportType])
+  }
+  if (validDiagnosticSession(row.diagnosticSessionId)) add('Diagnostic session', row.diagnosticSessionId)
+  const apiRequestId = row.relatedRequestId || (row.category === 'api' ? row.requestId : undefined)
+  if (validDiagnosticSession(apiRequestId)) add('API request ID', apiRequestId)
 
   if (displayText(row.page)) add('Website page', displayText(row.page))
   if (row.navigationType) add('Navigation', { initial: 'Opened a website page', client: 'Moved to another page without reloading the website', back_forward: 'Used the browser Back or Forward button' }[row.navigationType])

@@ -131,6 +131,45 @@ test('retention, disk cap and symlink protection in the file worker', async () =
     }
   } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
 })
+test('tab retention preserves older audit activity, expires customer logs and combines error sources', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokri-log-tabs-'))
+  const time = days => new Date(Date.now() - days * 86400000)
+  const row = (days, event, extras = {}) => JSON.stringify({ event, timestamp: time(days).toISOString(), ...extras }) + '\n'
+  const save = (category, days, data) => fs.writeFile(path.join(dir, category + '-' + istDate(time(days)) + '.log'), data)
+  const worker = new Worker(new URL('../src/monitoring/worker.js', import.meta.url), {
+    workerData: { directory: dir, frontendErrorDirectory: dir, retentionDays: 90, maxBytes: 1048576, preserveRetention: true },
+  })
+  let id = 0
+  const call = (type, query) => new Promise((resolve, reject) => {
+    worker.once('error', reject)
+    const current = ++id
+    const listener = message => {
+      if (message.id !== current) return
+      worker.off('message', listener)
+      worker.off('error', reject)
+      if (message.error) reject(new Error(message.error))
+      else resolve(message.result)
+    }
+    worker.on('message', listener)
+    worker.postMessage({ id: current, type, query })
+  })
+  try {
+    await save('api', 120, row(120, 'admin.login') + row(120, 'request.completed', { platform: 'android' }))
+    await save('audit', 366, row(366, 'admin.action'))
+    await save('website', 1, row(1, 'website.navigation'))
+    await save('api', 1, row(1, 'request.completed', { platform: 'android' }))
+    await save('error', 1, row(1, 'operation.failed', { platform: 'ios' }))
+    await fs.writeFile(path.join(dir, 'website-frontend-errors.jsonl'), JSON.stringify({ receivedAt: time(1).toISOString() }) + '\n')
+    await call('flush')
+    await assert.rejects(fs.stat(path.join(dir, 'api-' + istDate(time(120)) + '.log')))
+    await assert.rejects(fs.stat(path.join(dir, 'audit-' + istDate(time(366)) + '.log')))
+    const read = tab => call('read', { business: true, tab, from: istDate(time(365)) })
+    assert.deepEqual((await read('admin')).rows.map(entry => entry.event), ['admin.login'])
+    assert.deepEqual((await read('app')).rows.map(entry => entry.platform), ['android'])
+    assert.deepEqual((await read('website')).rows.map(entry => entry.event), ['website.navigation'])
+    assert.deepEqual((await read('errors')).rows.map(entry => entry.platform).sort(), ['ios', 'website'])
+  } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
+})
 test('AdminJS transport enforces fresh admin privileges and same-origin debug controls', async () => {
   const { default: express } = await import('express')
   const { routeHandler } = await import('../node_modules/@adminjs/express/lib/buildRouter.js')
@@ -141,7 +180,7 @@ test('AdminJS transport enforces fresh admin privileges and same-origin debug co
   const originalLookups = lookupModels.map((model) => prisma[model].findMany)
   let nameLookups = 0
   for (const model of lookupModels) prisma[model].findMany = async () => { nameLookups++; return [] }
-  let user = { id: 'admin-live', role: 'admin', isActive: true }
+  let user = { id: 'admin-live', name: 'Staff Test', role: 'super_admin', isActive: true }
   prisma.user.findUnique = async () => user
   const app = express()
   app.use(requestLogging)
@@ -161,7 +200,7 @@ test('AdminJS transport enforces fresh admin privileges and same-origin debug co
     assert.equal(response.headers.get('cache-control'), 'no-store')
     assert.equal((await response.json()).canManageDebug, true)
     const deniedDebug = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' }, body: JSON.stringify({ action: 'enable', minutes: 5 }) })
-    assert.equal(deniedDebug.status, 200, 'authorized regular admins may change debug with valid browser headers')
+    assert.equal(deniedDebug.status, 200, 'authorized super-admins may change debug with valid browser headers')
     assert.ok(monitoringState().debugUntil)
     await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' }, body: JSON.stringify({ action: 'disable' }) })
     assert.equal(monitoringState().debugUntil, null)
@@ -169,6 +208,36 @@ test('AdminJS transport enforces fresh admin privileges and same-origin debug co
     user = { ...user, role: 'staff' }
     assert.equal((await fetch(url)).status, 403)
     assert.equal(nameLookups, authorizedLookups, 'unauthorized viewers cannot look up names')
+    const tab = (selected, filters = {}) => fetch(url, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' },
+      body: JSON.stringify({ action: 'business-read', filters: { tab: selected, ...filters } }),
+    })
+    const permissions = await fetch(url + '?view=access').then(res => res.json())
+    assert.equal(permissions.fullAccess, false)
+    for (const selected of ['website', 'app', 'errors', 'admin']) {
+      assert.equal((await tab(selected)).status, 200, 'staff can read the ' + selected + ' tab')
+    }
+    assert.equal((await tab('website', { phone: '9123456789' })).status, 403)
+    assert.equal((await tab('admin', { phone: '9123456789' })).status, 403)
+    const maskedLookup = await tab('admin', { phone: '91XXXXXX89' })
+    assert.equal(maskedLookup.status, 200)
+    assert.equal((await maskedLookup.json()).total, 0)
+    await workerCall('deliver', { category: 'audit', record: { event: 'admin.action', staffName: 'Audit Example', logSource: 'Backoffice', timestamp: new Date().toISOString(), ip: '203.0.113.5', status: 'success' } })
+    let adminRows = await tab('admin').then(res => res.json())
+    const sample = adminRows.rows.find(row => row.who === 'Audit Example')
+    assert.equal(sample.source, 'Backoffice')
+    assert.equal(sample.details['Connection IP'], '203.0.113.5')
+    const csv = await tab('admin', { export: 'csv' }).then(res => res.json())
+    assert.match(csv.csv, /"Device","Source"/)
+    assert.match(csv.csv, /Audit Example/)
+    await workerCall('flush')
+    assert.ok((await workerCall('read', { business: true, tab: 'admin' })).rows.some(row => row.event === 'admin.logs.opened' && row.staffName === 'Staff Test'))
+    user = { ...user, role: 'admin' }
+    assert.equal((await fetch(url)).status, 403)
+    assert.equal((await tab('website')).status, 200)
+    user = { ...user, role: 'super_admin' }
+    adminRows = await tab('admin').then(res => res.json())
+    assert.equal(adminRows.rows.find(row => row.who === 'Audit Example').details['Connection IP'], '203.0.113.5')
     user = { ...user, role: 'super_admin', isActive: false }
     assert.equal((await fetch(url)).status, 403)
     user = { ...user, isActive: true }

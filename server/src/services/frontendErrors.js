@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { ACTIVITY_RETENTION_DAYS, DAY_MS } from '../monitoring/log-policy.js'
 import { fileURLToPath } from 'node:url'
 
 const defaultDirectory = fileURLToPath(new URL('../../logs', import.meta.url))
@@ -39,14 +40,40 @@ export function sanitizeEvent(event) {
 }
 
 // Serialize rotation/writes, bound the backlog, and keep 4 files of at most 5 MiB.
-export function createFrontendErrorWriter({ directory = process.env.FRONTEND_ERROR_LOG_DIR || defaultDirectory, maxBytes = 5 * 1024 * 1024 } = {}) {
+export function createFrontendErrorWriter({ directory = process.env.FRONTEND_ERROR_LOG_DIR || defaultDirectory, maxBytes = 5 * 1024 * 1024, cleanupInterval = 0 } = {}) {
   let pending = Promise.resolve(), queued = 0
+  const filename = path.join(directory, 'website-frontend-errors.jsonl')
+  function expire() {
+    const task = pending.then(async () => {
+      const cutoff = Date.now() - ACTIVITY_RETENTION_DAYS * DAY_MS
+      for (const file of [filename, ...[1, 2, 3].map(index => filename + '.' + index)]) {
+        const stat = await fs.lstat(file).catch(error => { if (error.code === 'ENOENT') return null; throw error })
+        if (!stat?.isFile() || stat.isSymbolicLink()) continue
+        const lines = (await fs.readFile(file, 'utf8')).split('\n').filter(Boolean)
+        const retained = lines.filter(line => {
+          try { return Date.parse(JSON.parse(line).receivedAt) >= cutoff } catch { return false }
+        })
+        if (!retained.length) { await fs.unlink(file); continue }
+        if (retained.length === lines.length) continue
+        const temporary = file + '.retention-next'
+        await fs.rm(temporary, { force: true })
+        await fs.writeFile(temporary, retained.join('\n') + '\n', { mode: 0o600, flag: 'wx', flush: true })
+        await fs.rename(temporary, file)
+      }
+    })
+    pending = task.catch(() => {})
+    return task
+  }
+  if (cleanupInterval > 0) {
+    const run = () => expire().catch(() => console.error('Website frontend error retention could not run'))
+    run()
+    setInterval(run, cleanupInterval).unref()
+  }
   return async function write(events) {
     if (queued >= 100) throw new Error('Frontend log backlog full')
     queued++
     const task = pending.then(async () => {
       await fs.mkdir(directory, { recursive: true, mode: 0o700 })
-      const filename = path.join(directory, 'website-frontend-errors.jsonl')
       const data = events.map((event) => JSON.stringify(event)).join('\n') + '\n'
       const size = await fs.stat(filename).then((stat) => stat.size).catch((error) => { if (error.code === 'ENOENT') return 0; throw error })
       if (size + Buffer.byteLength(data) > maxBytes) {

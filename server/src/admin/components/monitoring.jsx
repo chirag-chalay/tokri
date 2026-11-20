@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { ApiClient } from 'adminjs'
+import { logReasons } from '../../../../shared/logReasons.js'
 
 const api = new ApiClient()
 const typeLabels = { website: 'Website visits', api: 'API access', access: 'Earlier access history', error: 'Error logs', audit: 'Admin activity', debug: 'Debug logs', payment: 'Payment logs', account: 'Account creation' }
@@ -52,7 +53,7 @@ function LogRow({ row }) {
   )
 }
 
-export default function Monitoring() {
+function TechnicalMonitoring() {
   const [filters, setFilters] = useState(defaults)
   const [active, setActive] = useState(defaults)
   const [page, setPage] = useState(1)
@@ -201,4 +202,175 @@ export default function Monitoring() {
       </> : null}
     </section>
   )
+}
+
+const reasonText = Object.fromEntries(Object.entries(logReasons).map(([code, [label]]) => [code, label]))
+const columns = [
+  ['timestamp', 'Time (IST)'], ['who', 'Who'], ['where', 'Where'], ['pincode', 'Pincode'],
+  ['action', 'What happened'], ['why', 'Why'], ['device', 'Device'], ['source', 'Source'],
+]
+const visitDefaults = { from: '', to: '', status: '', reason: '', pin: '', coverage: '', device: '', source: '', search: '' }
+const sources = ['Website', 'Android app', 'iPhone app', 'Backoffice', 'Payment provider', 'Server API', 'System']
+const tabs = { website: 'Website', app: 'Mobile App (API)', errors: 'Errors', admin: 'Admin/System' }
+
+async function businessQuery(filters, page, extra = {}) {
+  const { search, ...rest } = filters
+  const value = search.trim()
+  const lookup = !value ? {} : /^[a-f0-9-]{36}$/.test(value) ? { visitSession: value } : { phone: value }
+  const result = await api.getPage({ pageName: 'logs', method: 'POST', headers: { 'X-Tokri-Monitoring': '1' }, data: { action: 'business-read', filters: { ...rest, ...lookup, page, ...extra } } })
+  if (result.data.storageError) throw new Error('Logs unavailable')
+  return result.data
+}
+
+function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
+  const [draft, setDraft] = useState(visitDefaults)
+  const [active, setActive] = useState(visitDefaults)
+  const [data, setData] = useState(null)
+  const [page, setPage] = useState(1)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [selected, setSelected] = useState(null)
+  const [journey, setJourney] = useState(null)
+  const [exporting, setExporting] = useState(false)
+  const dialog = useRef(null)
+
+  useEffect(() => {
+    let current = true
+    setBusy(true)
+    setError('')
+    businessQuery(active, page, { tab })
+      .then(result => { if (current) setData(result) })
+      .catch(() => { if (current) { setData(null); setError('Could not load the logs. Check the filters and try again.') } })
+      .finally(() => { if (current) setBusy(false) })
+    return () => { current = false }
+  }, [active, page, tab])
+
+  async function showJourney() {
+    const row = selected
+    setJourney({ loading: true })
+    try {
+      const result = await businessQuery(visitDefaults, 1, { tab, visitSession: row.sessionId, journey: '1', perPage: '100' })
+      setJourney({ rows: result.rows, total: result.total })
+    } catch { setJourney({ error: 'Could not load this visit. Try again.' }) }
+  }
+
+  async function exportCsv() {
+    setExporting(true)
+    try {
+      const result = await businessQuery(active, 1, { tab, export: 'csv' })
+      const url = URL.createObjectURL(new Blob(['\uFEFF', result.csv], { type: 'text/csv;charset=utf-8' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'tokriii-logs.csv'
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      if (result.total > result.count) setError('CSV contains the newest 5,000 rows. Choose a shorter date range to export the remaining rows.')
+    } catch { setError('Could not download the logs. Try again.') }
+    finally { setExporting(false) }
+  }
+
+  function openDetails(row, withJourney = false) {
+    setSelected(row)
+    setJourney(withJourney ? { requested: true } : null)
+    dialog.current.showModal()
+  }
+
+  useEffect(() => { if (selected && journey?.requested) showJourney() }, [selected, journey?.requested])
+  const summary = data?.summary
+  const top = entries => Object.entries(entries || {}).sort((a, b) => b[1] - a[1]).slice(0, 3)
+  const period = active.from || active.to ? 'Selected dates · IST' : 'Last 24 hours'
+  const fullPhoneSearch = access.fullAccess
+  const update = event => setDraft({ ...draft, [event.target.name]: event.target.value })
+
+  return <section className="business-logs">
+    <style>{`
+      .business-logs{padding:clamp(12px,3vw,32px);color:#16352c;background:#f5f8f6;min-height:100vh}
+      .business-logs h1{font-size:26px;margin:0}.business-logs h2{font-size:16px;margin:0 0 8px}
+      .business-logs p{margin:6px 0}.business-logs button{border:1px solid #b9cfc3;background:#fff;border-radius:6px;padding:8px 12px;cursor:pointer;color:#16352c}
+      .business-logs button:disabled{opacity:.55;cursor:default}.business-logs button:focus-visible,.business-logs input:focus-visible,.business-logs select:focus-visible{outline:2px solid #23704d}
+      .business-top,.business-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+      .business-tabs{justify-content:flex-start;margin-top:12px}.business-tabs button[aria-pressed=true]{background:#174d3b;color:#fff}
+      .business-cards,.business-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(155px,100%),1fr));gap:10px;margin:14px 0}
+      .business-cards article,.business-table{background:#fff;border:1px solid #dce5df;border-radius:8px;padding:12px}
+      .business-cards ul{margin:0;padding-left:16px}.business-filters label{display:grid;gap:4px;font-size:13px}
+      .business-filters :is(input,select){width:100%;min-width:0;min-height:36px;border:1px solid #bbcfc5;border-radius:6px;padding:6px;background:#fff;color:#16352c}
+      .business-table{overflow:auto;padding:0}.business-table table{border-collapse:collapse;width:100%;text-align:left}
+      .business-table :is(th,td){padding:10px;vertical-align:top;border-bottom:1px solid #e7eee9;font-size:13px;overflow-wrap:anywhere}
+      .business-table th{background:#ecf4ef}.business-table td small{display:block;color:#52665c;margin-top:4px}.business-table button{margin-top:5px}
+      .business-badge{display:table;padding:3px 7px;border-radius:12px;font-size:11px;margin-bottom:5px;background:#eef2f0;color:#405b4d}
+      .business-badge[data-result=Failed]{background:#fbe8eb;color:#921d2e}.business-badge[data-result=Successful]{background:#e3f4e8;color:#21603a}
+      .business-logs dialog{position:fixed;inset:0 0 0 auto;margin:0;height:100dvh;max-height:100dvh;width:min(100vw,440px);max-width:100vw;padding:20px;border:1px solid #bcd1c5;background:#fff;color:#16352c}
+      .business-logs dialog::backdrop{background:#15382d59}.business-logs dd{overflow-wrap:anywhere;margin:3px 0 12px}.business-logs dt{font-weight:600}.business-journey li{margin-bottom:12px}
+      @media(max-width:800px){.business-table{background:transparent;border:0}.business-table :is(table,tbody,tr,td){display:block}.business-table thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}.business-table tr{margin-bottom:10px;padding:8px;background:#fff;border:1px solid #dce5df;border-radius:8px}.business-table td{padding:5px;border:0}.business-table td::before{content:attr(data-label);display:block;font-size:11px;font-weight:600;color:#52665c}}
+    `}</style>
+    <header className="business-top"><div><h1>Customer activity logs</h1><p>{period}</p></div>{onTechnical && <button type="button" onClick={onTechnical}>Technical logs</button>}</header>
+    <nav className="business-actions business-tabs" aria-label="Log tabs">
+      {Object.entries(tabs).map(([key, label]) =>
+        <button type="button" key={key} aria-pressed={tab === key} onClick={() => onTab(key)}>{label}</button>)}
+    </nav>
+    <p>{tab === 'admin' ? 'Kept for 1 year' : 'Kept for ' + access.activityDays + ' days'}</p>
+    <div className="business-cards">
+      <article><h2>Failed checkouts</h2><strong>{summary?.failedCheckouts ?? 'Unknown'}</strong></article>
+      <article><h2>Top failure reasons</h2>{top(summary?.reasons).length ? <ul>{top(summary.reasons).map(([code, count]) => <li key={code}>{reasonText[code] || reasonText.UNKNOWN} ({count})</li>)}</ul> : <p>{summary ? 'None recorded' : 'Unknown'}</p>}</article>
+      <article><h2>Top unserviceable pincodes</h2>{top(summary?.pincodes).length ? <ul>{top(summary.pincodes).map(([pin, count]) => <li key={pin}>{pin} ({count})</li>)}</ul> : <p>{summary ? 'None recorded' : 'Unknown'}</p>}</article>
+      <article><h2>Website vs app activity</h2><p>Website {summary?.website ?? 'Unknown'}</p><p>App {summary?.app ?? 'Unknown'}</p></article>
+    </div>
+    <form onSubmit={event => { event.preventDefault(); setPage(1); setActive({ ...draft }) }}>
+      <div className="business-filters">
+        <label>From<input type="date" name="from" value={draft.from} onChange={update} /></label>
+        <label>To<input type="date" name="to" value={draft.to} onChange={update} /></label>
+        <label>Result<select name="status" value={draft.status} onChange={update}><option value="">All</option><option>Failed</option><option>Successful</option></select></label>
+        <label>Reason<select name="reason" value={draft.reason} onChange={update}><option value="">All reasons</option>{Object.entries(reasonText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+        <label>Pincode<input name="pin" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={draft.pin} onChange={update} /></label>
+        <label>Delivers<select name="coverage" value={draft.coverage} onChange={update}><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select></label>
+        <label>Device<select name="device" value={draft.device} onChange={update}><option value="">All devices</option><option value="website">Website</option><option value="app">App</option></select></label>
+        <label>Source<select name="source" value={draft.source} onChange={update}><option value="">All sources</option>{sources.map(source => <option key={source}>{source}</option>)}</select></label>
+        <label>{fullPhoneSearch ? 'Session ID or phone' : 'Session ID or masked phone'}<input name="search" maxLength={40} value={draft.search} onChange={update} placeholder={fullPhoneSearch ? 'Exact session ID or phone' : 'Session ID or 98XXXXXX21'} /></label>
+      </div>
+      <div className="business-actions"><button type="submit" disabled={busy}>Apply filters</button><button type="button" onClick={exportCsv} disabled={busy || exporting || !data}>Export CSV</button></div>
+    </form>
+    {error && <p role="alert">{error}</p>}
+    <p aria-live="polite">{busy ? 'Loading activity…' : data?.total ? data.total + ' matching events' : 'No matching activity'}</p>
+    <div className="business-table"><table><thead><tr>{columns.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead><tbody>
+      {(data?.rows || []).map((row, index) => <tr key={row.eventId || row.timestamp + index}>{columns.map(([key, label]) => <td key={key} data-label={label}>
+        {key === 'timestamp' ? row.timestamp ? ist(row.timestamp) : 'Unknown' : key === 'action' ? <>
+          <span className="business-badge" data-result={row.result}>{row.result}</span>{row.action}
+          <small><button onClick={() => openDetails(row)}>View details</button>{row.sessionId && <button onClick={() => openDetails(row, true)}>View journey</button>}</small>
+        </> : row[key] || 'Unknown'}
+      </td>)}</tr>)}
+    </tbody></table></div>
+    <nav className="business-actions" aria-label="Log pages"><button disabled={busy || page <= 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page}</span><button disabled={busy || !data || page * data.perPage >= data.total} onClick={() => setPage(page + 1)}>Next</button></nav>
+    <dialog ref={dialog} onClose={() => { setSelected(null); setJourney(null) }}>
+      <form method="dialog"><button autoFocus>Close</button></form>
+      {selected && <><h2>{selected.action}</h2><p>{selected.why}</p>{selected.hint && <p>{selected.hint}</p>}
+        <dl>{Object.entries(selected.details).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value || (selected.who === 'System' ? 'Not applicable' : 'Unknown')}</dd></div>)}</dl>
+        {selected.sessionId && <button type="button" onClick={showJourney}>Show visitor journey</button>}
+        {journey?.loading && <p>Loading journey…</p>}{journey?.error && <p role="alert">{journey.error}</p>}
+        {journey?.rows && <><h2>Visitor journey</h2>{journey.total > journey.rows.length && <p>Showing the oldest {journey.rows.length} events.</p>}<ol className="business-journey">{journey.rows.map((row, index) => <li key={row.eventId || row.timestamp + index}><strong>{row.action} · {row.result}</strong><br />{ist(row.timestamp)} · {row.pincode}</li>)}</ol></>}
+      </>}
+    </dialog>
+  </section>
+}
+
+export default function Monitoring() {
+  const [technical, setTechnical] = useState(false)
+  const [access, setAccess] = useState(null)
+  const [tab, setTab] = useState('website')
+  const [unavailable, setUnavailable] = useState(false)
+  useEffect(() => {
+    let active = true
+    api.getPage({ pageName: 'logs', params: { view: 'access' } }).then(({ data }) => {
+      if (!active) return
+      setAccess(data)
+    }).catch(() => { if (active) setUnavailable(true) })
+    return () => { active = false }
+  }, [])
+  if (!access) return <p role="status">{unavailable ? 'Could not open logs. Refresh to try again.' : 'Loading logs…'}</p>
+  return <>
+    {technical && access.fullAccess ? <><button type="button" onClick={() => setTechnical(false)}>Back to customer activity</button><TechnicalMonitoring /></>
+    : <BusinessMonitoring key={tab} tab={tab} onTab={setTab} access={access} onTechnical={access.fullAccess ? () => setTechnical(true) : undefined} />}
+    {access.ipLocationProvider === 'db-ip' && <footer style={{ padding: '12px 24px' }}>
+      <a href="https://db-ip.com">IP Geolocation by DB-IP</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
+    </footer>}
+  </>
 }

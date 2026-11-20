@@ -159,7 +159,7 @@ export async function suggestionsForUnavailable(unavailableItems, excludeSlugs =
 
 export async function resolveCartItems(rawItems, { allowPartial = false } = {}) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
-    throw Object.assign(new Error('Your cart is empty.'), { status: 400 })
+    throw Object.assign(new Error('Your cart is empty.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
   }
 
   const { items, unavailableItems } = await partitionCartItems(rawItems)
@@ -170,13 +170,13 @@ export async function resolveCartItems(rawItems, { allowPartial = false } = {}) 
           ? `Product "${unavailableItems[0].slug}" is no longer available.`
           : 'Those products are no longer available.',
       ),
-      { status: 400, unavailableItems },
+      { status: 400, unavailableItems, reasonCode: 'OUT_OF_STOCK' },
     )
   }
   if (!allowPartial && unavailableItems.length) {
     throw Object.assign(
       new Error(`Product "${unavailableItems[0].slug}" is no longer available.`),
-      { status: 400, unavailableItems },
+      { status: 400, unavailableItems, reasonCode: 'OUT_OF_STOCK' },
     )
   }
   return items
@@ -189,7 +189,7 @@ async function resolveAddress(user, addressId, addressSnapshot) {
   const addresses = await listAddresses(user.id)
   const address = addresses.find((item) => item.id === addressId)
   if (!address) {
-    throw Object.assign(new Error('Please select a valid delivery address.'), { status: 400 })
+    throw Object.assign(new Error('Please select a valid delivery address.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
   }
   return address
 }
@@ -219,7 +219,7 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
   const itemsTotal = subtotal(cartItems)
   const decision = await getDeliveryDecision(user.id, option, itemsTotal)
   if (!decision.minimumMet) {
-    throw Object.assign(new Error(decision.minimumMessage), { status: 400 })
+    throw Object.assign(new Error(decision.minimumMessage), { status: 400, reasonCode: 'MIN_ORDER_NOT_MET' })
   }
   const rates = decision.rates
   const isFreeDelivery = decision.freeDeliveryApplied

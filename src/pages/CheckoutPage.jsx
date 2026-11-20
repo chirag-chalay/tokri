@@ -1,4 +1,5 @@
 import { checkoutTrackingContext, trackCommerce } from '../lib/telemetry'
+import { recordWebsiteDebug } from '../lib/websiteMonitoring'
 import DiscountDetails from '../components/DiscountDetails'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from '../lib/navigation'
@@ -177,6 +178,7 @@ export default function CheckoutPage() {
         },
         modal: {
           ondismiss: async () => {
+            recordWebsiteDebug('payment.browser.cancelled')
             try {
               await new Promise((wait) => setTimeout(wait, 1200))
               resolve(await confirmFromRazorpay())
@@ -188,14 +190,17 @@ export default function CheckoutPage() {
       }
 
       const instance = new window.Razorpay(options)
-      instance.on('payment.failed', () => reject(new Error('Payment failed. Please try again.')))
+      instance.on('payment.failed', () => {
+        recordWebsiteDebug('payment.browser.failed')
+        reject(new Error('Payment failed. Please try again.'))
+      })
       instance.open()
     })
   }
 
   const handleCheckout = async () => {
-    if (couponLoading || quoteLoading || !quote || !quote.options?.[deliveryOption]?.minimumMet) return
     if (!isLoggedIn) {
+      recordWebsiteDebug('checkout.guest.blocked')
       Swal.fire({
         icon: 'info',
         title: 'Login required',
@@ -205,7 +210,14 @@ export default function CheckoutPage() {
       return
     }
 
+    if (couponLoading || quoteLoading || !quote) return
+    if (!quote.options?.[deliveryOption]?.minimumMet) {
+      recordWebsiteDebug('checkout.minimum.blocked')
+      return
+    }
+
     if (!selectedAddressId) {
+      recordWebsiteDebug('checkout.details.missing')
       Swal.fire({
         icon: 'warning',
         title: 'Select address',
@@ -330,7 +342,7 @@ export default function CheckoutPage() {
 
         {!isLoggedIn && (
           <div className="mb-6 rounded-xl border border-amber-700/40 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
-            Please log in to complete your order.
+            <Link to="/login" onClick={() => recordWebsiteDebug('checkout.guest.blocked')} className="font-semibold underline">Sign in to complete your order</Link>.
           </div>
         )}
 
@@ -397,6 +409,7 @@ export default function CheckoutPage() {
                           onChange={() => {
                             setSelectedAddressId(address.id)
                             selectAddress?.(address.id)
+                            recordWebsiteDebug('delivery.pin.checked', { deliveryPin: address.pincode, pinSource: 'saved_address' })
                           }}
                           className="mt-1"
                         />

@@ -20,6 +20,7 @@ export async function resolveCustomer(req) {
     if (!customer) {
       throw Object.assign(new Error('Please log in to continue.'), { status: 401 })
     }
+    req.verifiedLogCustomer = customer
     return customer
   }
 
@@ -36,7 +37,7 @@ export async function requireCustomer(req, res, next) {
   try {
     const user = await resolveCustomer(req)
     if (!user) {
-      return res.status(401).json({ message: 'Please log in to continue.' })
+      return res.status(401).json({ message: 'Please log in to continue.', reasonCode: 'AUTH_REQUIRED' })
     }
     req.customer = user
     return next()

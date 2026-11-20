@@ -46,6 +46,7 @@ export async function handleRazorpayWebhook(req, res, next) {
     const event = String(payload?.event || '')
     const webhookStatus = { 'payment.failed': 'failed', 'payment.captured': 'paid', 'refund.created': 'pending', 'refund.processed': 'refunded', 'refund.failed': 'failed' }[event] || 'verified'
     await logDurable('payment', 'webhook.received', { provider: 'razorpay', providerEventId, status: webhookStatus,
+      reasonCode: event === 'payment.failed' ? 'PAYMENT_FAILED' : undefined,
       outcome: /^[a-z_]+\.[a-z_]+$/.test(event) && event.length < 60 ? event : 'unknown',
       orderNo: extractOrderNo(payload), razorpayPaymentId: extractPaymentId(payload),
       refundId: payload?.payload?.refund?.entity?.id, amount: payload?.payload?.refund?.entity?.amount })

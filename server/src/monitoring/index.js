@@ -8,14 +8,19 @@ import { writeSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { isMonitoringRequest, safeEndpoint, safePage } from '../../../shared/monitoring.js'
 import { safeFailureFacts, checkoutFacts, checkoutPaymentFacts, adminActionFacts } from './event-facts.js'
+import { visitFacts } from './visit.js'
+import { isLogReason } from '../../../shared/logReasons.js'
+import { logSource, ACTIVITY_RETENTION_DAYS } from './log-policy.js'
 import { categories, sanitize } from './sanitize.js'
 
 export const logContext = new AsyncLocalStorage()
 const positive = (value, fallback, min, max) => Math.floor(Math.max(min, Math.min(max, Number(value) || fallback)))
 export const logConfig = {
   directory: path.resolve(process.env.LOG_DIRECTORY || fileURLToPath(new URL('../../logs', import.meta.url))),
-  retentionDays: positive(process.env.LOG_RETENTION_DAYS, 30, 1, 365),
-  maxBytes: positive(process.env.LOG_MAX_MB, 256, 1, 10240) * 1024 * 1024,
+  retentionDays: ACTIVITY_RETENTION_DAYS,
+  preserveRetention: true,
+  frontendErrorDirectory: path.resolve(process.env.FRONTEND_ERROR_LOG_DIR || fileURLToPath(new URL('../../logs', import.meta.url))),
+  maxBytes: positive(process.env.LOG_MAX_MB, 2048, 1, 10240) * 1024 * 1024,
   queueLimit: positive(process.env.LOG_QUEUE_LIMIT, 2000, 10, 10000),
 }
 let durableStore
@@ -49,8 +54,17 @@ const workerOptions = () => ({ workerData: logConfig, execArgv: process.execArgv
 export function prepareLogRecord(category, event, details = {}) {
   const context = logContext.getStore()
   const req = context?.req
-  const failure = details.status === 'failure' || details.status === 'failed' || Number(details.httpStatus) >= 400 || category === 'error'
-  return { ...sanitize({ ...(failure ? { failureReason: context?.accessError?.failureReason, code: context?.accessError?.code } : {}), ...details, event, requestId: context?.id,
+  const failure = Number(details.status) >= 400 || details.status === 'failure' || details.status === 'failed' || Number(details.httpStatus) >= 400 || category === 'error'
+  const visit = { ...visitFacts(req), ...context?.deliveryFacts }
+  const deliveryCity = details.deliveryCity || visit.deliveryCity
+  const deliveryState = details.deliveryState || visit.deliveryState
+  if (visit.locationSource !== 'gps' && (deliveryCity || deliveryState)) {
+    Object.assign(visit, { locationCity: deliveryCity, locationState: deliveryState, locationCountry: 'India', locationSource: 'pincode' })
+  }
+  const staff = req?.session?.adminUser
+  const staffName = staff?.name || details.staffName
+  const logOrigin = logSource({ ...visit, ...details, event, staffName, logSource: staff ? 'Backoffice' : undefined }, category)
+  return { ...sanitize({ ...visit, ...(failure ? { failureReason: context?.accessError?.failureReason, code: context?.accessError?.code } : {}), ...details, ...(failure ? { reasonCode: [details.reasonCode, context?.accessError?.reasonCode].find(isLogReason) || (event === 'request.aborted' ? 'NETWORK_ERROR' : 'UNKNOWN') } : {}), event, staffName, logSource: logOrigin, requestId: context?.id,
     actorId: req?.session?.adminUser?.id || req?.customer?.id || req?.partner?.id || details.actorId,
     ip: req?.ip || details.ip }), eventId: randomUUID(), timestamp: new Date().toISOString() }
 }
@@ -79,7 +93,8 @@ function fallback(category, entry, reason) {
   emergency++
   // A bounded independent supervisor stream; an external durable acknowledgement is still required for zero-loss guarantees.
   try {
-    const line = `${JSON.stringify({ event: 'monitoring.delivery.failed', category, reason, record: entry })}\n`
+    const { ip, sessionId, phoneLookupHash, locationCity, locationState, locationCountry, enteredPincode, deliveryCity, deliveryState, ...record } = entry
+    const line = `${JSON.stringify({ event: 'monitoring.delivery.failed', category, reason, record })}\n`
     if (reason.startsWith('process-')) writeSync(2, line)
     else if (emergencyQueue.length < Math.min(logConfig.queueLimit, 100)) {
       emergencyQueue.push(line)

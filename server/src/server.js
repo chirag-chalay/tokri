@@ -4,6 +4,7 @@ import websiteMonitoring from './monitoring/website.js'
 import express from 'express'
 import { requestLogging, startCriticalOutbox, closeMonitoring, installProcessErrorLogging, installGracefulShutdown } from './monitoring/index.js'
 import { logError } from './monitoring/database.js'
+import { ipLocationReady } from './monitoring/ip-location.js'
 import cors from 'cors'
 import fs from 'fs'
 import http from 'http'
@@ -88,14 +89,15 @@ const app = express()
 app.use(requestLogging)
 
 if (env.trustProxy) {
-  app.set('trust proxy', 1)
+  // Use an explicit trusted chain when ingress access and proxy rules have been verified.
+  app.set('trust proxy', process.env.TOKRIII_TRUSTED_PROXIES?.split(',').map(value => value.trim()).filter(Boolean) || 1)
 }
 
 app.use(
   cors({
     origin: env.corsOrigins,
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Phone'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Phone', 'X-Session-Id', 'X-Delivery-Pincode', 'X-Visit-Location', 'X-Location-Permission'],
     exposedHeaders: ['X-Tokri-Request-Id', 'X-Tokri-Failure-Reason', 'X-Tokri-Operation-Status'],
   }),
 )
@@ -171,7 +173,8 @@ async function start() {
   try {
     await prisma.$connect()
     await startCriticalOutbox()
-    const listener = app.listen(env.port, () => {
+    await ipLocationReady
+    const listener = app.listen({ port: env.port, host: process.env.TOKRIII_LISTEN_HOST || undefined }, () => {
       console.log(`Tokriii server listening on port ${env.port}`)
       console.log(`Public site: ${env.clientUrl}`)
       console.log(`Admin panel: ${env.appUrl}${env.adminPath}`)

@@ -13,6 +13,6 @@ test('safe event facts select confirmed scalar values without reading customer i
   assert.deepEqual(actual, { itemsTotal: 500, discount: 50, grandTotal: 450, productCount: 1, couponCode: 'SAVE10', deliveryOption: 'morning' })
   assert.ok(!JSON.stringify(actual).includes('PRIVATE'))
   assert.equal(checkoutFacts({ totals: { grandTotal: 0 }, couponStatus: { status: 'invalid', code: 'NOPE' } }).couponCode, undefined)
-  assert.deepEqual(checkoutPaymentFacts({ status: 'failed', message: 'PRIVATE_PAYMENT_SECRET' }), { paymentStatus: 'failed' })
-  assert.deepEqual(checkoutPaymentFacts({ status: 'failed', message: 'insufficient_funds' }), { paymentStatus: 'failed', reason: 'insufficient_funds', failureReason: 'insufficient_funds' })
+  assert.deepEqual(checkoutPaymentFacts({ status: 'failed', message: 'PRIVATE_PAYMENT_SECRET' }), { paymentStatus: 'failed', reasonCode: 'PAYMENT_FAILED' })
+  assert.deepEqual(checkoutPaymentFacts({ status: 'failed', message: 'insufficient_funds' }), { paymentStatus: 'failed', reasonCode: 'PAYMENT_FAILED', reason: 'insufficient_funds', failureReason: 'insufficient_funds' })
 })

@@ -75,6 +75,7 @@ export async function reverseGeocode(lat, lng) {
 
   return {
     ...address,
+    country: String(data.address?.country || '').slice(0, 40),
     latitude,
     longitude,
   }

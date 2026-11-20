@@ -1,4 +1,4 @@
-/* First-party website diagnostics. No cookies, storage, user data or request bodies. */
+/* First-party website diagnostics. Sends the existing first-party visit ID with sanitized errors. */
 ;(function () {
   'use strict'
   if (window.__tokriFrontendErrors || /^\/(?:tokri-backoffice|admin|partner)(?:\/|$)/.test(location.pathname)) return
@@ -48,9 +48,12 @@
     sending = true
     var controller = new AbortController()
     var timeout = setTimeout(function () { controller.abort() }, 5000)
+    var headers = { 'Content-Type': 'application/json' }
+    var session = document.cookie.match(/(?:^|;\s*)tokri_visit=([a-f0-9-]{36})(?:;|$)/)
+    if (session) headers['X-Session-Id'] = session[1]
     originalFetch(endpoint, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      credentials: 'omit', keepalive: true, signal: controller.signal,
+      method: 'POST', headers: headers,
+      credentials: 'same-origin', keepalive: true, signal: controller.signal,
       body: JSON.stringify({ events: batch }),
     }).catch(function () { /* No recursive reporting or retries. */ }).finally(function () {
       clearTimeout(timeout); sending = false

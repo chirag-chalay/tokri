@@ -4,6 +4,8 @@ import { prisma } from '../lib/prisma.js'
 import { formatPublicSettings } from '../utils/settings.js'
 import { formatCategory, formatProduct, formatPage, formatBlog, formatBlogSummary, toPublicAssetUrl } from '../utils/formatters.js'
 import { PRODUCT_CATEGORY_INCLUDE, categoryProductWhere } from '../utils/catalog.js'
+import { assertPincodeServiceable } from '../services/delivery.js'
+import { optionalCustomer } from '../middleware/customerAuth.js'
 import { reverseGeocode } from '../services/geocode.js'
 import authRouter from './auth.js'
 import accountRouter from './account.js'
@@ -39,6 +41,17 @@ router.use('/checkout', checkoutRouter)
 router.use('/app', appRouter)
 router.use('/partner', partnerRouter)
 router.use('/tracking', trackingRouter)
+
+router.post('/geo/pincode', optionalCustomer, async (req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    if (typeof req.body?.pincode !== 'string' || !/^\d{6}$/.test(req.body.pincode)) {
+      return res.status(400).json({ message: 'Enter a valid six-digit pincode.', reasonCode: 'PINCODE_INVALID' })
+    }
+    const row = await assertPincodeServiceable(req.body.pincode)
+    return res.json({ serviceable: true, city: row.city || null, state: row.state || null })
+  } catch (error) { return next(error) }
+})
 
 router.get('/geo/reverse', async (req, res, next) => {
   try {

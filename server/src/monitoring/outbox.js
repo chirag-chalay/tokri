@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { randomUUID } from 'node:crypto'
+import { ADMIN_RETENTION_DAYS, ACTIVITY_RETENTION_DAYS, DAY_MS } from './log-policy.js'
 import { istDate, sanitize } from './sanitize.js'
 
 const integer = (value, fallback, min, max) => Math.max(min, Math.min(max, Math.floor(Number(value) || fallback)))
@@ -12,10 +13,10 @@ export const outboxConfig = {
   batchSize: 25,
 }
 
-export function createCriticalOutbox(client, { deliver, alert, config = outboxConfig, logRetentionDays = 30 } = {}) {
+export function createCriticalOutbox(client, { deliver, alert, config = outboxConfig, logRetentionDays = ACTIVITY_RETENTION_DAYS } = {}) {
   const owner = randomUUID(), writes = new Set()
   let safeSchema = false
-  let timer, initialized, pumping, stopped = false, stopping = false, failures = 0, capacityFailures = 0, available = false, relayed = 0
+  let timer, initialized, pumping, lastRetention = 0, stopped = false, stopping = false, failures = 0, capacityFailures = 0, available = false, relayed = 0
   async function initialize() {
     if (!config.enabled) return
     if (!initialized) initialized = (async () => {
@@ -32,14 +33,17 @@ export function createCriticalOutbox(client, { deliver, alert, config = outboxCo
     if (reason === 'outbox-capacity') capacityFailures++
     try { alert?.(['audit', 'payment'].includes(category) ? category : 'audit', sanitize(record), reason) } catch { /* a broken emergency sink must not affect checkout */ }
   }
-  async function deleteDelivered(tx, where, take = 100) {
+  async function deleteOutboxRows(tx, where, take = 100) {
     // Budget first everywhere: avoids a budget/outbox lock-order inversion.
     await tx.monitoringOutboxBudget.update({ where: { id: 1 }, data: { usedBytes: { increment: 0 } } })
-    const rows = await tx.monitoringOutbox.findMany({ where: { deliveredAt: { not: null }, ...where }, orderBy: { deliveredAt: 'asc' }, take, select: { id: true, bytes: true } })
+    const rows = await tx.monitoringOutbox.findMany({ where, orderBy: { createdAt: 'asc' }, take, select: { id: true, bytes: true } })
     if (!rows.length) return 0
-    await tx.monitoringOutbox.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } })
-    const bytes = rows.reduce((sum, row) => sum + row.bytes, 0)
-    await tx.monitoringOutboxBudget.update({ where: { id: 1 }, data: { usedBytes: { decrement: bytes } } })
+    let bytes = 0
+    for (const row of rows) {
+      const removed = await tx.monitoringOutbox.deleteMany({ where: { ...where, id: row.id } })
+      if (removed.count) bytes += row.bytes
+    }
+    if (bytes) await tx.monitoringOutboxBudget.update({ where: { id: 1 }, data: { usedBytes: { decrement: bytes } } })
     return bytes
   }
   async function appendInTransaction(tx, category, record) {
@@ -56,7 +60,7 @@ export function createCriticalOutbox(client, { deliver, alert, config = outboxCo
       if (!reserved.count) {
         const existing = await tx.$queryRaw`SELECT id FROM MonitoringOutbox WHERE id = ${record.eventId} FOR UPDATE`
         if (existing.length) return true
-        await deleteDelivered(tx, {})
+        await deleteOutboxRows(tx, { deliveredAt: { not: null } })
         reserved = await tx.monitoringOutboxBudget.updateMany({ where: { id: 1, usedBytes: { lte: config.maxBytes - bytes } }, data: { usedBytes: { increment: bytes } } })
       }
       if (!reserved.count) throw Object.assign(new Error('Outbox capacity reached'), { code: 'OUTBOX_CAPACITY' })
@@ -92,8 +96,17 @@ export function createCriticalOutbox(client, { deliver, alert, config = outboxCo
       try {
         await initialize()
         const now = new Date()
+        const retention = [{ category: 'audit', createdAt: { gte: new Date(now - ADMIN_RETENTION_DAYS * DAY_MS) } },
+          { category: { not: 'audit' }, createdAt: { gte: new Date(now - ACTIVITY_RETENTION_DAYS * DAY_MS) } }]
+        const lease = { OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }] }
+        if (now - lastRetention >= 60000) {
+          const removed = await client.$transaction(tx => deleteOutboxRows(tx, {
+            AND: [lease, { OR: [{ deliveredAt: { lt: new Date(now - config.retentionDays * DAY_MS) } }, { NOT: { OR: retention } }] }],
+          }))
+          if (!removed) lastRetention = +now
+        }
         const candidates = await client.monitoringOutbox.findMany({
-          where: { destination: config.destination, deliveredAt: null, nextAttemptAt: { lte: now }, OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }] },
+          where: { destination: config.destination, deliveredAt: null, nextAttemptAt: { lte: now }, AND: [lease, { OR: retention }] },
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: config.batchSize,
         })
         for (const row of candidates) {
@@ -105,8 +118,9 @@ export function createCriticalOutbox(client, { deliver, alert, config = outboxCo
           if (!claimed.count) continue
           const fresh = await client.monitoringOutbox.findUnique({ where: { id: row.id } })
           if (!fresh || fresh.leaseOwner !== owner || fresh.deliveredAt) continue
-          const cutoff = istDate(new Date(Date.now() - (logRetentionDays - 1) * 86400000))
-          const fileDate = fresh.fileDate && fresh.fileDate >= cutoff ? fresh.fileDate : istDate()
+          const originalDate = istDate(new Date(fresh.payload.timestamp || fresh.createdAt))
+          const cutoff = istDate(new Date(Date.now() - ((fresh.category === 'audit' ? ADMIN_RETENTION_DAYS : logRetentionDays) - 1) * DAY_MS))
+          const fileDate = fresh.fileDate && fresh.fileDate >= cutoff ? fresh.fileDate : originalDate >= cutoff ? originalDate : istDate()
           const planned = await client.monitoringOutbox.updateMany({ where: { id: row.id, deliveredAt: null, leaseOwner: owner }, data: { fileDate } })
           if (!planned.count) continue
           try {
@@ -119,7 +133,6 @@ export function createCriticalOutbox(client, { deliver, alert, config = outboxCo
             } })
           }
         }
-        await client.$transaction((tx) => deleteDelivered(tx, { deliveredAt: { lt: new Date(Date.now() - config.retentionDays * 86400000) } }))
         available = true
         return candidates.length
       } catch { available = false; return 0 }

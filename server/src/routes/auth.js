@@ -27,6 +27,7 @@ router.post('/verify-otp', async (req, res, next) => {
   try {
     const result = await verifyOtp(req.body?.phone, req.body?.otp)
     req.customer = result.user
+    req.verifiedLogCustomer = result.user
     if (result.user?.id) {
       result.user.freeDelivery = await getCustomerFreeDeliveryStatus(result.user.id)
     }

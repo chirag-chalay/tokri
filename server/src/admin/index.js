@@ -1230,7 +1230,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
 
         const valid = await bcrypt.compare(pass, user.password)
         if (!valid) { log('api', 'admin.login', { status: 'failure', failureReason: 'admin_credentials' }); return null }
-        log('api', 'admin.login', { status: 'success', actorId: user.id, ip: req.ip })
+        log('api', 'admin.login', { status: 'success', actorId: user.id, staffName: user.name, ip: req.ip })
 
         return serializeAdminUser(user)
       },

@@ -3,7 +3,9 @@ import { Plus, Trash2, X } from 'lucide-react'
 import { useNavigate } from '../lib/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useAddress } from '../context/AddressContext'
-import { authDelete, authPost } from '../lib/api'
+import { authDelete, authPost, postJson } from '../lib/api'
+import { setVisitPincode } from '../lib/logVisit'
+import { recordWebsiteDebug } from '../lib/websiteMonitoring'
 import AddressFormModal from './account/AddressFormModal'
 import { addressLabelIcon } from './account/addressLabelIcon'
 
@@ -18,10 +20,31 @@ export default function AddressPickerModal({ onDesktopLogin }) {
     selectAddress,
     refreshAddresses,
     loading,
+    detectedLocation,
+    detectLocation,
+    locating,
+    locationError,
   } = useAddress()
 
   const [formOpen, setFormOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  const [guestPin, setGuestPin] = useState('')
+  const [pinMessage, setPinMessage] = useState('')
+  const [checkingPin, setCheckingPin] = useState(false)
+
+  async function checkGuestPin(event) {
+    event.preventDefault()
+    if (checkingPin) return
+    setCheckingPin(true)
+    setPinMessage('')
+    setVisitPincode(guestPin)
+    try {
+      await postJson('/geo/pincode', { pincode: guestPin })
+      setPinMessage('We deliver to this pincode.')
+    } catch (error) { setPinMessage(error.message || 'Could not check delivery. Please try again.') }
+    finally { setCheckingPin(false) }
+  }
 
   if (!pickerOpen) return null
 
@@ -70,7 +93,31 @@ export default function AddressPickerModal({ onDesktopLogin }) {
           >
             <X size={20} />
           </button>
-          <h2 className="text-lg font-bold text-white">Select delivery address</h2>
+          <h2 className="pr-8 text-lg font-bold text-white">Delivery location</h2>
+          <div aria-live="polite" className="mt-2 text-sm text-muted">
+            {detectedLocation?.label && <p>{detectedLocation.label}</p>}
+            {detectedLocation?.pincode && <p>Detected delivery PIN {detectedLocation.pincode}</p>}
+            {locationError && <p>{locationError}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              const deliveryPin = await detectLocation()
+              if (deliveryPin) recordWebsiteDebug('delivery.pin.checked', { deliveryPin, pinSource: 'location' })
+            }}
+            disabled={locating}
+            className="mt-4 w-full rounded-xl border border-brand px-3 py-2 text-sm font-semibold text-brand disabled:opacity-60"
+          >
+            {locating ? 'Detecting location…' : 'Use current location'}
+          </button>
+          <form className="mt-4" onSubmit={checkGuestPin}>
+            <label htmlFor="guest-delivery-pincode" className="text-sm text-white">Delivery pincode</label>
+            <div className="mt-1 flex gap-2">
+              <input id="guest-delivery-pincode" inputMode="numeric" maxLength={6} value={guestPin} onChange={(event) => setGuestPin(event.target.value.replace(/\D/g, '').slice(0, 6))} className="min-w-0 flex-1 rounded border border-line bg-panel px-2 py-2 text-white" />
+              <button type="submit" disabled={checkingPin} className="rounded border border-brand px-3 text-sm text-brand">{checkingPin ? 'Checking…' : 'Check'}</button>
+            </div>
+            {pinMessage && <p role="status" className="mt-1 text-sm text-white">{pinMessage}</p>}
+          </form>
           <p className="mt-2 text-sm text-muted">
             Log in to save a delivery address and place your order.
           </p>
@@ -146,6 +193,7 @@ export default function AddressPickerModal({ onDesktopLogin }) {
                     onClick={() => {
                       if (address.serviceable === false) return
                       selectAddress(address.id)
+                      recordWebsiteDebug('delivery.pin.checked', { deliveryPin: address.pincode, pinSource: 'saved_address' })
                     }}
                     className="flex min-w-0 flex-1 items-start gap-3 text-left"
                   >

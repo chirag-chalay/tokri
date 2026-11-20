@@ -1,7 +1,13 @@
-import { browserEvents, safePage, safeEndpoint, productReference } from '../../shared/monitoring.js'
+import { visitHeaders, setVisitPincode } from './logVisit'
+import { browserEvents, businessBrowserEvents, deliveryPinSources, safePage, safeEndpoint, productReference, validDeliveryPin } from '../../shared/monitoring.js'
 
 let reconnectTimer, backoff = 1000
 let owners = 0, base = '', nativeFetch, stream, until = 0, generation = '', expiryTimer, flushTimer
+let diagnosticSessionId, visitToken
+export function setMonitoringCustomerToken(value) {
+  if (visitToken !== value) queue = queue.filter(row => row.event === 'website.navigation')
+  visitToken = value
+}
 let queue = [], lastKey, currentPage, currentProduct, currentPageRef, popTarget, disconnectDebug = () => {}, disconnectBase = () => {}
 const uuid = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
@@ -20,16 +26,20 @@ function keyOf(value) {
 }
 function stopDebug() {
   until = 0; generation = ''; clearTimeout(expiryTimer)
+  diagnosticSessionId = undefined
   disconnectDebug(); disconnectDebug = () => {}
-  queue = queue.filter(row => row.event === 'website.navigation')
+  queue = queue.filter(row => row.event === 'website.navigation' || businessBrowserEvents.has(row.event))
 }
 function flush() {
   clearTimeout(flushTimer); flushTimer = undefined
   if (!nativeFetch || !base || !queue.length) return
-  const events = queue.splice(0, 25).filter(row => row.event === 'website.navigation' || enabled())
+  const events = queue.splice(0, 25).filter(row => row.event === 'website.navigation' || businessBrowserEvents.has(row.event) || enabled())
   if (events.length) {
     // Bounded, best effort and independent of checkout promises. No retries/loops.
-    nativeFetch(`${base}/monitoring/events`, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ generation, events }), keepalive: true }).then(response => { response.body?.cancel().catch(() => {}) }).catch(() => {})
+    nativeFetch(`${base}/monitoring/events`, { method: 'POST', credentials: 'same-origin', headers: visitHeaders({
+      'Content-Type': 'application/json',
+      ...(visitToken && new URL(base).origin === window.location.origin ? { Authorization: 'Bearer ' + visitToken } : {}),
+    }), body: JSON.stringify({ generation, events }), keepalive: true }).then(response => { response.body?.cancel().catch(() => {}) }).catch(() => {})
   }
   if (queue.length) flushTimer = setTimeout(flush, 1000)
 }
@@ -40,8 +50,15 @@ function enqueue(row) {
 }
 export function recordWebsiteDebug(event, details = {}) {
   try {
-    if (!enabled() || !browserEvents.has(event) || event === 'website.navigation' || !currentPage) return
-    const row = { id: uuid(), event, path: currentPage.pagePath }
+    if ((!enabled() && !businessBrowserEvents.has(event)) || !browserEvents.has(event) || event === 'website.navigation' || !currentPage) return
+    const row = { id: uuid(), event, path: currentPage.pagePath, diagnosticSessionId }
+    if (event === 'delivery.pin.checked') {
+      if (!deliveryPinSources.has(details.pinSource)) return
+      setVisitPincode(details.deliveryPin)
+      if (validDeliveryPin(details.deliveryPin)) row.deliveryPin = details.deliveryPin
+      row.pinSource = details.pinSource
+      row.viewportType = window.innerWidth < 768 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop'
+    }
     if (['failure', 'pending'].includes(details.operationStatus)) row.operationStatus = details.operationStatus
     if (/^[a-z_]{1,50}$/.test(details.failureReason || '')) row.failureReason = details.failureReason
     if (Number.isInteger(details.status) && details.status >= 100 && details.status <= 599) row.status = details.status
@@ -61,6 +78,7 @@ export function recordWebsiteDebug(event, details = {}) {
 }
 export function recordWebsiteNavigation(pathname, locationKey, restored = false) {
   try {
+    visitHeaders()
     const key = keyOf(locationKey)
     if (key === lastKey && !restored) return // React StrictMode, duplicate shell and route-state updates.
     const page = safePage(pathname)
@@ -130,6 +148,7 @@ function connect() {
       stopDebug()
       if (typeof state.generation !== 'string' || !state.debugUntil || Date.parse(state.debugUntil) <= Date.now()) return
       until = Date.parse(state.debugUntil); generation = state.generation
+      diagnosticSessionId = uuid()
       disconnectDebug = attachDebug()
       expiryTimer = setTimeout(stopDebug, Math.max(1, until - Date.now()))
       recordWebsiteDebug('website.page.ready')

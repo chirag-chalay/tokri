@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { LocateFixed, X } from 'lucide-react'
 import { fetchAddressFromBrowser } from '../../lib/geolocation'
+import { recordWebsiteDebug } from '../../lib/websiteMonitoring'
 import { scrollFieldAboveKeyboard, useMobileKeyboardPad } from '../../lib/useMobileKeyboardPad'
 
 const LABELS = ['Home', 'Work', 'Other']
@@ -83,6 +84,7 @@ export default function AddressFormModal({
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
+    recordWebsiteDebug('delivery.pin.checked', { deliveryPin: form.pincode, pinSource: 'address_form' })
     try {
       await onSave(form)
     } catch (err) {
