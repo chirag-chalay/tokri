@@ -264,6 +264,12 @@ async function businessQuery(filters, page, extra = {}) {
   return result.data
 }
 
+function isDialogBackdrop(event) {
+  if (event.target !== event.currentTarget) return false
+  const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect()
+  return event.clientX < left || event.clientX >= right || event.clientY < top || event.clientY >= bottom
+}
+
 function AttributionFooter() {
   return <footer className="business-footer">
     <a href="https://db-ip.com">IP geolocation by DB-IP</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
@@ -284,6 +290,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
   const [journey, setJourney] = useState(null)
   const [exporting, setExporting] = useState(false)
   const dialog = useRef(null)
+  const backdropPress = useRef(false)
   const [expanded, setExpanded] = useState(null)
   const [timeline, setTimeline] = useState(null)
 
@@ -445,7 +452,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       .business-table td small{display:block;color:#435f52}
       .business-footer{position:static;margin-top:24px;padding:12px 0;border-top:1px solid #dce5df;font-size:12px}
       .business-technical-footer{padding:12px 24px}
-      .business-logs dialog{position:fixed;inset:0 0 0 auto;margin:0;height:100dvh;max-height:100dvh;width:min(100vw,440px);max-width:100vw;padding:20px;border:1px solid #bcd1c5;background:#fff;color:#16352c}
+      .business-logs dialog{position:fixed;inset:0 0 0 auto;margin:0;height:100dvh;max-height:100dvh;box-sizing:border-box;width:min(calc(100vw - 32px),440px);max-width:100vw;padding:20px;border:1px solid #bcd1c5;background:#fff;color:#16352c}
       .business-logs dialog::backdrop{background:#15382d59}.business-logs dd{overflow-wrap:anywhere;margin:3px 0 12px}.business-logs dt{font-weight:600}.business-journey li{margin-bottom:12px}
       @media(max-width:950px){
         .business-table{background:transparent;border:0;max-height:none}
@@ -557,7 +564,14 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       <button type="button" disabled={busy || page >= pageCount} onClick={() => setPage(page + 1)}>Next</button>
       <button type="button" disabled={busy || page >= pageCount} onClick={() => setPage(pageCount)}>Last</button>
     </nav>
-    <dialog ref={dialog} onClose={() => { setSelected(null); setJourney(null) }}>
+    <dialog ref={dialog}
+      onPointerDown={event => { backdropPress.current = isDialogBackdrop(event) }}
+      onPointerCancel={() => { backdropPress.current = false }}
+      onClick={event => {
+        if (backdropPress.current && isDialogBackdrop(event)) event.currentTarget.close()
+        backdropPress.current = false
+      }}
+      onClose={() => { backdropPress.current = false; setSelected(null); setJourney(null) }}>
       <form method="dialog"><button autoFocus>Close</button></form>
       {selected && <><h2>{selected.action}</h2><p>{selected.why}</p>{selected.hint && <p>{selected.hint}</p>}
         <dl>{Object.entries({ Who: selected.who, Where: selected.where, Pincode: selected.pincode, Device: selected.device, Source: selected.source, ...selected.details }).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value || (selected.who === 'System' ? 'Not applicable' : 'Unknown')}</dd></div>)}</dl>
