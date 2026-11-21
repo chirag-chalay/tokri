@@ -1,4 +1,5 @@
 import { isLogReason } from '../../../shared/logReasons.js'
+import { isOptionalTelemetryRoute } from '../../../shared/monitoring.js'
 
 export const ACTIVITY_RETENTION_DAYS = 90
 export const ADMIN_RETENTION_DAYS = 365
@@ -26,17 +27,37 @@ export function logTab(row, category = row.category) {
 export function isCustomerActivity(row, category = row.category) {
   const source = logSource(row, category)
   if (['System', 'Server API', 'Backoffice', 'Payment provider'].includes(source)) return false
-  return row.event !== 'request.timing'
+  return row.event !== 'request.timing' && !isOptionalTelemetryRoute(row.route)
+}
+
+export function customerActivityChannel(row, category) {
+  const source = logSource(row, category)
+  if (source === 'Website') return 'website'
+  if (source === 'Android app' || source === 'iPhone app') return 'app'
 }
 
 export function isCheckout(row) {
   return row.event?.startsWith('checkout.') || row.route === '/api/v1/checkout/create-order'
 }
 
+export function reachedCheckout(row) {
+  return row.event === 'website.navigation' && row.pagePath === '/checkout' || row.event?.startsWith('checkout.guest.') ||
+    row.route === '/api/v1/checkout/create-order' && row.method === 'POST'
+}
+
+export function isConfirmedCheckout(row) {
+  if (row.origin === 'browser' || !/^TKR\d{8,20}$/.test(row.orderNo || '')) return false
+  const status = Number(row.httpStatus)
+  if (!Number.isInteger(status) || status < 200 || status >= 300) return false
+  return row.orderConfirmed === true || row.route === '/api/v1/checkout/confirm-cod' ||
+    row.route?.startsWith('/api/v1/checkout/') && ['paid', 'captured'].includes(row.paymentStatus)
+}
+
 // Recover reasons from older structured facts and explicit HTTP outcomes.
 const historicalReasons = new Map([
   ['product_missing', 'RESOURCE_NOT_FOUND'], ['order_missing', 'RESOURCE_NOT_FOUND'],
   ['product_unavailable', 'OUT_OF_STOCK'], ['location_unserviceable', 'PINCODE_NOT_SERVICEABLE'],
+  ['delivery_option_unavailable', 'DELIVERY_OPTION_UNAVAILABLE'],
   ['address_invalid', 'VALIDATION_ERROR'], ['quantity_invalid', 'VALIDATION_ERROR'],
   ['cart_empty', 'VALIDATION_ERROR'], ['cart_item_invalid', 'VALIDATION_ERROR'],
   ['phone_invalid', 'VALIDATION_ERROR'], ['otp_incorrect', 'SIGN_IN_FAILED'],
@@ -62,7 +83,7 @@ export function recordedReason(row) {
 }
 
 export function countableActivity(row, category) {
-  return category !== 'debug' && !(row.event === 'checkout.request' && row.requestId && Number(row.httpStatus) >= 400)
+  return category !== 'debug' && !isOptionalTelemetryRoute(row.route) && !(row.event === 'checkout.request' && row.requestId && Number(row.httpStatus) >= 400)
 }
 
 export function activityKey(row) {

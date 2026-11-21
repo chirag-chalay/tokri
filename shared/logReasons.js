@@ -2,6 +2,7 @@ export const logReasons = {
   AUTH_REQUIRED: ['Customer was not signed in at checkout', 'Check that sign-in is easy to complete.'],
   PINCODE_INVALID: ['Pincode was not valid', 'Ask the customer to enter a six-digit pincode.'],
   PINCODE_NOT_SERVICEABLE: ['We do not deliver to this pincode', 'Consider adding this area.'],
+  DELIVERY_OPTION_UNAVAILABLE: ['The selected delivery option is unavailable for this pincode', 'Offer an available delivery option.'],
   MIN_ORDER_NOT_MET: ['Cart value is below the minimum order', 'Show the minimum before checkout.'],
   OUT_OF_STOCK: ['An item became unavailable', 'Check stock and product availability.'],
   PAYMENT_FAILED: ['Payment was declined or failed', 'Check the payment provider before retrying.'],

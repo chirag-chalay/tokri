@@ -7,9 +7,10 @@ import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { presentLog } from '../admin/monitoring-presentation.js'
 import { isMonitoringRequest, readableStatus } from '../../../shared/monitoring.js'
-import { ADMIN_RETENTION_DAYS, DAY_MS, activityKey, countableActivity, isCheckout, isCustomerActivity, logSource, logTab, recordedReason } from './log-policy.js'
+import { ADMIN_RETENTION_DAYS, DAY_MS, activityKey, countableActivity, customerActivityChannel, isCheckout, isCustomerActivity, logSource, logTab, recordedReason } from './log-policy.js'
 import { addSessionEvent, belongsToSessionTab, carryTimelineDelivery, finishSession, isBackgroundCall } from './session-view.js'
-import { createLogInsights } from './log-insights.js'
+import { createLogInsights, createWebsiteSalesFunnel } from './log-insights.js'
+import { reportFact, reportRecordLimit, uniqueReportFacts } from './report-facts.js'
 import { categories, sanitize, istDate } from './sanitize.js'
 
 const { directory, maxBytes, retentionDays, readerOnly, preserveRetention, frontendErrorDirectory } = workerData
@@ -289,8 +290,31 @@ async function recentDeliveryContexts(allFiles) {
   return [...known.values()]
 }
 
+async function readReportFacts(allFiles, { start, end }) {
+  const first = istDate(new Date(start)), last = istDate(new Date(end - 1))
+  const eligible = allFiles.filter(file => !file.admin && file.category !== 'debug' && file.date >= first && file.date <= last)
+  const facts = []
+  let corrupt = 0
+  for (const file of eligible) {
+    for await (const line of reverseLines(file)) {
+      let row
+      try { row = JSON.parse(line) } catch { corrupt++; continue }
+      const time = Date.parse(row?.timestamp)
+      if (!Number.isFinite(time)) { corrupt++; continue }
+      if (time < start || time >= end) continue
+      const fact = reportFact(sanitize(row), file.category)
+      if (!fact) continue
+      if (facts.length >= reportRecordLimit) return { tooMany: true }
+      facts.push(fact)
+    }
+  }
+  const days = [...new Set(eligible.map(file => file.date))].sort()
+  return { facts: uniqueReportFacts(facts), days, corrupt }
+}
+
 async function read(query) {
   const allFiles = await files()
+  if (query.report) return readReportFacts(allFiles, query.report)
   if (query.restoreDeliveryContexts) return recentDeliveryContexts(allFiles)
   if (query.insightsOnly) return readInsights(allFiles, Boolean(query.alertOnly), Date.now())
   totalBytes = allFiles.reduce((sum, f) => sum + f.size, 0)
@@ -300,6 +324,13 @@ async function read(query) {
   const end = query.to ? Date.parse(query.to + 'T23:59:59.999+05:30') : current
   const summary = { failedCheckouts: 0, website: 0, app: 0, reasons: {}, pincodes: {}, unclassified: 0 }
   const failures = new Map()
+  const comparisonStart = query.from || query.to ? start : current - DAY_MS
+  const comparison = {
+    website: new Set(),
+    app: new Set(),
+  }
+  const countComparison = query.business && !query.journey && query.export !== 'csv'
+  const salesFunnel = countComparison && query.tab === 'website' ? createWebsiteSalesFunnel() : null
   const grouped = query.groupSessions && ['website', 'app'].includes(query.tab)
   const sessions = new Map()
   const list = allFiles.filter((f) => (!query.category || f.category === query.category) && (!query.date || f.date === query.date)
@@ -332,6 +363,12 @@ async function read(query) {
           const tab = logTab(row, file.category)
           if (time < Math.max(start, current - (tab === 'admin' ? ADMIN_RETENTION_DAYS : retentionDays) * DAY_MS) || time > end) continue
           const item = { ...row, category: file.category }
+          if (query.customerJourney && !customerActivityChannel(row, file.category)) continue
+          salesFunnel?.observe(item)
+          if (countComparison && time >= comparisonStart && countableActivity(row, file.category)) {
+            const channel = customerActivityChannel(row, file.category)
+            if (channel) comparison[channel].add(activityKey(row))
+          }
           const background = isBackgroundCall(item)
           if (query.tab && tab !== query.tab && !(grouped && tab === 'errors' && validVisitorSession(row.sessionId) && belongsToSessionTab(item, query.tab))) continue
           if (query.checkoutOnly && !isCheckout(row) && !grouped) continue
@@ -340,7 +377,7 @@ async function read(query) {
           if (query.sessionPrefix && !row.sessionId?.startsWith(query.sessionPrefix)) continue
           if (grouped && validVisitorSession(row.sessionId) && belongsToSessionTab(item, query.tab)) session = addSessionEvent(sessions, item, background)
           if (query.checkoutOnly && !isCheckout(row)) continue
-          if (background && (grouped && !query.includeBackground || journey && query.includeBackground === false)) continue
+          if (background && ((grouped || query.export === 'csv' && ['website', 'app'].includes(query.tab)) && !query.includeBackground || journey && query.includeBackground === false)) continue
           if (query.source && logSource(row, file.category) !== query.source) continue
           if (query.phoneHash && row.phoneLookupHash !== query.phoneHash) continue
           if (maskedCustomers && !maskedCustomers.has(row.verifiedCustomerId)) continue
@@ -351,8 +388,6 @@ async function read(query) {
           const app = ['android', 'ios'].includes(row.platform)
           if (query.device === 'app' && !app || query.device === 'website' && row.platform !== 'website') continue
           if (!session && query.status && outcome !== query.status) continue
-          if (app) summary.app++
-          if (row.platform === 'website') summary.website++
           if (reason && countableActivity(row, file.category)) {
             const key = activityKey(row)
             const previous = failures.get(key)
@@ -378,7 +413,6 @@ async function read(query) {
   async function* matchingLegacy(rows) {
     for (const row of rows.sort((a, b) => b.timestamp.localeCompare(a.timestamp))) {
       if (query.reason && query.reason !== row.reasonCode) continue
-      summary.website++
       failures.set(activityKey(row), { reason: row.reasonCode })
       yield row
     }
@@ -402,6 +436,9 @@ async function read(query) {
       }
     } finally { for (const stream of streams) await stream.iterator.return() }
   }
+  summary.website = comparison.website.size
+  summary.app = comparison.app.size
+  if (salesFunnel) summary.sales = salesFunnel.result()
   for (const { reason, checkout, pin } of failures.values()) {
     if (checkout) summary.failedCheckouts++
     if (reason === 'UNKNOWN') summary.unclassified++

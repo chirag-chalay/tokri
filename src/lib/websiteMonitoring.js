@@ -19,7 +19,9 @@ const enabled = () => until > Date.now()
 // The key is used only in memory to deduplicate router commits, never sent or persisted.
 function keyOf(value) {
   // Query/filter cleanup is not a new page visit. Keep only a transient hash.
-  const path = new URL(String(value), window.location.origin).pathname
+  const url = new URL(String(value), window.location.origin)
+  const category = url.pathname === '/shop' && productReference(url.searchParams.get('category'))
+  const path = category ? `${url.pathname}?category=${category}` : url.pathname
   let a = 2166136261, b = 5381
   for (const char of path) { a = Math.imul(a ^ char.charCodeAt(0), 16777619); b = Math.imul(b, 33) ^ char.charCodeAt(0) }
   return `${a}:${b}`
@@ -72,12 +74,14 @@ export function recordWebsiteDebug(event, details = {}) {
     if (Number.isInteger(details.status) && details.status >= 100 && details.status <= 599) row.status = details.status
     if (Number.isFinite(details.durationMs) && details.durationMs >= 0 && details.durationMs <= 300000) row.durationMs = Math.round(details.durationMs)
     for (const key of ['quantity', 'count']) if (Number.isInteger(details[key]) && details[key] >= 0 && details[key] <= 10000) row[key] = details[key]
+    if ((event === 'cart.snapshot' || event === 'cart.restored') && Number.isSafeInteger(details.cartSubtotalPaise)) row.cartSubtotalPaise = details.cartSubtotalPaise
+    if (event === 'cart.quantity.changed' && Number.isSafeInteger(details.delta)) row.delta = details.delta
     if (['morning', 'express'].includes(details.deliveryOption)) row.deliveryOption = details.deliveryOption
     if (['product image', 'image', 'script', 'stylesheet'].includes(details.resourceKind)) row.resourceKind = details.resourceKind
     if (['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(details.method)) row.method = details.method
     if (/^[a-f0-9-]{36}$/i.test(details.relatedRequestId || '')) row.relatedRequestId = details.relatedRequestId
     if (safeEndpoint(details.endpoint)) row.endpoint = safeEndpoint(details.endpoint)
-    let product = productReference(details.productRef) || currentProduct
+    let product = event.startsWith('cart.') ? productReference(details.productRef) : productReference(details.productRef) || currentProduct
     if (details.path) { const page = safePage(details.path); if (page) { row.path = page.pagePath; product = details.path.startsWith('/product/') ? productReference(decodeURIComponent(details.path.split(/[?#]/)[0].slice(9))) : undefined } }
     if (product) row.productRef = product
     if (!details.path && currentPageRef) row.pageRef = currentPageRef
@@ -94,7 +98,8 @@ export function recordWebsiteNavigation(pathname, locationKey, restored = false)
     const initial = lastKey === undefined
     lastKey = key; currentPage = page
     currentProduct = pathname.startsWith('/product/') ? productReference(decodeURIComponent(pathname.slice(9))) : undefined
-    currentPageRef = /^\/(?:blog|p|category)\//.test(pathname) ? productReference(decodeURIComponent(pathname.split('/')[2] || '')) : undefined
+    currentPageRef = currentProduct || (/^\/(?:blog|p|category)\//.test(pathname) ? productReference(decodeURIComponent(pathname.split('/')[2] || '')) : undefined)
+    if (page.pagePath === '/shop') currentPageRef = productReference(new URL(locationKey, window.location.origin).searchParams.get('category'))
     const navigation = performance.getEntriesByType('navigation')[0]
     const navigationType = restored || popTarget === key || initial && navigation?.type === 'back_forward' ? 'back_forward' : initial ? 'initial' : 'client'
     popTarget = undefined

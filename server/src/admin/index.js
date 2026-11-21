@@ -1,6 +1,7 @@
 import AdminJS from 'adminjs'
 import { Router } from 'express'
 import { monitoringHandler } from './monitoring.js'
+import { reportsHandler } from './reports.js'
 import { log } from '../monitoring/index.js'
 import AdminJSExpress from '@adminjs/express'
 import * as AdminJSPrisma from '@adminjs/prisma'
@@ -142,6 +143,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
     refreshTokenPath: `${env.adminPath}/refresh-token`,
     componentLoader,
     pages: {
+      reports: { label: 'Reports', icon: 'BarChart2', component: Components.Reports, handler: reportsHandler },
       logs: { label: 'Logs & Monitoring', icon: 'Activity', component: Components.Monitoring, handler: monitoringHandler },
     },
     dashboard: {

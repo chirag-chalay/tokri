@@ -47,9 +47,9 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!checkoutTracked.current && cartItems.length) {
       checkoutTracked.current = true
-      trackCommerce('begin_checkout', { items: cartItems })
+      trackCommerce('begin_checkout', { items: cartItems, addressId: savedAddressId })
     }
-  }, [cartItems])
+  }, [cartItems, savedAddressId])
 
   const [addresses, setAddresses] = useState([])
   const [selectedAddressId, setSelectedAddressId] = useState('')
@@ -259,7 +259,7 @@ export default function CheckoutPage() {
       if (!currentOption?.minimumMet) {
         throw new Error(currentOption?.minimumMessage || 'This delivery option is not available for this order.')
       }
-      trackCommerce('add_payment_info', { items: cartItems, paymentType: paymentMode })
+      trackCommerce('add_payment_info', { items: cartItems, paymentType: paymentMode, addressId: selectedAddressId })
       const checkout = await authPost('/checkout/create-order', user, {
         tracking: checkoutTrackingContext(),
         items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),

@@ -105,10 +105,12 @@ export async function quoteCheckoutDelivery(
     if (option === selectedOption) options[option].totals = totals
   }
   return {
-    items: items.map(({ slug, priceValue, quantity }) => ({
+    items: items.map(({ slug, priceValue, quantity, product }) => ({
       slug,
+      name: product?.name,
       priceValue,
       quantity,
+      weight: product?.weight ?? null,
     })),
     couponStatus: selectedPricing.couponStatus,
     availableCoupons: await checkoutCouponOffers(items, selectedRates, {

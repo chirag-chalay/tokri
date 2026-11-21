@@ -31,6 +31,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        <meta name="facebook-domain-verification" content="39mziumu3vwr2yz4peu8c8es2zqrk0" />
         <link rel="preload" href="/fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="stylesheet" href="/fonts/fonts.css" />
       </head>

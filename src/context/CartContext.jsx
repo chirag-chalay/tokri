@@ -62,7 +62,7 @@ function readStoredCart() {
           oldPrice: item.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null),
           oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
           image: resolveAssetUrl(item.image),
-          weight: item.weight || '250 g',
+          weight: item.weight ?? null,
           quantity,
           categorySlug: item.categorySlug || null,
           categories: Array.isArray(item.categories) ? item.categories : [],
@@ -90,7 +90,7 @@ function mapServerCartItem(item) {
     oldPrice: item.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null),
     oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
     image: resolveAssetUrl(item.image),
-    weight: item.weight || '250 g',
+    weight: item.weight ?? null,
     quantity: Math.max(1, Number(item.quantity) || 1),
     categorySlug: item.category?.slug || item.categorySlug || null,
     categories: Array.isArray(item.categories) ? item.categories : [],
@@ -153,8 +153,16 @@ export function CartProvider({ children }) {
   const currentQuoteKey = useRef(null)
   useEffect(() => { try { if (coupon?.code) sessionStorage.setItem('tokri_selected_coupon', coupon.code); else sessionStorage.removeItem('tokri_selected_coupon') } catch { /* Storage may be unavailable. */ } }, [coupon?.code])
   const cartItemsRef = useRef(cartItems)
+  const logCartSnapshot = useRef(null)
   useEffect(() => {
-    setVisitCartItems(cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0))
+    const count = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+    setVisitCartItems(count)
+    if (logCartSnapshot.current) {
+      const event = logCartSnapshot.current
+      logCartSnapshot.current = null
+      const subtotal = cartItems.reduce((sum, item) => sum + Math.round(item.priceValue * 100) * item.quantity, 0)
+      recordWebsiteDebug(event, { count, cartSubtotalPaise: subtotal })
+    }
   }, [cartItems])
   cartItemsRef.current = cartItems
 
@@ -208,6 +216,9 @@ export function CartProvider({ children }) {
             applyUnavailablePayload({ unavailableItems: put.cart.unavailableItems, suggestions: [] })
           }
         } else {
+          if (JSON.stringify(toServerCartItems(serverItems)) !== JSON.stringify(toServerCartItems(localItems))) {
+            logCartSnapshot.current = 'cart.restored'
+          }
           setCartItems(serverItems)
           if (data.cart?.unavailableItems?.length) {
             applyUnavailablePayload({ unavailableItems: data.cart.unavailableItems, suggestions: [] })
@@ -229,13 +240,14 @@ export function CartProvider({ children }) {
     }
   }, [applyUnavailablePayload, isLoggedIn, user?.id, user?.token])
 
+  const serverCartPayload = JSON.stringify(toServerCartItems(cartItems))
   useEffect(() => {
     if (!isLoggedIn || !user?.token || skipServerPush.current) return undefined
     const timer = window.setTimeout(() => {
-      authPut('/account/cart', user, { items: toServerCartItems(cartItems) }).catch(() => {})
+      authPut('/account/cart', user, { items: JSON.parse(serverCartPayload) }).catch(() => {})
     }, 400)
     return () => window.clearTimeout(timer)
-  }, [cartItems, isLoggedIn, user])
+  }, [serverCartPayload, isLoggedIn, user])
 
   // Hydrate tax data for cart items if missing (e.g. from older localStorage)
   useEffect(() => {
@@ -311,6 +323,7 @@ export function CartProvider({ children }) {
 
   const addItem = (product) => {
     recordWebsiteDebug('cart.added', { productRef: product.slug || product.id, quantity: 1 })
+    logCartSnapshot.current = 'cart.snapshot'
     const priceValue = parsePrice(product.price ?? product.priceValue)
     const oldPriceValue = parsePrice(product.oldPriceValue ?? product.oldPrice)
     const oldPrice = product.oldPrice || (oldPriceValue > priceValue ? `₹${oldPriceValue}` : null)
@@ -346,7 +359,7 @@ export function CartProvider({ children }) {
           oldPrice,
           oldPriceValue: oldPriceValue > priceValue ? oldPriceValue : 0,
           image: product.image || '',
-          weight: product.weight || '250 g',
+          weight: product.weight ?? null,
           quantity: 1,
           categorySlug: categorySlugFrom(product),
           categories: Array.isArray(product.categories) ? product.categories : [],
@@ -362,7 +375,10 @@ export function CartProvider({ children }) {
     const item = cartItems.find((entry) => entry.id === productId)
     const change = item ? Math.max(1, item.quantity + delta) - item.quantity : 0
     if (change) trackCommerce(change > 0 ? 'add_to_cart' : 'remove_from_cart', { items: [{ ...item, quantity: Math.abs(change) }] })
-    if (item && delta) recordWebsiteDebug('cart.quantity.changed', { productRef: productId, quantity: Math.max(1, item.quantity + delta) })
+    if (change) {
+      recordWebsiteDebug('cart.quantity.changed', { productRef: productId, quantity: Math.max(1, item.quantity + delta), delta: change })
+      logCartSnapshot.current = 'cart.snapshot'
+    }
     setCartItems((items) =>
       items
         .map((item) =>
@@ -375,12 +391,18 @@ export function CartProvider({ children }) {
   const removeItem = (productId) => {
     const item = cartItems.find((entry) => entry.id === productId)
     if (item) trackCommerce('remove_from_cart', { items: [item] })
-    if (item) recordWebsiteDebug('cart.removed', { productRef: productId })
+    if (item) {
+      recordWebsiteDebug('cart.removed', { productRef: productId, quantity: item.quantity })
+      logCartSnapshot.current = 'cart.snapshot'
+    }
     setCartItems((items) => items.filter((item) => item.id !== productId))
   }
 
   const clearCart = useCallback(() => {
-    if (cartItemsRef.current.length) recordWebsiteDebug('cart.cleared', { count: cartItemsRef.current.length })
+    if (cartItemsRef.current.length) {
+      recordWebsiteDebug('cart.cleared', { count: cartItemsRef.current.length })
+      logCartSnapshot.current = 'cart.snapshot'
+    }
     skipServerPush.current = true
     couponRequest.current += 1
     setCouponLoading(false)
@@ -481,9 +503,11 @@ export function CartProvider({ children }) {
     }
     const request = (async () => {
       try {
+        const refresh = automatic && silent && quoteStateRef.current?.key === input.key && quoteStateRef.current.revision === input.revision
+        const payload = refresh ? { ...input.payload, backgroundRefresh: true } : input.payload
         const data = input.user?.token
-          ? await authPost('/checkout/quote', input.user, input.payload)
-          : await postJson('/checkout/quote', input.payload)
+          ? await authPost('/checkout/quote', input.user, payload)
+          : await postJson('/checkout/quote', payload)
         if (!isCurrent()) return null
         // The server already priced the cart without an invalid coupon. Accept
         // that result under the cleared selection key without a second request.
@@ -497,9 +521,12 @@ export function CartProvider({ children }) {
           let changed = false
           const next = current.map((item) => {
             const priced = data.items.find((row) => row.slug === item.id)
-            if (!priced || priced.priceValue === item.priceValue) return item
+            if (!priced) return item
+            const name = priced.name ?? item.name
+            const weight = Object.hasOwn(priced, 'weight') ? priced.weight : item.weight
+            if (name === item.name && priced.priceValue === item.priceValue && weight === item.weight) return item
             changed = true
-            return { ...item, priceValue: priced.priceValue, price: `₹${priced.priceValue}` }
+            return { ...item, name, priceValue: priced.priceValue, price: `₹${priced.priceValue}`, weight }
           })
           return changed ? next : current
         })

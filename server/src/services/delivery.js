@@ -114,7 +114,9 @@ export async function assertDeliveryOptionEnabled(pincode, option) {
   const chosen =
     requested === 'express' || requested === 'morning' ? requested : availability.defaultOption
   if (!chosen || !availability[chosen]?.enabled) {
-    throw Object.assign(new Error('This delivery option is not available for your pincode yet.'), { status: 400 })
+    const context = logContext.getStore()
+    if (context?.deliveryFacts && chosen) context.deliveryFacts.deliveryOption = chosen
+    throw Object.assign(new Error('This delivery option is not available for your pincode yet.'), { status: 400, reasonCode: 'DELIVERY_OPTION_UNAVAILABLE' })
   }
   return { row, option: chosen, availability }
 }

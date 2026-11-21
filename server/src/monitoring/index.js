@@ -331,15 +331,18 @@ export function requestLogging(req, res, next) {
           const facts = safeFailureFacts(body)
           context.accessError = { ...context.accessError, ...facts }
           if (facts.failureReason) res.setHeader('X-Tokri-Failure-Reason', facts.failureReason)
-        } else if (/\/checkout\/(?:quote|preview-coupon)$/.test(pathname)) context.accessFacts = checkoutFacts(body)
+        } else if (/\/checkout\/(?:quote|preview-coupon)$/.test(pathname)) {
+          context.accessFacts = checkoutFacts(body)
+          if (pathname.endsWith('/checkout/quote') && req.body?.backgroundRefresh === true) context.accessFacts.quoteRefresh = true
+        }
         else if (req.method === 'POST' && pathname.startsWith('/api/v1/checkout/')) {
-          context.accessFacts = { ...checkoutFacts(body), ...checkoutPaymentFacts(body) }
+          context.accessFacts = { ...checkoutFacts(body), ...checkoutPaymentFacts(body, { confirmedCod: pathname === '/api/v1/checkout/confirm-cod' }) }
           // A successful confirmation handler has already resolved this order
           // for the authenticated customer. Some failed-provider responses omit
           // the order reference, so retain its validated application format.
           if (context.accessFacts.paymentStatus && !context.accessFacts.orderNo && /^TKR\d{8,20}$/.test(req.body?.orderNo || '')) context.accessFacts.orderNo = req.body.orderNo
           if (context.accessFacts.paymentStatus === 'failed') context.accessOutcome = 'failure'
-          else if (context.accessFacts.paymentStatus === 'pending') context.accessOutcome = 'pending'
+          else if (context.accessFacts.paymentStatus === 'pending' && !context.accessFacts.orderConfirmed) context.accessOutcome = 'pending'
           if (context.accessOutcome) res.setHeader('X-Tokri-Operation-Status', context.accessOutcome)
           if (context.accessFacts.failureReason) res.setHeader('X-Tokri-Failure-Reason', context.accessFacts.failureReason)
         }

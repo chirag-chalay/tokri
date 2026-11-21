@@ -42,6 +42,7 @@ export function startFailureSpikeAlerts() {
         const text = 'Tokriii recorded ' + hourly.latest + ' customer failures in the hour ending ' + endingAt +
           ' IST. The hour before that had ' + hourly.previous + '. Review ' + env.appUrl + env.adminPath + '/pages/logs.'
         if (!(await sendEmail({ to: recipient, subject: 'Tokriii customer failures increased', text })).sent) throw new Error('Mail unavailable')
+        log('api', 'monitoring.failure_alert.sent', { status: 'success', source: 'system', count: hourly.latest })
       } catch (error) {
         await fs.unlink(claim).catch(() => {})
         throw error

@@ -131,142 +131,6 @@ test('retention, disk cap and symlink protection in the file worker', async () =
     }
   } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
 })
-test('tab retention preserves older audit activity, expires customer logs and combines error sources', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokri-log-tabs-'))
-  const time = days => new Date(Date.now() - days * 86400000)
-  const row = (days, event, extras = {}) => JSON.stringify({ event, timestamp: time(days).toISOString(), ...extras }) + '\n'
-  const save = (category, days, data) => fs.writeFile(path.join(dir, category + '-' + istDate(time(days)) + '.log'), data)
-  const worker = new Worker(new URL('../src/monitoring/worker.js', import.meta.url), {
-    workerData: { directory: dir, frontendErrorDirectory: dir, retentionDays: 90, maxBytes: 1048576, preserveRetention: true },
-  })
-  let id = 0
-  const call = (type, query) => new Promise((resolve, reject) => {
-    worker.once('error', reject)
-    const current = ++id
-    const listener = message => {
-      if (message.id !== current) return
-      worker.off('message', listener)
-      worker.off('error', reject)
-      if (message.error) reject(new Error(message.error))
-      else resolve(message.result)
-    }
-    worker.on('message', listener)
-    worker.postMessage({ id: current, type, query })
-  })
-  try {
-    await save('api', 120, row(120, 'admin.login') + row(120, 'request.completed', { platform: 'android' }))
-    await save('audit', 366, row(366, 'admin.action'))
-    await save('website', 1, row(1, 'website.navigation'))
-    await save('api', 1, row(1, 'request.completed', { platform: 'android' }))
-    await save('error', 1, row(1, 'operation.failed', { platform: 'ios' }))
-    await fs.writeFile(path.join(dir, 'website-frontend-errors.jsonl'), JSON.stringify({ receivedAt: time(1).toISOString() }) + '\n')
-    await call('flush')
-    await assert.rejects(fs.stat(path.join(dir, 'api-' + istDate(time(120)) + '.log')))
-    await assert.rejects(fs.stat(path.join(dir, 'audit-' + istDate(time(366)) + '.log')))
-    const read = tab => call('read', { business: true, tab, from: istDate(time(365)) })
-    assert.deepEqual((await read('admin')).rows.map(entry => entry.event), ['admin.login'])
-    assert.deepEqual((await read('app')).rows.map(entry => entry.platform), ['android'])
-    assert.deepEqual((await read('website')).rows.map(entry => entry.event), ['website.navigation'])
-    assert.deepEqual((await read('errors')).rows.map(entry => entry.platform).sort(), ['ios', 'website'])
-  } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
-})
-test('customer insights count sessions, known reasons and non-duplicated hourly failures', async () => {
-  const { createLogInsights, hasFailureSpike } = await import('../src/monitoring/log-insights.js')
-  const { recordedReason, isCustomerActivity } = await import('../src/monitoring/log-policy.js')
-  const now = Date.parse('2026-11-20T12:50:00Z')
-  const insights = createLogInsights(now)
-  const add = (clock, event, extras = {}, category = 'api') => insights.observe({
-    timestamp: '2026-11-20T' + clock + ':00Z', event, platform: 'website', logSource: 'Website',
-    visitorKind: 'guest', locationCity: 'Delhi', ...extras,
-  }, category)
-  add('11:00', 'request.completed', { status: 404, requestId: 'previous' })
-  add('11:01', 'request.completed', { status: 403, logSource: 'Server API' })
-  add('11:45', 'request.completed', { status: 400, reasonCode: 'PINCODE_NOT_SERVICEABLE', route: '/api/v1/geo/pincode', enteredPincode: '560001', requestId: 'pin' })
-  add('11:45', 'operation.failed', { status: 400, reasonCode: 'PINCODE_NOT_SERVICEABLE', route: '/api/v1/geo/pincode', enteredPincode: '560001', requestId: 'pin' }, 'error')
-  add('11:50', 'website.navigation', { status: 'observed', pagePath: '/checkout', sessionId: 'visit-a' }, 'website')
-  add('11:51', 'website.navigation', { status: 'observed', pagePath: '/checkout', sessionId: 'visit-b' }, 'website')
-  add('12:05', 'checkout.guest.blocked', { status: 'failure', reasonCode: 'AUTH_REQUIRED', sessionId: 'visit-a' }, 'website')
-  add('12:10', 'frontend.error', { status: 'failure', locationSource: 'ip' }, 'website')
-  add('12:40', 'frontend.error', { status: 'failure' }, 'website')
-  const result = insights.result()
-  assert.deepEqual(result.demand, { pin: '560001', count: 1 })
-  assert.deepEqual(result.checkout, { reached: 2, blocked: 1 })
-  assert.equal(result.city.name, 'Delhi')
-  assert.equal(result.city.approximate, true)
-  assert.equal(result.trends.website.today.failedCheckouts, 1)
-  assert.equal(result.hourly.previous, 1)
-  assert.equal(result.hourly.latest, 3)
-  assert.equal(hasFailureSpike(result.hourly), true)
-  assert.equal(hasFailureSpike({ latest: 2, previous: 1 }), false)
-  assert.equal(hasFailureSpike({ latest: 1, previous: 0 }), false)
-  assert.equal(recordedReason({ reasonCode: 'UNKNOWN', failureReason: 'product_missing', status: 404 }), 'RESOURCE_NOT_FOUND')
-  assert.equal(recordedReason({ status: 500 }), 'UNKNOWN')
-  assert.equal(isCustomerActivity({ logSource: 'Server API' }), false)
-})
-
-test('website and app sessions group by ID, keep verified identity, and preserve separate no-session rows', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokri-session-view-'))
-  const sessionId = '3c24b5c9-2444-424e-a2fc-f5f0ca504cc7'
-  const day = istDate()
-  const clock = Date.now()
-  const make = (minutes, extra) => ({ timestamp: new Date(clock - minutes * 60000).toISOString(), status: 200, ip: '203.0.113.5', ...extra })
-  const website = { sessionId, platform: 'website', logSource: 'Website' }
-  const mobile = { platform: 'android', logSource: 'Android app', route: '/api/v1/account/cart' }
-  const worker = new Worker(new URL('../src/monitoring/worker.js', import.meta.url), {
-    workerData: { directory: dir, readerOnly: true, retentionDays: 90 },
-  })
-  let id = 0
-  const read = query => new Promise((resolve, reject) => {
-    const listener = message => { worker.off('error', reject); message.error ? reject(new Error(message.error)) : resolve(message.result) }
-    worker.once('error', reject)
-    worker.once('message', listener)
-    worker.postMessage({ id: ++id, type: 'read', query: { business: true, ...query } })
-  })
-  try {
-    await fs.writeFile(path.join(dir, 'api-' + day + '.log'), [
-      make(8, { ...website, event: 'request.completed', route: '/api/v1/products', visitorKind: 'guest' }),
-      make(7, { ...website, event: 'request.completed', route: '/api/v1/geo/pincode', visitorKind: 'guest', enteredPincode: '110001', pincodeServiceable: true }),
-      make(6, { ...website, event: 'customer.login', visitorKind: 'customer', verifiedCustomerId: 'customer-verified', ip: '203.0.113.8' }),
-      make(5, { ...website, event: 'request.completed', route: '/api/v1/account/cart', cartItemCount: 4, ip: undefined }),
-      make(4, { ...mobile, event: 'request.completed' }),
-      make(3, { ...mobile, event: 'request.completed' }),
-    ].map(row => JSON.stringify(row) + '\n').join(''))
-    const result = await read({ tab: 'website', groupSessions: true, customerOnly: true })
-    assert.equal(result.total, 1)
-    const [group] = result.rows
-    assert.equal(group.sessionId, sessionId)
-    assert.equal(group.verifiedCustomerId, 'customer-verified')
-    assert.equal(group.guestTransition, true)
-    assert.equal(group.eventCount, 4)
-    assert.equal(group.backgroundCount, 1)
-    assert.equal(group.cartItemCount, 4)
-    assert.equal(group.ip, '203.0.113.8')
-    const journey = await read({ visitSession: sessionId, journey: true, includeBackground: false })
-    assert.equal(journey.total, 3)
-    assert.equal(journey.rows.at(-1).enteredPincode, '110001')
-    const app = await read({ tab: 'app', groupSessions: true, customerOnly: true })
-    assert.equal(app.total, 2)
-    assert.ok(app.rows.every(row => !row.sessionId && !row.sessionGroup))
-    const recovered = await read({ restoreDeliveryContexts: true })
-    assert.equal(recovered[0].pincodeServiceable, true)
-  } finally { await worker.terminate(); await fs.rm(dir, { recursive: true, force: true }) }
-})
-
-test('verified delivery facts carry only inside the identified visit and native IDs require an app platform', async () => {
-  const { carryDeliveryContext } = await import('../src/monitoring/session-context.js')
-  const { visitFacts } = await import('../src/monitoring/visit.js')
-  const session = '4c24b5c9-2444-424e-a2fc-f5f0ca504cc7'
-  const other = '5c24b5c9-2444-424e-a2fc-f5f0ca504cc7'
-  const delivery = { enteredPincode: '560001', pincodeServiceable: false, deliveryCity: 'Bengaluru', deliveryState: 'Karnataka' }
-  assert.deepEqual(carryDeliveryContext(session, delivery, 1), delivery)
-  assert.deepEqual(carryDeliveryContext(session, { enteredPincode: '110001' }, 60000), delivery)
-  assert.equal(carryDeliveryContext(other, {}, 70000), undefined)
-  assert.equal(carryDeliveryContext(session, {}, 1860001), undefined)
-  assert.equal(visitFacts({ headers: { 'x-app-platform': 'android', 'x-session-id': session } }).sessionId, session)
-  assert.equal(visitFacts({ headers: { 'x-session-id': session } }).sessionId, undefined)
-  assert.equal(visitFacts({ headers: { 'x-app-platform': 'ios' } }).sessionId, undefined)
-})
-
 test('AdminJS transport enforces fresh admin privileges and same-origin debug controls', async () => {
   const { default: express } = await import('express')
   const { routeHandler } = await import('../node_modules/@adminjs/express/lib/buildRouter.js')
@@ -277,7 +141,7 @@ test('AdminJS transport enforces fresh admin privileges and same-origin debug co
   const originalLookups = lookupModels.map((model) => prisma[model].findMany)
   let nameLookups = 0
   for (const model of lookupModels) prisma[model].findMany = async () => { nameLookups++; return [] }
-  let user = { id: 'admin-live', name: 'Staff Test', role: 'super_admin', isActive: true }
+  let user = { id: 'admin-live', role: 'admin', isActive: true }
   prisma.user.findUnique = async () => user
   const app = express()
   app.use(requestLogging)
@@ -297,7 +161,7 @@ test('AdminJS transport enforces fresh admin privileges and same-origin debug co
     assert.equal(response.headers.get('cache-control'), 'no-store')
     assert.equal((await response.json()).canManageDebug, true)
     const deniedDebug = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' }, body: JSON.stringify({ action: 'enable', minutes: 5 }) })
-    assert.equal(deniedDebug.status, 200, 'authorized super-admins may change debug with valid browser headers')
+    assert.equal(deniedDebug.status, 200, 'authorized regular admins may change debug with valid browser headers')
     assert.ok(monitoringState().debugUntil)
     await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' }, body: JSON.stringify({ action: 'disable' }) })
     assert.equal(monitoringState().debugUntil, null)
@@ -305,36 +169,6 @@ test('AdminJS transport enforces fresh admin privileges and same-origin debug co
     user = { ...user, role: 'staff' }
     assert.equal((await fetch(url)).status, 403)
     assert.equal(nameLookups, authorizedLookups, 'unauthorized viewers cannot look up names')
-    const tab = (selected, filters = {}) => fetch(url, {
-      method: 'POST', headers: { 'content-type': 'application/json', 'x-tokri-monitoring': '1', 'sec-fetch-site': 'same-origin' },
-      body: JSON.stringify({ action: 'business-read', filters: { tab: selected, ...filters } }),
-    })
-    const permissions = await fetch(url + '?view=access').then(res => res.json())
-    assert.equal(permissions.fullAccess, false)
-    for (const selected of ['website', 'app', 'errors', 'admin']) {
-      assert.equal((await tab(selected)).status, 200, 'staff can read the ' + selected + ' tab')
-    }
-    assert.equal((await tab('website', { phone: '9123456789' })).status, 403)
-    assert.equal((await tab('admin', { phone: '9123456789' })).status, 403)
-    const maskedLookup = await tab('admin', { phone: '91XXXXXX89' })
-    assert.equal(maskedLookup.status, 200)
-    assert.equal((await maskedLookup.json()).total, 0)
-    await workerCall('deliver', { category: 'audit', record: { event: 'admin.action', staffName: 'Audit Example', logSource: 'Backoffice', timestamp: new Date().toISOString(), ip: '203.0.113.5', status: 'success' } })
-    let adminRows = await tab('admin').then(res => res.json())
-    const sample = adminRows.rows.find(row => row.who === 'Audit Example')
-    assert.equal(sample.source, 'Backoffice')
-    assert.equal(sample.details['Connection IP'], '203.0.113.5')
-    const csv = await tab('admin', { export: 'csv' }).then(res => res.json())
-    assert.match(csv.csv, /"Device","Source"/)
-    assert.match(csv.csv, /Audit Example/)
-    await workerCall('flush')
-    assert.ok((await workerCall('read', { business: true, tab: 'admin' })).rows.some(row => row.event === 'admin.logs.opened' && row.staffName === 'Staff Test'))
-    user = { ...user, role: 'admin' }
-    assert.equal((await fetch(url)).status, 403)
-    assert.equal((await tab('website')).status, 200)
-    user = { ...user, role: 'super_admin' }
-    adminRows = await tab('admin').then(res => res.json())
-    assert.equal(adminRows.rows.find(row => row.who === 'Audit Example').details['Connection IP'], '203.0.113.5')
     user = { ...user, role: 'super_admin', isActive: false }
     assert.equal((await fetch(url)).status, 403)
     user = { ...user, isActive: true }

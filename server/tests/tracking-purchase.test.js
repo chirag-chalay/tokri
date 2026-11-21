@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import { captureTrackingContext } from '../src/services/trackingPurchase.js'
 import { purchaseIdentity, purchaseSummary, enqueuePurchase, processTrackingDeliveries } from '../src/services/trackingPurchase.js'
 const config = { pixelId: '123456789', apiVersion: 'v99.0', token: 'secret' }
 function order() {
@@ -20,14 +22,21 @@ test('confirmed COD and later paid collection share one immutable purchase', asy
 })
 test('consented purchase includes browser context and a hashed customer ID', async () => {
   const o = order()
-  o.customer.id = 'customer-fixture'
+  o.customer = { id: 'customer-fixture', phone: '+91 99999 99999', name: 'Asha Patil' }
+  o.address = { city: 'Pune', state: 'Maharashtra', pincode: '411001', line1: 'private fixture' }
   o.trackingContext.match = { fbp: 'fb.1.123.456', fbc: 'fb.1.123.click', client_ip_address: '192.0.2.1', client_user_agent: 'fixture' }
   let payload
   const db = { order: { findUnique: async () => o }, trackingDelivery: { createMany: async ({ data }) => { payload = data[0].payload } } }
   await enqueuePurchase(o.id, { db, config })
   assert.equal(payload.user_data.fbp, o.trackingContext.match.fbp)
   assert.equal(payload.user_data.fbc, o.trackingContext.match.fbc)
-  assert.match(payload.user_data.external_id[0], /^[a-f0-9]{64}$/)
+  const sha = value => createHash('sha256').update(value).digest('hex')
+  for (const [key, raw] of Object.entries({ ph: '919999999999', external_id: 'customer-fixture', fn: 'asha', ln: 'patil', ct: 'pune', st: 'maharashtra', zp: '411001', country: 'in' })) {
+    assert.deepEqual(payload.user_data[key], [sha(raw)])
+  }
+  assert.equal(JSON.stringify(payload).includes('private fixture'), false)
+  assert.equal(payload.event_id, purchaseSummary(o).eventId)
+  assert.deepEqual(payload.custom_data, { currency: 'INR', value: 42, content_type: 'product', content_ids: ['product'], contents: [{ id: 'product', quantity: 2 }] })
   assert.equal(JSON.stringify(payload.user_data).includes('customer-fixture'), false)
 })
 test('unconfirmed COD, failed online, revoked and wrong-destination orders do not enqueue', async () => {
@@ -70,4 +79,16 @@ test('inclusive GST purchase reporting excludes tax while historical exclusive p
   o.grandTotal = 46
   assert.equal(purchaseSummary(o).merchandiseValue, 34)
   assert.equal(purchaseSummary(o).items[0].priceValue, 20)
+})
+
+test('a web checkout requires consent and a native checkout cannot enter the web outbox', t => {
+  const current = process.env.TRACKING_ENABLED
+  process.env.TRACKING_ENABLED = 'true'
+  t.after(() => { if (current == null) delete process.env.TRACKING_ENABLED; else process.env.TRACKING_ENABLED = current })
+  const tracking = { source: 'web', marketing: true, url: 'https://tokriii.com/checkout' }
+  assert.equal(captureTrackingContext(tracking, { marketingConsent: false }).marketing, false)
+  const context = captureTrackingContext(tracking, { marketingConsent: true, ip: '192.0.2.1', userAgent: 'fixture' })
+  assert.deepEqual(context.match, { client_ip_address: '192.0.2.1', client_user_agent: 'fixture' })
+  assert.equal(captureTrackingContext(tracking, { marketingConsent: true, appPlatform: 'android' }), undefined)
+  assert.equal(captureTrackingContext(tracking, { marketingConsent: true, appPlatform: 'ios' }), undefined)
 })

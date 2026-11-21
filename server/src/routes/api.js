@@ -17,6 +17,11 @@ import trackingRouter from './tracking.js'
 const router = Router()
 router.use('/monitoring', websiteMonitoring)
 
+router.use(['/products', '/categories', '/search', '/account/cart', '/app/bootstrap'], (_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  next()
+})
+
 router.get('/health', (_req, res) => {
   res.json({
     ok: true,

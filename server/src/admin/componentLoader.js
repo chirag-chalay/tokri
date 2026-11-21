@@ -3,6 +3,7 @@ import { ComponentLoader } from 'adminjs'
 const componentLoader = new ComponentLoader()
 
 export const Components = {
+  Reports: componentLoader.add('Reports', './components/reports.jsx'),
   Monitoring: componentLoader.add('Monitoring', './components/monitoring.jsx'),
   Dashboard: componentLoader.add('Dashboard', './components/dashboard.jsx'),
   ProductEdit: componentLoader.add('ProductEdit', './components/product-edit.jsx'),

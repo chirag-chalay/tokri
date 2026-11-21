@@ -84,14 +84,22 @@ export function createWebsiteMonitoringRouter(client = prisma) {
           locations = new Map(rows.map(row => [row.pincode, row]))
         } catch { /* Leave coverage unknown if the lookup failed. */ }
       }
-      const refs = [...new Set(candidates.map(row => productReference(row.productRef)).filter(Boolean))]
+      const refs = [...new Set(candidates.flatMap(row => [productReference(row.productRef),
+        safePage(row.path).pagePath === '/product/[product]' ? productReference(row.pageRef) : undefined]).filter(Boolean))]
       let products = []
       if (refs.length) { try { products = await client.product.findMany({ where: { isActive: true, OR: [{ slug: { in: refs } }, { id: { in: refs } }] }, select: { id: true, slug: true, name: true } }) } catch { /* The event remains readable without guessing a product identity. */ } }
       const catalog = new Map(products.flatMap(product => [[product.id, product], [product.slug, product]]))
       const publicPages = new Map()
-      for (const [prefix, model, where] of [['/blog/', 'blogPost', { isPublished: true }], ['/p/', 'page', { isPublished: true }], ['/category/', 'category', { isActive: true }]]) {
-        const slugs = [...new Set(candidates.filter(row => safePage(row.path).pagePath.startsWith(prefix)).map(row => productReference(row.pageRef)).filter(Boolean))]
-        if (slugs.length) { try { const values = await client[model].findMany({ where: { ...where, slug: { in: slugs } }, select: { slug: true } }); for (const value of values) publicPages.set(prefix + value.slug, true) } catch { /* Keep a redacted URL if its public reference cannot be verified. */ } }
+      for (const [path, model, field, where] of [['/blog/[article]', 'blogPost', 'title', { isPublished: true }], ['/p/[page]', 'page', 'title', { isPublished: true }], ['/shop', 'category', 'label', { isActive: true }]]) {
+        const slugs = [...new Set(candidates.filter(row => {
+          const pagePath = safePage(row.path).pagePath
+          return pagePath === path || model === 'category' && pagePath === '/category/[category]'
+        }).map(row => productReference(row.pageRef)).filter(Boolean))]
+        if (!slugs.length) continue
+        try {
+          const values = await client[model].findMany({ where: { ...where, slug: { in: slugs } }, select: { slug: true, [field]: true } })
+          for (const value of values) publicPages.set(`${model}/${value.slug}`, value[field])
+        } catch { /* Keep generic page details when verification is unavailable. */ }
       }
       const now = Date.now()
       for (const [id, until] of seen) if (until <= now) seen.delete(id)
@@ -109,9 +117,17 @@ export function createWebsiteMonitoringRouter(client = prisma) {
           if (viewportTypes.has(row.viewportType)) data.viewportType = row.viewportType
           if (coveredPins) data.deliveryCoverage = coveredPins.has(row.deliveryPin) ? 'serviceable' : 'unserviceable'
         }
-        if (product) { data.product = product.name; if (page.pagePath === '/product/[product]') data.pagePath = `/product/${product.slug}` }
-        const prefix = ['/blog/', '/p/', '/category/'].find(value => page.pagePath.startsWith(value))
-        if (prefix && publicPages.has(prefix + row.pageRef)) data.pagePath = prefix + row.pageRef
+        if (product) { data.product = product.name; data.productRef = product.slug }
+        if (page.pagePath === '/product/[product]') {
+          const opened = catalog.get(row.pageRef) || (!row.pageRef && row.event === 'website.navigation' ? product : undefined)
+          if (opened) { data.page = opened.name; data.pagePath = `/product/${opened.slug}` }
+        }
+        const pageModel = { '/blog/[article]': 'blogPost', '/p/[page]': 'page', '/category/[category]': 'category', '/shop': 'category' }[page.pagePath]
+        const title = publicPages.get(`${pageModel}/${row.pageRef}`)
+        if (title) {
+          data.page = page.pagePath === '/shop' ? `Shop · ${title}` : title
+          if (page.pagePath !== '/shop') data.pagePath = page.pagePath.split('[')[0] + row.pageRef
+        }
         if (Object.hasOwn(failureReasons, row.failureReason)) data.failureReason = row.failureReason
         if (['initial', 'client', 'back_forward'].includes(row.navigationType)) data.navigationType = row.navigationType
         if (Number.isInteger(row.status) && row.status >= 100 && row.status <= 599) data.httpStatus = row.status
@@ -119,7 +135,12 @@ export function createWebsiteMonitoringRouter(client = prisma) {
         if (safeEndpoint(row.endpoint)) data.route = safeEndpoint(row.endpoint)
         if (Number.isFinite(row.durationMs) && row.durationMs >= 0 && row.durationMs <= 300000) data.durationMs = Math.round(row.durationMs)
         if (Number.isInteger(row.quantity) && row.quantity >= 0 && row.quantity <= 10000) data.quantity = row.quantity
+        if (row.event === 'cart.quantity.changed' && Number.isSafeInteger(row.delta) && Math.abs(row.delta) <= 10000) data.delta = row.delta
         if (Number.isInteger(row.count) && row.count >= 0 && row.count <= 1000) data.count = row.count
+        if (row.event === 'cart.snapshot' || row.event === 'cart.restored') {
+          if (Number.isInteger(row.count) && row.count >= 0 && row.count <= 10000) data.cartItemCount = row.count
+          if (Number.isSafeInteger(row.cartSubtotalPaise) && row.cartSubtotalPaise >= 0 && row.cartSubtotalPaise <= 1000000000) data.cartSubtotalPaise = row.cartSubtotalPaise
+        }
         if (['morning', 'express'].includes(row.deliveryOption)) data.deliveryOption = row.deliveryOption
         if (['product image', 'image', 'script', 'stylesheet'].includes(row.resourceKind)) data.resourceKind = row.resourceKind
         if (/^[a-f0-9-]{36}$/i.test(row.relatedRequestId || '')) data.relatedRequestId = row.relatedRequestId

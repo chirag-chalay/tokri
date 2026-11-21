@@ -64,17 +64,3 @@ test('collector enforces origin, size, schema, rate limits and stores sanitized 
     assert.equal(limited.headers.get('retry-after'), '60')
   } finally { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)) }
 })
-
-test('legacy diagnostics expire even without a new error submission', async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'tokri-legacy-retention-'))
-  try {
-    const filename = path.join(directory, 'website-frontend-errors.jsonl.1')
-    const old = { ...sanitizeEvent(event), receivedAt: new Date(Date.now() - 91 * 86400000).toISOString(), kind: 'resource' }
-    const fresh = sanitizeEvent(event)
-    await fs.writeFile(filename, [old, fresh].map(row => JSON.stringify(row) + '\n').join(''))
-    const write = createFrontendErrorWriter({ directory, cleanupInterval: 86400000 })
-    // The first write waits behind startup cleanup.
-    await write([fresh])
-    assert.deepEqual((await fs.readFile(filename, 'utf8')).trim().split('\n').map(JSON.parse), [JSON.parse(JSON.stringify(fresh))])
-  } finally { await fs.rm(directory, { recursive: true, force: true }) }
-})

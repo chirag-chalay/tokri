@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { ApiClient } from 'adminjs'
-import { logReasons } from '../../../../shared/logReasons.js'
+import { logReasons, validVisitorSession } from '../../../../shared/logReasons.js'
 
 const api = new ApiClient()
 const typeLabels = { website: 'Website visits', api: 'API access', access: 'Earlier access history', error: 'Error logs', audit: 'Admin activity', debug: 'Debug logs', payment: 'Payment logs', account: 'Account creation' }
@@ -229,25 +229,25 @@ function parseLogDate(value) {
 const makeDateRange = days => ({ from: displayDay(istDay(days - 1)), to: displayDay(istDay()) })
 const initialFilters = tab => ({ ...visitDefaults, ...makeDateRange(1), customerOnly: tab !== 'admin' })
 
-function LogTrend({ today, yesterday }) {
-  if (today === undefined || yesterday === undefined) return null
-  const sign = today > yesterday ? '↑' : today < yesterday ? '↓' : '→'
-  return <small className="business-trend"><span aria-hidden="true">{sign}</span> Today {today} · Yesterday {yesterday}</small>
-}
-
-function WeeklyLogInsights({ insights, alertEnabled }) {
-  if (!insights) return null
-  const { demand, checkout, peak, city } = insights
-  return <section className="business-insights" aria-label="This week’s activity insights">
-    <h2>This week</h2>
-    <dl>
-      <div><dt>Unserviceable demand</dt><dd>{demand ? <>{demand.pin} checked {demand.count} {demand.count === 1 ? 'time' : 'times'}. Consider expanding delivery.</> : 'No unserviceable pincode checks recorded.'}</dd></div>
-      <div><dt>Guest checkout drop-off</dt><dd>{checkout.reached ? <>{Math.round(100 * checkout.blocked / checkout.reached)}% hit the sign-in requirement ({checkout.blocked} of {checkout.reached} website guest sessions).</> : 'No website guest checkout sessions recorded.'}</dd></div>
-      <div><dt>Busiest hour and top city</dt><dd>{peak ? peak.hour + ':00–' + String((Number(peak.hour) + 1) % 24).padStart(2, '0') + ':00 IST · ' + peak.count + ' events' : 'No customer activity recorded.'}
-        {city && <><br />{city.name}{city.approximate ? ' (includes approximate locations)' : ''} · {city.count} events</>}</dd></div>
-      <div><dt>Hourly failure alert</dt><dd>{alertEnabled ? 'Email alerts enabled' : 'Email alerts awaiting setup'}</dd></div>
-    </dl>
-  </section>
+function VisitEvents({ rows, onOpen }) {
+  const entries = []
+  for (const row of rows) {
+    const previous = entries.at(-1)
+    if (row.cartQuote && previous?.row.cartQuote && row.activityDetail === previous.row.activityDetail && row.who === previous.row.who &&
+      row.pincode === previous.row.pincode && row.details['Cart items'] === previous.row.details['Cart items']) {
+      previous.count++
+      previous.lastAt = row.timestamp
+    } else entries.push({ row, count: 1 })
+  }
+  return <ol className="business-journey">{entries.map(({ row, count, lastAt }, i) => <li key={row.eventId || row.timestamp + i}>
+    {ist(row.timestamp)}{' '}
+    {onOpen ? <button type="button" onClick={() => onOpen(row)}>{row.action}</button> : <strong>{row.action}</strong>}{' '}
+    <span className="business-badge" data-result={row.result}>{row.result}</span>
+    {row.activityDetail && <small>{row.activityDetail}</small>}
+    {count > 1 && <small>Same quoted amount {count} times · Last quote {ist(lastAt)}</small>}
+    {row.result === 'Failed' && <small>{row.why}</small>}
+    {row.pincode !== 'Unknown' && row.pincode !== 'Not applicable' && <small>Delivery pincode {row.pincode}</small>}
+  </li>)}</ol>
 }
 const sources = ['Website', 'Android app', 'iPhone app', 'Backoffice', 'Payment provider', 'Server API', 'System']
 const tabs = { website: 'Website', app: 'Mobile App (API)', errors: 'Errors', admin: 'Admin/System' }
@@ -259,7 +259,7 @@ async function businessQuery(filters, page, extra = {}) {
   const value = search.trim()
   const lookup = !value ? {} : /^[a-f0-9-]{36}$/i.test(value) ? { visitSession: value.toLowerCase() }
     : /^[a-f0-9]{8}$/i.test(value) ? { sessionPrefix: value.toLowerCase() } : { phone: value }
-  const result = await api.getPage({ pageName: 'logs', method: 'POST', headers: { 'X-Tokri-Monitoring': '1' }, data: { action: 'business-read', filters: { ...rest, from: start, to: end, ...lookup, page, ...extra } } })
+  const result = await api.getPage({ pageName: 'logs', method: 'POST', headers: { 'X-Tokri-Monitoring': '1' }, data: { action: 'business-read', filters: { ...rest, from: start, to: end, ...lookup, page, includeInsights: false, ...extra } } })
   if (result.data.storageError) throw new Error('Logs unavailable')
   return result.data
 }
@@ -279,10 +279,15 @@ function AttributionFooter() {
 function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
   const grouped = tab === 'website' || tab === 'app'
   const visibleColumns = grouped ? sessionColumns : columns
-  const [draft, setDraft] = useState(() => initialFilters(tab))
-  const [active, setActive] = useState(() => initialFilters(tab))
+  const [draft, setDraft] = useState(() => {
+    const filters = initialFilters(tab)
+    const params = new URLSearchParams(window.location.search)
+    const visit = params.get('visit')
+    if (validVisitorSession(visit) && (params.get('channel') === 'app' ? tab === 'app' : tab === 'website')) return { ...filters, from: '', to: '', search: visit }
+    return filters
+  })
+  const [active, setActive] = useState(draft)
   const [data, setData] = useState(null)
-  const [insights, setInsights] = useState(null)
   const [page, setPage] = useState(1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -300,7 +305,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
     setError('')
     setExpanded(null)
     businessQuery(active, page, { tab, groupSessions: grouped })
-      .then(result => { if (current) { setData(result); if (result.insights) setInsights(result.insights) } })
+      .then(result => { if (current) setData(result) })
       .catch(() => { if (current) { setData(null); setError('Could not load the logs. Check the filters and try again.') } })
       .finally(() => { if (current) setBusy(false) })
     return () => { current = false }
@@ -339,19 +344,19 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
     const row = selected
     setJourney({ loading: true })
     try {
-      const result = await businessQuery(visitDefaults, 1, { tab, visitSession: row.sessionId, journey: '1', perPage: '100' })
+      const result = await businessQuery(visitDefaults, 1, { tab, visitSession: row.sessionId, journey: '1', perPage: '100', includeBackground: false })
       setJourney({ rows: result.rows, total: result.total })
     } catch { setJourney({ error: 'Could not load this visit. Try again.' }) }
   }
 
-  async function exportCsv() {
+  async function exportCsv(groupSessions = grouped) {
     setExporting(true)
     try {
-      const result = await businessQuery(active, 1, { tab, export: 'csv', groupSessions: grouped })
+      const result = await businessQuery(active, 1, { tab, export: 'csv', groupSessions })
       const url = URL.createObjectURL(new Blob(['\uFEFF', result.csv], { type: 'text/csv;charset=utf-8' }))
       const link = document.createElement('a')
       link.href = url
-      link.download = 'tokriii-logs.csv'
+      link.download = groupSessions ? 'tokriii-sessions.csv' : 'tokriii-events.csv'
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
       if (result.total > result.count) setError('CSV contains the newest 5,000 rows. Choose a shorter date range to export the remaining rows.')
@@ -387,9 +392,6 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
     setExpanded({ row, key, page: 1, background: false })
   }
 
-  const summary = data?.summary
-  const trend = insights?.trends?.[tab]
-  const top = entries => Object.entries(entries || {}).sort((a, b) => b[1] - a[1]).slice(0, 3)
   const period = active.from || active.to ? [active.from || 'Earliest', active.to || 'Today'].join(' – ') + ' · IST' : 'Last 24 hours'
   const pageCount = Math.max(1, Math.ceil((data?.total || 0) / (data?.perPage || 50)))
   const first = data?.total ? (page - 1) * data.perPage + 1 : 0
@@ -423,22 +425,21 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       .business-logs button:disabled{opacity:.55;cursor:default}.business-logs button:focus-visible,.business-logs input:focus-visible,.business-logs select:focus-visible{outline:2px solid #23704d}
       .business-top,.business-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
       .business-tabs{justify-content:flex-start;margin-top:12px}.business-tabs button[aria-pressed=true]{background:#174d3b;color:#fff}
-      .business-cards,.business-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(155px,100%),1fr));gap:10px;margin:14px 0}
-      .business-cards article,.business-table{background:#fff;border:1px solid #dce5df;border-radius:8px;padding:12px}
-      .business-cards ul{margin:0;padding-left:16px}.business-filters label{display:grid;gap:4px;font-size:13px}
+      .business-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(155px,100%),1fr));gap:10px;margin:14px 0}
+      .business-table{background:#fff;border:1px solid #dce5df;border-radius:8px;padding:12px}
+      .business-filters label{display:grid;gap:4px;font-size:13px}
       .business-filters :is(input,select){width:100%;min-width:0;min-height:36px;border:1px solid #bbcfc5;border-radius:6px;padding:6px;background:#fff;color:#16352c}
       .business-table{overflow:auto;max-height:62vh;padding:0}.business-table table{border-collapse:separate;border-spacing:0;width:100%;text-align:left;table-layout:fixed}
       .business-table :is(th,td){padding:8px 10px;border-bottom:1px solid #e7eee9;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .business-table th{position:sticky;top:0;background:#ecf4ef;z-index:1}
       .business-table tbody tr{cursor:pointer}.business-table tbody tr:hover,.business-table tbody tr:focus-within{background:#f1f6f3}
       .business-table .business-detail-trigger{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0;border:0;background:transparent;text-decoration:underline;text-underline-offset:3px;text-align:left}
+      .business-table .business-detail-trigger small{white-space:normal;overflow-wrap:anywhere}
+      .business-session-table :is(th,td,.business-detail-trigger){white-space:normal;overflow-wrap:anywhere;overflow:visible;text-overflow:clip}
+      .business-session-table :is(th,td){vertical-align:top}
       .business-badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;background:#eef2f0;color:#405b4d}
       .business-badge[data-result=Failed]{background:#fbe8eb;color:#921d2e}.business-badge[data-result=Successful]{background:#e3f4e8;color:#21603a}
       .business-quick{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
-      .business-trend{display:block;color:#435f52;margin-top:5px}
-      .business-cards li + li{margin-top:5px}.business-cards button{white-space:normal;text-align:left}
-      .business-insights{margin:12px 0;padding:12px;background:#fff;border:1px solid #dce5df;border-radius:8px}
-      .business-insights dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:10px;margin:0}
       .business-toolbar,.business-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
       .business-toolbar :is(select,input){min-height:36px;border:1px solid #bbcfc5;border-radius:6px;padding:5px;color:#16352c;background:white}
       .business-chips button{padding:4px 8px;border-radius:999px;font-size:12px}
@@ -453,7 +454,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       .business-footer{position:static;margin-top:24px;padding:12px 0;border-top:1px solid #dce5df;font-size:12px}
       .business-technical-footer{padding:12px 24px}
       .business-logs dialog{position:fixed;inset:0 0 0 auto;margin:0;height:100dvh;max-height:100dvh;box-sizing:border-box;width:min(calc(100vw - 32px),440px);max-width:100vw;padding:20px;border:1px solid #bcd1c5;background:#fff;color:#16352c}
-      .business-logs dialog::backdrop{background:#15382d59}.business-logs dd{overflow-wrap:anywhere;margin:3px 0 12px}.business-logs dt{font-weight:600}.business-journey li{margin-bottom:12px}
+      .business-logs dialog::backdrop{background:#15382d59}.business-logs dd{overflow-wrap:anywhere;margin:3px 0 12px}.business-logs dt{font-weight:600}.business-journey li{margin-bottom:12px}.business-journey small{display:block}
       @media(max-width:950px){
         .business-table{background:transparent;border:0;max-height:none}
         .business-table :is(table,tbody){display:block}.business-table thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
@@ -464,22 +465,12 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
         .business-table .business-timeline-cell::before{content:none}.business-table .business-detail-trigger{white-space:normal}
       }
     `}</style>
-    <header className="business-top"><div><h1>Customer activity logs</h1><p>{period}</p></div>{onTechnical && <button type="button" onClick={onTechnical}>Technical logs</button>}</header>
+    <header className="business-top"><div><h1>Customer activity logs</h1><p>{period}</p></div><a href="./reports">Reports</a>{onTechnical && <button type="button" onClick={onTechnical}>Technical logs</button>}</header>
     <nav className="business-actions business-tabs" aria-label="Log tabs">
       {Object.entries(tabs).map(([key, label]) =>
         <button type="button" key={key} aria-pressed={tab === key} onClick={() => onTab(key)}>{label}</button>)}
     </nav>
     <p>{tab === 'admin' ? 'Kept for 1 year' : 'Kept for ' + access.activityDays + ' days'}</p>
-    <div className="business-cards">
-      <article><h2>Failed checkouts</h2><button type="button" onClick={() => applyFilters({ ...active, status: 'Failed', reason: '', checkoutOnly: true })}>{summary?.failedCheckouts ?? 'Unknown'}</button>
-        <LogTrend today={trend?.today.failedCheckouts} yesterday={trend?.yesterday.failedCheckouts} /></article>
-      <article><h2>Top failure reasons</h2>{top(summary?.reasons).length ? <ul>{top(summary.reasons).map(([code, count]) => <li key={code}><button type="button" onClick={() => applyFilters({ ...active, status: 'Failed', reason: code, checkoutOnly: false })}>{reasonText[code]} ({count})</button></li>)}</ul> : <p>{summary ? 'None recorded' : 'Unknown'}</p>}
-        {summary?.unclassified > 0 && <button type="button" onClick={() => applyFilters({ ...active, status: 'Failed', reason: 'UNKNOWN', checkoutOnly: false })}>{summary.unclassified} without a recorded cause</button>}</article>
-      <article><h2>Unserviceable pincodes</h2>{top(summary?.pincodes).length ? <ul>{top(summary.pincodes).map(([pin, count]) => <li key={pin}><button type="button" onClick={() => applyFilters({ ...active, pin, reason: 'PINCODE_NOT_SERVICEABLE', coverage: '', status: 'Failed', checkoutOnly: false })}>{pin} ({count})</button>
-        <LogTrend today={trend?.today.pincodes[pin] ?? (trend ? 0 : undefined)} yesterday={trend?.yesterday.pincodes[pin] ?? (trend ? 0 : undefined)} /></li>)}</ul> : <p>{summary ? 'None recorded' : 'Unknown'}</p>}</article>
-      <article><h2>Website vs app activity</h2><p>Website {summary?.website ?? 'Unknown'}</p><p>App {summary?.app ?? 'Unknown'}</p><LogTrend today={trend?.today.activity} yesterday={trend?.yesterday.activity} /></article>
-    </div>
-    {tab !== 'admin' && <WeeklyLogInsights insights={insights} alertEnabled={access.failureAlertEnabled} />}
     <div className="business-toolbar">
       {[[1, 'Today'], [7, '7 days'], [30, '30 days']].map(([days, label]) => {
         const range = makeDateRange(days)
@@ -491,7 +482,8 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       <input aria-label="Search by session or phone" name="search" maxLength={40} value={draft.search} onChange={update}
         placeholder={fullPhoneSearch ? 'Session ID or phone' : 'Session ID or masked phone'} />
       <button type="button" onClick={() => applyFilters(initialFilters(tab))}>Reset</button>
-      <button type="button" onClick={exportCsv} disabled={busy || exporting || !data}>Export CSV</button>
+      <button type="button" onClick={() => exportCsv()} disabled={busy || exporting || !data}>{grouped ? 'Export sessions CSV' : 'Export CSV'}</button>
+      {grouped && <button type="button" onClick={() => exportCsv(false)} disabled={busy || exporting || !data}>Export events CSV</button>}
     </div>
     {activeChips.length > 0 && <div className="business-chips" aria-label="Active filters">
       {activeChips.map(chip => <button type="button" key={chip.label} aria-label={'Clear filter: ' + chip.label}
@@ -509,12 +501,15 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
         <label>Delivers<select name="coverage" value={draft.coverage} onChange={update}><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select></label>
         <label>Source<select name="source" value={draft.source} onChange={update}><option value="">All sources</option>{sources.map(source => <option key={source}>{source}</option>)}</select></label>
       </div>
+      {tab !== 'admin' && <label><input type="checkbox" checked={active.checkoutOnly} onChange={event => applyFilters({
+        ...active, checkoutOnly: event.target.checked, status: event.target.checked ? 'Failed' : active.status,
+      })} /> Failed checkout requests</label>}
       {grouped && <label><input type="checkbox" checked={active.includeBackground}
         onChange={event => applyFilters({ ...active, includeBackground: event.target.checked })} /> Include background-only activity</label>}
     </details>
     {error && <p role="alert">{error}</p>}
     <p aria-live="polite">{busy ? 'Loading activity…' : data?.total ? data.total + (grouped ? ' matching rows' : ' matching events') : 'No matching activity'}</p>
-    <div className="business-table"><table><thead><tr>{visibleColumns.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead><tbody>
+    <div className={grouped ? 'business-table business-session-table' : 'business-table'}><table><thead><tr>{visibleColumns.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead><tbody>
       {(data?.rows || []).map((row, index) => {
         const key = row.sessionGroup ? row.sessionId : row.eventId || row.timestamp + index
         const open = expanded?.key === key
@@ -525,11 +520,12 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
               {field === 'sessionId' ? <>{row.sessionId ? <button type="button" className="business-session-link" title={row.sessionId}
                 aria-label={'Filter to session ' + shortId(row.sessionId)} onClick={event => { event.stopPropagation(); selectVisit(row.sessionId) }}>{shortId(row.sessionId)}</button> : 'No session'}</>
               : field === 'timestamp' || field === 'startedAt' ? row[field] ? ist(row[field]) : 'Unknown'
-              : field === 'result' ? <span className="business-badge" data-result={row.result}>{row.result}</span>
+              : field === 'result' ? <span className="business-badge" data-result={row.sessionOutcome && row.sessionOutcome !== 'Order confirmed' && row.result === 'Successful' ? 'Info' : row.result}>{row.sessionOutcome || row.result}</span>
               : field === 'eventCount' ? <>{row.eventCount}{row.backgroundCount > 0 && <small>{row.backgroundCount} background {row.backgroundCount === 1 ? 'call' : 'calls'}</small>}</>
+              : field === 'cartItemCount' ? <>{row.cartItemCount ?? 'Unknown'}{row.cartTotal && <small>Last quote {row.cartTotal}</small>}</>
               : field === 'action' || grouped && field === 'who' ? <button type="button" className="business-detail-trigger"
                 aria-expanded={grouped ? open : undefined} aria-label={(grouped ? 'Toggle timeline for ' : 'View details for ') + row[field]}
-                onClick={event => { event.stopPropagation(); toggleRow(row, key) }}>{row[field]}</button>
+                onClick={event => { event.stopPropagation(); toggleRow(row, key) }}>{row[field]}{field === 'action' && row.activityDetail && <small>{row.activityDetail}</small>}</button>
               : field === 'where' && grouped ? <>{row.where}<small>{row.pincode}</small></>
               : row[field] ?? 'Unknown'}
             </td>)}
@@ -541,11 +537,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
                 onChange={event => setExpanded({ ...expanded, page: 1, background: event.target.checked })} /> Show {row.backgroundCount} background {row.backgroundCount === 1 ? 'call' : 'calls'}</label>}
               {timeline?.loading && row.sessionGroup && <p>Loading timeline…</p>}
               {timeline?.error && row.sessionGroup && <p role="alert">{timeline.error}</p>}
-              {rows?.length > 0 && <ol>{rows.map((event, i) => <li key={event.eventId || event.timestamp + i}>
-                {ist(event.timestamp)} <button type="button" onClick={() => openDetails(event)}>{event.action}</button>
-                <span className="business-badge" data-result={event.result}>{event.result}</span>
-                <small>{event.pincode} · {event.why}</small>
-              </li>)}</ol>}
+              {rows?.length > 0 && <VisitEvents rows={rows} onOpen={openDetails} />}
               {rows?.length === 0 && <p>No foreground events.</p>}
               {row.sessionGroup && timeline?.total > timeline?.perPage && <div className="business-actions" aria-label="Timeline pages">
                 <button type="button" disabled={expanded.page <= 1} onClick={() => setExpanded({ ...expanded, page: expanded.page - 1 })}>Earlier events</button>
@@ -573,11 +565,13 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
       }}
       onClose={() => { backdropPress.current = false; setSelected(null); setJourney(null) }}>
       <form method="dialog"><button autoFocus>Close</button></form>
-      {selected && <><h2>{selected.action}</h2><p>{selected.why}</p>{selected.hint && <p>{selected.hint}</p>}
-        <dl>{Object.entries({ Who: selected.who, Where: selected.where, Pincode: selected.pincode, Device: selected.device, Source: selected.source, ...selected.details }).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value || (selected.who === 'System' ? 'Not applicable' : 'Unknown')}</dd></div>)}</dl>
+      {selected && <><h2>{selected.action}</h2>{selected.why !== 'Not applicable' && <p>{selected.why}</p>}{selected.hint && <p>{selected.hint}</p>}
+        <dl>{Object.entries({ Who: selected.who, Where: selected.where, 'Delivery pincode': selected.pincode === 'Unknown' ? 'No pincode recorded' : selected.pincode,
+          Device: selected.device, Source: selected.source, ...selected.details }).filter(([, value]) => value != null && value !== '')
+          .map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
         {selected.sessionId && <button type="button" onClick={showJourney}>Show visitor journey</button>}
         {journey?.loading && <p>Loading journey…</p>}{journey?.error && <p role="alert">{journey.error}</p>}
-        {journey?.rows && <><h2>Visitor journey</h2>{journey.total > journey.rows.length && <p>Showing the oldest {journey.rows.length} events.</p>}<ol className="business-journey">{journey.rows.map((row, index) => <li key={row.eventId || row.timestamp + index}><strong>{row.action} · {row.result}</strong><br />{ist(row.timestamp)} · {row.pincode}</li>)}</ol></>}
+        {journey?.rows && <><h2>Visitor journey</h2>{journey.total > journey.rows.length && <p>Showing the oldest {journey.rows.length} events.</p>}<VisitEvents rows={journey.rows} /></>}
       </>}
     </dialog>
     {access.ipLocationProvider === 'db-ip' && <AttributionFooter />}
@@ -587,7 +581,7 @@ function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
 export default function Monitoring() {
   const [technical, setTechnical] = useState(false)
   const [access, setAccess] = useState(null)
-  const [tab, setTab] = useState('website')
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('channel') === 'app' ? 'app' : 'website')
   const [unavailable, setUnavailable] = useState(false)
   useEffect(() => {
     let active = true

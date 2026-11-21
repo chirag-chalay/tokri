@@ -1,13 +1,13 @@
 import { isIP } from 'node:net'
 import { failureAlertEnabled } from '../monitoring/failure-alerts.js'
 import { ipLocationProvider } from '../monitoring/ip-location.js'
-import { ACTIVITY_RETENTION_DAYS, ADMIN_RETENTION_DAYS, logSource, recordedReason } from '../monitoring/log-policy.js'
+import { ACTIVITY_RETENTION_DAYS, ADMIN_RETENTION_DAYS, isConfirmedCheckout, logSource, recordedReason } from '../monitoring/log-policy.js'
 import { isLogReason, validVisitorSession, logReasons } from '../../../shared/logReasons.js'
 import { phoneLookupHash } from '../monitoring/visit.js'
 import { readableStatus } from '../../../shared/monitoring.js'
 import { ForbiddenError, ValidationError } from 'adminjs'
 import { prisma } from '../lib/prisma.js'
-import { enrichLogRows } from './monitoring-presentation.js'
+import { commerceLogDetails, enrichLogRows, measurementReason } from './monitoring-presentation.js'
 import { categories } from '../monitoring/sanitize.js'
 import { logContext, logDurable, outboxHealth, persistCriticalLogs, monitoringState, changeDebugSettings, workerCall } from '../monitoring/index.js'
 
@@ -85,7 +85,7 @@ export async function monitoringHandler(request, _response, context) {
         if (!filters.phoneHash) throw new ValidationError({}, { message: 'Enter a valid phone number.' })
       }
     }
-    filters.includeInsights = !filters.journey && query.export !== 'csv' && (!query.page || Number(query.page) === 1)
+    filters.includeInsights = query.includeInsights !== false && !filters.journey && query.export !== 'csv' && (!query.page || Number(query.page) === 1)
     if (query.export === 'csv') { filters.export = 'csv'; filters.page = '1' }
   }
   const outbox = businessRead ? undefined : await outboxHealth()
@@ -103,7 +103,7 @@ export async function monitoringHandler(request, _response, context) {
     if (businessRead) return { rows, total: result.total, perPage: result.perPage, summary: result.summary, insights: result.insights }
     return { ...result, rows: rows.map(({ phoneLookupHash: _hash, ...row }) => row), ...monitoringState(), outbox, canManageDebug: fullAccess }
   }
-  catch { return { rows: [], files: [], total: 0, totalBytes: 0, page: 1, perPage: 50, ...monitoringState(), outbox, canManageDebug, storageError: 'Log storage is unavailable. Check the supervisor stderr stream and storage permissions.' } }
+  catch { return { rows: [], files: [], total: 0, totalBytes: 0, page: 1, perPage: 50, ...monitoringState(), outbox, canManageDebug: fullAccess, storageError: 'Log storage is unavailable. Check the supervisor stderr stream and storage permissions.' } }
 }
 
 const actions = {
@@ -123,6 +123,8 @@ const actions = {
   'cart.removed': 'Item removed from cart',
   'cart.quantity.changed': 'Cart quantity changed',
   'cart.cleared': 'Cart cleared',
+  'cart.snapshot': 'Cart updated',
+  'cart.restored': 'Saved account cart loaded',
 }
 async function businessRows(rows, fullAccess) {
   const ids = [...new Set(rows.map(row => row.verifiedCustomerId).filter(Boolean))]
@@ -144,22 +146,30 @@ async function businessRows(rows, fullAccess) {
     const pin = row.enteredPincode || row.deliveryPin
     const coverage = (row.pincodeServiceable === true || row.deliveryCoverage === 'serviceable') ? 'Yes' : (row.pincodeServiceable === false || row.deliveryCoverage === 'unserviceable') ? 'No' : 'Unknown'
     const deliveryArea = [row.deliveryCity, row.deliveryState].filter(Boolean).join(', ')
-    const status = readableStatus(row)
+    const confirmed = isConfirmedCheckout(row)
+    const status = confirmed ? 'Successful' : readableStatus(row)
     const reasonCode = status === 'Failed' ? recordedReason(row) : undefined
+    const rejection = measurementReason(row.trackingRejection)
     const device = source === 'Backoffice' ? 'Backoffice' : row.platform === 'website' ? ['Website', [row.browser, row.deviceType].filter(Boolean).join(' ')].filter(Boolean).join(', ')
       : row.platform === 'android' ? 'Android app' : row.platform === 'ios' ? 'iPhone app' : row.visitorKind === 'system' ? 'Not applicable' : 'Unknown'
+    const commerce = commerceLogDetails(row)
     return {
       eventId: row.eventId, timestamp: row.timestamp, sessionId: row.sessionId,
       sessionGroup: row.sessionGroup, connectionIp, startedAt: row.startedAt || row.timestamp,
       eventCount: row.eventCount || 1, backgroundCount: row.backgroundCount || 0, cartItemCount: row.cartItemCount,
+      page: commerce.page, product: commerce.product, cartTotal: commerce.total, cartSubtotal: commerce.subtotal,
+      activityDetail: commerce.activityDetail || (row.route === '/api/v1/[other]' && status === 'Failed' ? row.presentation?.description : ''),
+      cartQuote: row.route === '/api/v1/checkout/quote' && Boolean(commerce.total) && status === 'Successful',
+      sessionOutcome: row.sessionGroup ? (row.orderConfirmed ? 'Order confirmed' : status === 'Failed' ? 'Issue recorded' : row.checkoutReached ? 'Reached checkout' : row.addedToCart ? 'Added to cart' : row.openedPage ? 'Browsed' : 'Activity recorded') : undefined,
       who, source, where: where + ({ ip: ' (approximate)', pincode: ' (delivery area)' }[row.locationSource] || ''),
       pincode: pin ? [pin + ', Delivers: ' + coverage, deliveryArea].filter(Boolean).join(' · ') : row.visitorKind === 'system' ? 'Not applicable' : 'Unknown',
-      action: row.route === '/api/v1/geo/pincode' ? 'Delivery pincode checked' : Object.hasOwn(actions, row.event) ? actions[row.event] : row.presentation?.action || 'Activity recorded',
-      why: reasonCode ? logReasons[reasonCode][0] : 'Not applicable',
-      hint: reasonCode ? logReasons[reasonCode][1] : undefined,
+      action: confirmed ? (row.paymentMode === 'cod' || row.route === '/api/v1/checkout/confirm-cod' ? 'Cash on delivery order confirmed' : 'Online payment confirmed') :
+        row.route === '/api/v1/geo/pincode' ? 'Delivery pincode checked' : Object.hasOwn(actions, row.event) ? actions[row.event] : row.presentation?.action || 'Activity recorded',
+      why: rejection || (reasonCode ? logReasons[reasonCode][0] : 'Not applicable'),
+      hint: !rejection && reasonCode ? logReasons[reasonCode][1] : undefined,
       result: status === 'Failed' ? 'Failed' : status === 'Successful' ? 'Successful' : 'Info',
       device,
-      details: { 'Connection IP': connectionIp,
+      details: { ...commerce.details, 'Request status': Number.isInteger(row.httpStatus) && row.httpStatus >= 100 ? `HTTP ${row.httpStatus}` : undefined, 'Connection IP': connectionIp,
         'Customer phone': fullAccess ? phone : maskedPhone, 'Request ID': row.requestId, 'Session ID': row.sessionId, 'Reason code': reasonCode || 'Not applicable',
         'Location source': ({ gps: 'GPS', pincode: 'Delivery pincode', ip: 'IP address (approximate)' })[row.locationSource], 'GPS consent': row.gpsConsent === true ? 'Granted' : row.gpsConsent === false ? 'Denied' : undefined,
         Platform: row.platform, 'App build': row.appBuild || (row.platform === 'website' ? 'Not applicable' : undefined) },
@@ -173,12 +183,13 @@ function toCsv(rows, grouped = false) {
   }
   const time = value => new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
   if (grouped) return [
-    ['Session', 'Who', 'Location', 'Device', 'Started (IST)', 'Last activity (IST)', 'Events', 'Background calls', 'Cart items', 'Outcome'],
+    ['Session', 'Who', 'Location', 'Device', 'Started (IST)', 'Last activity (IST)', 'Events', 'Background calls', 'Cart items', 'Last quoted total', 'Outcome'],
     ...rows.map(row => [row.sessionId || 'No session', row.who, [row.where, row.pincode].join(' · '), row.device,
-      time(row.startedAt), time(row.timestamp), row.eventCount, row.backgroundCount, row.cartItemCount, row.result]),
+      time(row.startedAt), time(row.timestamp), row.eventCount, row.backgroundCount, row.cartItemCount, row.cartTotal, row.sessionOutcome || row.result]),
   ].map(row => row.map(quote).join(',')).join('\r\n')
   return [
-    ['Time (IST)', 'Who', 'Where', 'Pincode', 'What happened', 'Result', 'Why', 'Device', 'Source'],
-    ...rows.map(row => [time(row.timestamp), row.who, row.where, row.pincode, row.action, row.result, row.why, row.device, row.source]),
+    ['Time (IST)', 'Who', 'Where', 'Pincode', 'What happened', 'Page', 'Product', 'Cart items', 'Cart subtotal (browser)', 'Server-calculated total', 'Result', 'Why', 'Device', 'Source'],
+    ...rows.map(row => [time(row.timestamp), row.who, row.where, row.pincode, row.action, row.page || 'Unknown', row.product || 'Not applicable',
+      row.details['Cart items'], row.cartSubtotal, row.cartTotal, row.result, row.why, row.device, row.source]),
   ].map(row => row.map(quote).join(',')).join('\r\n')
 }

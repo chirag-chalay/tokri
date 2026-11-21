@@ -1,13 +1,14 @@
 import { isIP } from 'node:net'
-import { readableStatus } from '../../../shared/monitoring.js'
-import { logSource } from './log-policy.js'
+import { isOptionalTelemetryRoute, readableStatus } from '../../../shared/monitoring.js'
+import { isConfirmedCheckout, logSource, reachedCheckout } from './log-policy.js'
 
 export function isBackgroundCall(row) {
+  if (isOptionalTelemetryRoute(row.route)) return true
   if (readableStatus(row) === 'Failed') return false
-  if (['request.timing', 'website.page.ready'].includes(row.event)) return true
+  if (['request.timing', 'website.page.ready'].includes(row.event) || row.quoteRefresh === true) return true
   if (row.method && row.method !== 'GET') return false
   return /^\/api\/v1\/(?:products|categories)(?:\/|$)/.test(row.route || '') ||
-    ['/api/v1/settings/public', '/api/v1/app/bootstrap'].includes(row.route)
+    ['/api/v1/settings/public', '/api/v1/app/bootstrap', '/api/v1/account/cart', '/api/v1/account/addresses', '/api/v1/auth/me', '/api/v1/geo/reverse'].includes(row.route)
 }
 
 export function belongsToSessionTab(row, tab) {
@@ -49,6 +50,10 @@ export function addSessionEvent(sessions, row, background) {
     session.cartAt = time
     session.cartItemCount = row.cartItemCount
   }
+  if (Number.isFinite(row.grandTotal) && row.route === '/api/v1/checkout/quote' && (!session.quoteAt || time >= session.quoteAt)) {
+    session.quoteAt = time
+    session.grandTotal = row.grandTotal
+  }
   const hasPin = typeof row.pincodeServiceable === 'boolean' && /^\d{6}$/.test(row.enteredPincode || '')
   if (hasPin && (!session.pinAt || time >= session.pinAt)) {
     session.pinAt = time
@@ -59,8 +64,13 @@ export function addSessionEvent(sessions, row, background) {
     for (const key of ['locationCity', 'locationState', 'locationCountry', 'locationSource']) session[key] = row[key]
   }
   const outcome = readableStatus(row)
-  const paid = ['paid', 'captured'].includes(row.paymentStatus) || (row.route === '/api/v1/checkout/confirm-cod' && outcome === 'Successful')
-  if (paid || (outcome === 'Failed' && session.status !== 'success')) session.status = paid ? 'success' : 'failure'
+  const paid = isConfirmedCheckout(row)
+  session.orderConfirmed ||= paid
+  session.checkoutReached ||= reachedCheckout(row)
+  session.addedToCart ||= row.event === 'cart.added' || row.event === 'cart.quantity.changed' && row.delta > 0
+  session.openedPage ||= row.event === 'website.navigation'
+  const customerIssue = outcome === 'Failed' && !background && row.route !== '/api/v1/[other]' && row.event !== 'frontend.error'
+  if (paid || (customerIssue && session.status !== 'success')) session.status = paid ? 'success' : 'failure'
   else if (outcome === 'Successful' && !background && session.status === 'observed') session.activitySucceeded = true
   return session
 }
