@@ -5,6 +5,7 @@ import { parseDocument } from 'htmlparser2'
 import { findAll, textContent } from 'domutils'
 import { publicGet } from './public-api'
 import { canonicalOrigin } from './indexing'
+import { toAbsoluteUrl, generateProductSeo } from './seo-defaults'
 
 export const getProduct = cache((slug) => publicGet(`/products/${encodeURIComponent(slug)}`))
 export const getBlog = cache((slug) => publicGet(`/blogs/${encodeURIComponent(slug)}`))
@@ -29,16 +30,32 @@ export function assetUrl(value) {
 }
 
 export function detailMetadata(kind, item) {
-  const title = kind === 'product' ? item.name : item.title
-  const description = plainText(kind === 'product' ? item.description : item.excerpt)
+  if (kind === 'product') {
+    return generateProductSeo(item).metadata
+  }
+  const title = item.title
+  const description = plainText(item.excerpt)
   const canonical = `${canonicalOrigin}/${kind}/${encodeURIComponent(item.slug)}`
-  const image = kind === 'product' ? item.image : item.coverImage
+  const rawImage = item.coverImage
+  const absoluteImage = toAbsoluteUrl(rawImage)
+
   return {
-    title: `${title} · Tokriii`, ...(description ? { description } : {}),
+    title: `${title} · Tokriii`,
+    ...(description ? { description } : {}),
     alternates: { canonical },
-    openGraph: { title: `${title} · Tokriii`, ...(description ? { description } : {}), url: canonical,
-      type: kind === 'blog' ? 'article' : 'website',
-      ...(typeof image === 'string' && /^https?:\/\//i.test(image) ? { images: [image] } : {}) },
+    openGraph: {
+      title: `${title} · Tokriii`,
+      ...(description ? { description } : {}),
+      url: canonical,
+      type: 'article',
+      ...(absoluteImage ? { images: [{ url: absoluteImage, alt: title }] } : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} · Tokriii`,
+      ...(description ? { description } : {}),
+      ...(absoluteImage ? { images: [absoluteImage] } : {}),
+    },
   }
 }
 

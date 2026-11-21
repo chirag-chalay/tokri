@@ -722,7 +722,9 @@ export default function ShopAllPage({ initialData }) {
       style={lockedHeight ? { height: `${lockedHeight}px` } : undefined}
     >
       <div className="mx-auto flex w-full min-h-0 max-w-7xl flex-1 flex-col overflow-x-clip px-2 pt-5 sm:px-3 sm:pt-6 lg:px-4 lg:pt-8">
-        <p className="mx-2.5 mb-5 shrink-0 text-xl capitalize text-white">Shop all</p>
+        <h1 className="mx-2.5 mb-5 shrink-0 text-xl font-bold capitalize text-white">
+          {requestedSlug ? (categories.find((c) => c.slug === activeSlug)?.label || categories.find((c) => c.slug === requestedSlug)?.label || 'Shop all') : 'Shop all'}
+        </h1>
 
         {/* Mobile scrolls this whole block — the shop box, then the footer — so the
             rail can pin itself while products last and slide away at the very end.

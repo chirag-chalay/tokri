@@ -1,0 +1,3673 @@
+[
+  {
+    "route": {
+      "type": "core",
+      "path": "/"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/",
+        "ogTitle": "Tokriii — Premium & Exotic Fruits",
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Tokriii — Premium & Exotic Fruits",
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 7,
+        "imageCount": 72,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 214205
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Tokriii — Buy Fresh, Exotic & Imported Fruits Online in Delhi NCR",
+        "description": "Order handpicked, farm-fresh, exotic & imported fruits online at Tokriii. Enjoy morning delivery before 7 AM across Delhi NCR & Gurugram. 100% freshness guaranteed.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/",
+        "ogTitle": "Tokriii — Buy Fresh, Exotic & Imported Fruits Online in Delhi NCR",
+        "ogDescription": "Order handpicked, farm-fresh, exotic & imported fruits online at Tokriii. Enjoy morning delivery before 7 AM across Delhi NCR & Gurugram. 100% freshness guaranteed.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Tokriii — Buy Fresh, Exotic & Imported Fruits Online in Delhi NCR",
+        "twitterDescription": "Order handpicked, farm-fresh, exotic & imported fruits online at Tokriii. Enjoy morning delivery before 7 AM across Delhi NCR & Gurugram. 100% freshness guaranteed.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Tokriii — Farm-Fresh, Exotic & Imported Fruits Delivered in Delhi NCR"
+        ],
+        "h2Count": 7,
+        "imageCount": 73,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 224299
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "core",
+      "path": "/shop"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Shop · Tokriii",
+        "description": null,
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop",
+        "ogTitle": "Shop · Tokriii",
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/shop",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Shop · Tokriii",
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 29,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 87571
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Online Fruit Store — Shop Fresh, Exotic & Dry Fruits · Tokriii",
+        "description": "Browse Tokriii's complete catalog of fresh, exotic, imported & seasonal fruits, dry fruits, and luxury gift hampers. Fast doorstep delivery in Delhi NCR & Gurugram.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop",
+        "ogTitle": "Online Fruit Store — Shop Fresh, Exotic & Dry Fruits · Tokriii",
+        "ogDescription": "Browse Tokriii's complete catalog of fresh, exotic, imported & seasonal fruits, dry fruits, and luxury gift hampers. Fast doorstep delivery in Delhi NCR & Gurugram.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/shop",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Online Fruit Store — Shop Fresh, Exotic & Dry Fruits · Tokriii",
+        "twitterDescription": "Browse Tokriii's complete catalog of fresh, exotic, imported & seasonal fruits, dry fruits, and luxury gift hampers. Fast doorstep delivery in Delhi NCR & Gurugram.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Shop all"
+        ],
+        "h2Count": 0,
+        "imageCount": 30,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 98104
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "core",
+      "path": "/blog"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Blog · Tokriii",
+        "description": null,
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog",
+        "ogTitle": "Blog · Tokriii",
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/blog",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Blog · Tokriii",
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [
+          "Blog"
+        ],
+        "h2Count": 8,
+        "imageCount": 13,
+        "imagesWithoutAlt": 9,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 42356
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "The Tokriii Journal — Seasonal Fruit Guides, Nutrition & Recipes",
+        "description": "Read fruit buying guides, seasonal availability tips, nutritional insights, and healthy recipes curated by Tokriii's fruit experts for Indian households.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog",
+        "ogTitle": "The Tokriii Journal — Seasonal Fruit Guides, Nutrition & Recipes",
+        "ogDescription": "Read fruit buying guides, seasonal availability tips, nutritional insights, and healthy recipes curated by Tokriii's fruit experts for Indian households.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/blog",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "The Tokriii Journal — Seasonal Fruit Guides, Nutrition & Recipes",
+        "twitterDescription": "Read fruit buying guides, seasonal availability tips, nutritional insights, and healthy recipes curated by Tokriii's fruit experts for Indian households.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Blog"
+        ],
+        "h2Count": 8,
+        "imageCount": 13,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 49620
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=exotic",
+      "slug": "exotic",
+      "label": "Exotic Fruits"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Exotic Fruits · Tokriii",
+        "description": "Explore unique exotic fruits with bold flavors, imported and specialty picks.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=exotic",
+        "ogTitle": "Exotic Fruits · Tokriii",
+        "ogDescription": "Explore unique exotic fruits with bold flavors, imported and specialty picks.",
+        "ogImage": "https://tokriii.com/uploads/categories/exotic-fruits-1788211852957.webp",
+        "ogUrl": "https://tokriii.com/shop?category=exotic",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Exotic Fruits · Tokriii",
+        "twitterDescription": "Explore unique exotic fruits with bold flavors, imported and specialty picks.",
+        "twitterImage": "https://tokriii.com/uploads/categories/exotic-fruits-1788211852957.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 29,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 89052
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Exotic Fruits Online — Dragon Fruit, Berries, Avocados · Tokriii",
+        "description": "Buy rare & exotic fruits online: fresh dragon fruit, rambutan, mangosteen, passion fruit, Haas avocados, and fresh blueberries with fast doorstep delivery.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=exotic",
+        "ogTitle": "Exotic Fruits Online — Dragon Fruit, Berries, Avocados · Tokriii",
+        "ogDescription": "Buy rare & exotic fruits online: fresh dragon fruit, rambutan, mangosteen, passion fruit, Haas avocados, and fresh blueberries with fast doorstep delivery.",
+        "ogImage": "https://tokriii.com/uploads/categories/exotic-fruits-1788211852957.webp",
+        "ogUrl": "https://tokriii.com/shop?category=exotic",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Exotic Fruits Online — Dragon Fruit, Berries, Avocados · Tokriii",
+        "twitterDescription": "Buy rare & exotic fruits online: fresh dragon fruit, rambutan, mangosteen, passion fruit, Haas avocados, and fresh blueberries with fast doorstep delivery.",
+        "twitterImage": "https://tokriii.com/uploads/categories/exotic-fruits-1788211852957.webp",
+        "h1s": [
+          "Exotic Fruits"
+        ],
+        "h2Count": 0,
+        "imageCount": 30,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 98256
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=fresh-fruits",
+      "slug": "fresh-fruits",
+      "label": "Fresh Fruits"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Fresh Fruits · Tokriii",
+        "description": "Enjoy a curated range of locally sourced fruits, picked at the peak of ripeness for flavor and freshness.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=fresh-fruits",
+        "ogTitle": "Fresh Fruits · Tokriii",
+        "ogDescription": "Enjoy a curated range of locally sourced fruits, picked at the peak of ripeness for flavor and freshness.",
+        "ogImage": "https://tokriii.com/uploads/categories/fresh-fruits-1788212012820.webp",
+        "ogUrl": "https://tokriii.com/shop?category=fresh-fruits",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fresh Fruits · Tokriii",
+        "twitterDescription": "Enjoy a curated range of locally sourced fruits, picked at the peak of ripeness for flavor and freshness.",
+        "twitterImage": "https://tokriii.com/uploads/categories/fresh-fruits-1788212012820.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 32,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 84185
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Fresh Fruits Online — Farm-Fresh Daily Fruits · Tokriii Delhi NCR",
+        "description": "Buy farm-fresh seasonal apples, bananas, pomegranates, and daily fruits online at Tokriii. Handpicked at peak ripeness and delivered fresh in Delhi NCR.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=fresh-fruits",
+        "ogTitle": "Fresh Fruits Online — Farm-Fresh Daily Fruits · Tokriii Delhi NCR",
+        "ogDescription": "Buy farm-fresh seasonal apples, bananas, pomegranates, and daily fruits online at Tokriii. Handpicked at peak ripeness and delivered fresh in Delhi NCR.",
+        "ogImage": "https://tokriii.com/uploads/categories/fresh-fruits-1788212012820.webp",
+        "ogUrl": "https://tokriii.com/shop?category=fresh-fruits",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fresh Fruits Online — Farm-Fresh Daily Fruits · Tokriii Delhi NCR",
+        "twitterDescription": "Buy farm-fresh seasonal apples, bananas, pomegranates, and daily fruits online at Tokriii. Handpicked at peak ripeness and delivered fresh in Delhi NCR.",
+        "twitterImage": "https://tokriii.com/uploads/categories/fresh-fruits-1788212012820.webp",
+        "h1s": [
+          "Fresh Fruits"
+        ],
+        "h2Count": 0,
+        "imageCount": 34,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 95392
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=fruit-hampers-combo-boxes",
+      "slug": "fruit-hampers-combo-boxes",
+      "label": "Fruit Hampers & Combo Boxes"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Fruit Hampers & Combo Boxes · Tokriii",
+        "description": "All mixed baskets and combination packs.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=fruit-hampers-combo-boxes",
+        "ogTitle": "Fruit Hampers & Combo Boxes · Tokriii",
+        "ogDescription": "All mixed baskets and combination packs.",
+        "ogImage": "https://tokriii.com/uploads/categories/fresh-fruit-hampers---gift-boxes-1793564370373.webp",
+        "ogUrl": "https://tokriii.com/shop?category=fruit-hampers-combo-boxes",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fruit Hampers & Combo Boxes · Tokriii",
+        "twitterDescription": "All mixed baskets and combination packs.",
+        "twitterImage": "https://tokriii.com/uploads/categories/fresh-fruit-hampers---gift-boxes-1793564370373.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 30,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 74256
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Luxury Fruit Hampers & Gift Combo Boxes Online · Tokriii",
+        "description": "Order exquisitely packaged fruit gift hampers and celebration combo boxes for festivals, weddings, and corporate gifting. Custom fruit baskets delivered in Delhi NCR.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=fruit-hampers-combo-boxes",
+        "ogTitle": "Luxury Fruit Hampers & Gift Combo Boxes Online · Tokriii",
+        "ogDescription": "Order exquisitely packaged fruit gift hampers and celebration combo boxes for festivals, weddings, and corporate gifting. Custom fruit baskets delivered in Delhi NCR.",
+        "ogImage": "https://tokriii.com/uploads/categories/fresh-fruit-hampers---gift-boxes-1793564370373.webp",
+        "ogUrl": "https://tokriii.com/shop?category=fruit-hampers-combo-boxes",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Luxury Fruit Hampers & Gift Combo Boxes Online · Tokriii",
+        "twitterDescription": "Order exquisitely packaged fruit gift hampers and celebration combo boxes for festivals, weddings, and corporate gifting. Custom fruit baskets delivered in Delhi NCR.",
+        "twitterImage": "https://tokriii.com/uploads/categories/fresh-fruit-hampers---gift-boxes-1793564370373.webp",
+        "h1s": [
+          "Fruit Hampers & Combo Boxes"
+        ],
+        "h2Count": 0,
+        "imageCount": 37,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 98338
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=premium",
+      "slug": "premium",
+      "label": "Premium"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Premium · Tokriii",
+        "description": "Handpicked premium produce, perfect for gift baskets, celebrations, and special occasions.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=premium",
+        "ogTitle": "Premium · Tokriii",
+        "ogDescription": "Handpicked premium produce, perfect for gift baskets, celebrations, and special occasions.",
+        "ogImage": "https://tokriii.com/uploads/categories/premium-1788211930000.webp",
+        "ogUrl": "https://tokriii.com/shop?category=premium",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Premium · Tokriii",
+        "twitterDescription": "Handpicked premium produce, perfect for gift baskets, celebrations, and special occasions.",
+        "twitterImage": "https://tokriii.com/uploads/categories/premium-1788211930000.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 38,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 107812
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Premium Fruits Online — Selected Grade-A Quality · Tokriii",
+        "description": "Discover Tokriii's premium fruit collection featuring hand-selected Zespri Kiwis, Shine Muscat grapes, imported berries, and flawless gourmet fruits.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=premium",
+        "ogTitle": "Premium Fruits Online — Selected Grade-A Quality · Tokriii",
+        "ogDescription": "Discover Tokriii's premium fruit collection featuring hand-selected Zespri Kiwis, Shine Muscat grapes, imported berries, and flawless gourmet fruits.",
+        "ogImage": "https://tokriii.com/uploads/categories/premium-1788211930000.webp",
+        "ogUrl": "https://tokriii.com/shop?category=premium",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Premium Fruits Online — Selected Grade-A Quality · Tokriii",
+        "twitterDescription": "Discover Tokriii's premium fruit collection featuring hand-selected Zespri Kiwis, Shine Muscat grapes, imported berries, and flawless gourmet fruits.",
+        "twitterImage": "https://tokriii.com/uploads/categories/premium-1788211930000.webp",
+        "h1s": [
+          "Premium"
+        ],
+        "h2Count": 0,
+        "imageCount": 38,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 118581
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=imported",
+      "slug": "imported",
+      "label": "Imported Fruits"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Imported Fruits · Tokriii",
+        "description": "Choose from the best imported fruits sourced from around the world and delivered fast.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=imported",
+        "ogTitle": "Imported Fruits · Tokriii",
+        "ogDescription": "Choose from the best imported fruits sourced from around the world and delivered fast.",
+        "ogImage": "https://tokriii.com/uploads/categories/imported-fruits-1788211890907.webp",
+        "ogUrl": "https://tokriii.com/shop?category=imported",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Imported Fruits · Tokriii",
+        "twitterDescription": "Choose from the best imported fruits sourced from around the world and delivered fast.",
+        "twitterImage": "https://tokriii.com/uploads/categories/imported-fruits-1788211890907.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 38,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 109034
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Imported Fruits Online — Global Fresh Fruits Delivery · Tokriii",
+        "description": "Order authentic imported fruits online: Washington & Pink Lady apples, USA cherries, Egyptian citrus, avocados, and blueberries delivered in Delhi NCR.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=imported",
+        "ogTitle": "Imported Fruits Online — Global Fresh Fruits Delivery · Tokriii",
+        "ogDescription": "Order authentic imported fruits online: Washington & Pink Lady apples, USA cherries, Egyptian citrus, avocados, and blueberries delivered in Delhi NCR.",
+        "ogImage": "https://tokriii.com/uploads/categories/imported-fruits-1788211890907.webp",
+        "ogUrl": "https://tokriii.com/shop?category=imported",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Imported Fruits Online — Global Fresh Fruits Delivery · Tokriii",
+        "twitterDescription": "Order authentic imported fruits online: Washington & Pink Lady apples, USA cherries, Egyptian citrus, avocados, and blueberries delivered in Delhi NCR.",
+        "twitterImage": "https://tokriii.com/uploads/categories/imported-fruits-1788211890907.webp",
+        "h1s": [
+          "Imported Fruits"
+        ],
+        "h2Count": 0,
+        "imageCount": 38,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 120367
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=dry-fruits",
+      "slug": "dry-fruits",
+      "label": "Dry Fruits"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Dry Fruits · Tokriii",
+        "description": null,
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=dry-fruits",
+        "ogTitle": "Dry Fruits · Tokriii",
+        "ogDescription": null,
+        "ogImage": "https://tokriii.com/uploads/categories/dry-fruits-1788211820689.webp",
+        "ogUrl": "https://tokriii.com/shop?category=dry-fruits",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Dry Fruits · Tokriii",
+        "twitterDescription": null,
+        "twitterImage": "https://tokriii.com/uploads/categories/dry-fruits-1788211820689.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 16,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 44622
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Premium Dry Fruits & Nuts Online — Almonds, Walnuts · Tokriii",
+        "description": "Buy premium quality dry fruits online: Mamra almonds, Chandler walnuts, Medjool dates, and pine nuts. Vacuum-packed for freshness and rich nutrition.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=dry-fruits",
+        "ogTitle": "Premium Dry Fruits & Nuts Online — Almonds, Walnuts · Tokriii",
+        "ogDescription": "Buy premium quality dry fruits online: Mamra almonds, Chandler walnuts, Medjool dates, and pine nuts. Vacuum-packed for freshness and rich nutrition.",
+        "ogImage": "https://tokriii.com/uploads/categories/dry-fruits-1788211820689.webp",
+        "ogUrl": "https://tokriii.com/shop?category=dry-fruits",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Premium Dry Fruits & Nuts Online — Almonds, Walnuts · Tokriii",
+        "twitterDescription": "Buy premium quality dry fruits online: Mamra almonds, Chandler walnuts, Medjool dates, and pine nuts. Vacuum-packed for freshness and rich nutrition.",
+        "twitterImage": "https://tokriii.com/uploads/categories/dry-fruits-1788211820689.webp",
+        "h1s": [
+          "Dry Fruits"
+        ],
+        "h2Count": 0,
+        "imageCount": 16,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 48830
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=tropical",
+      "slug": "tropical",
+      "label": "Tropical Fruits"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Tropical fruits · Tokriii",
+        "description": "Fresh tropical fruits packed with sweet, juicy flavor and rich color.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=tropical",
+        "ogTitle": "Tropical fruits · Tokriii",
+        "ogDescription": "Fresh tropical fruits packed with sweet, juicy flavor and rich color.",
+        "ogImage": "https://tokriii.com/uploads/categories/tropical-fruits-1788211978440.webp",
+        "ogUrl": "https://tokriii.com/shop?category=tropical",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Tropical fruits · Tokriii",
+        "twitterDescription": "Fresh tropical fruits packed with sweet, juicy flavor and rich color.",
+        "twitterImage": "https://tokriii.com/uploads/categories/tropical-fruits-1788211978440.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 33,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 86902
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Tropical Fruits Online — Guavas, Coconuts & Papayas · Tokriii",
+        "description": "Shop luscious tropical fruits online at Tokriii: tender coconuts, Thai pink guavas, ripe papayas, sweet limes, and pineapples in Delhi NCR & Gurugram.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=tropical",
+        "ogTitle": "Tropical Fruits Online — Guavas, Coconuts & Papayas · Tokriii",
+        "ogDescription": "Shop luscious tropical fruits online at Tokriii: tender coconuts, Thai pink guavas, ripe papayas, sweet limes, and pineapples in Delhi NCR & Gurugram.",
+        "ogImage": "https://tokriii.com/uploads/categories/tropical-fruits-1788211978440.webp",
+        "ogUrl": "https://tokriii.com/shop?category=tropical",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Tropical Fruits Online — Guavas, Coconuts & Papayas · Tokriii",
+        "twitterDescription": "Shop luscious tropical fruits online at Tokriii: tender coconuts, Thai pink guavas, ripe papayas, sweet limes, and pineapples in Delhi NCR & Gurugram.",
+        "twitterImage": "https://tokriii.com/uploads/categories/tropical-fruits-1788211978440.webp",
+        "h1s": [
+          "Tropical Fruits"
+        ],
+        "h2Count": 0,
+        "imageCount": 34,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 96830
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=melons",
+      "slug": "melons",
+      "label": "Melons"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Melons · Tokriii",
+        "description": "Choose from sweet watermelons, honeydews, and other melon varieties that are ripe and refreshing.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=melons",
+        "ogTitle": "Melons · Tokriii",
+        "ogDescription": "Choose from sweet watermelons, honeydews, and other melon varieties that are ripe and refreshing.",
+        "ogImage": "https://tokriii.com/uploads/categories/melons-1788211912689.webp",
+        "ogUrl": "https://tokriii.com/shop?category=melons",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Melons · Tokriii",
+        "twitterDescription": "Choose from sweet watermelons, honeydews, and other melon varieties that are ripe and refreshing.",
+        "twitterImage": "https://tokriii.com/uploads/categories/melons-1788211912689.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 17,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 48127
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Fresh Melons Online — Sweet Watermelon & Muskmelon · Tokriii",
+        "description": "Order juicy fresh watermelons, sun melons, and sweet muskmelons online. Naturally sweet, hydrating, and hand-inspected for ripeness by Tokriii.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=melons",
+        "ogTitle": "Fresh Melons Online — Sweet Watermelon & Muskmelon · Tokriii",
+        "ogDescription": "Order juicy fresh watermelons, sun melons, and sweet muskmelons online. Naturally sweet, hydrating, and hand-inspected for ripeness by Tokriii.",
+        "ogImage": "https://tokriii.com/uploads/categories/melons-1788211912689.webp",
+        "ogUrl": "https://tokriii.com/shop?category=melons",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fresh Melons Online — Sweet Watermelon & Muskmelon · Tokriii",
+        "twitterDescription": "Order juicy fresh watermelons, sun melons, and sweet muskmelons online. Naturally sweet, hydrating, and hand-inspected for ripeness by Tokriii.",
+        "twitterImage": "https://tokriii.com/uploads/categories/melons-1788211912689.webp",
+        "h1s": [
+          "Melons"
+        ],
+        "h2Count": 0,
+        "imageCount": 17,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 51411
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-query",
+      "path": "/shop?category=daily-fruits",
+      "slug": "daily-fruits",
+      "label": "Daily Fruits"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Daily Fruits · Tokriii",
+        "description": "Enjoy nature’s goodness every day with our fresh selection of delicious fruits. From crisp apples and juicy oranges to sweet grapes and seasonal favourites, discover fruits packed with natural flavour and essential nutrients. Perfect for everyday snacking, healthy breakfasts, and refreshing treats.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/shop?category=daily-fruits",
+        "ogTitle": "Daily Fruits · Tokriii",
+        "ogDescription": "Enjoy nature’s goodness every day with our fresh selection of delicious fruits. From crisp apples and juicy oranges to sweet grapes and seasonal favourites, discover fruits packed with natural flavour and essential nutrients. Perfect for everyday snacking, healthy breakfasts, and refreshing treats.",
+        "ogImage": "https://tokriii.com/uploads/categories/daily-fruits-category-thumb-1792614626065.webp",
+        "ogUrl": "https://tokriii.com/shop?category=daily-fruits",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Daily Fruits · Tokriii",
+        "twitterDescription": "Enjoy nature’s goodness every day with our fresh selection of delicious fruits. From crisp apples and juicy oranges to sweet grapes and seasonal favourites, discover fruits packed with natural flavour and essential nutrients. Perfect for everyday snacking, healthy breakfasts, and refreshing treats.",
+        "twitterImage": "https://tokriii.com/uploads/categories/daily-fruits-category-thumb-1792614626065.webp",
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 20,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 56362
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Daily Fruits Online — Essential Everyday Fresh Fruits · Tokriii",
+        "description": "Stock up on daily essential fruits for your family: bananas, seasonal apples, citrus, and sweet limes delivered before 7 AM every morning in Delhi NCR.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shop?category=daily-fruits",
+        "ogTitle": "Daily Fruits Online — Essential Everyday Fresh Fruits · Tokriii",
+        "ogDescription": "Stock up on daily essential fruits for your family: bananas, seasonal apples, citrus, and sweet limes delivered before 7 AM every morning in Delhi NCR.",
+        "ogImage": "https://tokriii.com/uploads/categories/daily-fruits-category-thumb-1792614626065.webp",
+        "ogUrl": "https://tokriii.com/shop?category=daily-fruits",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Daily Fruits Online — Essential Everyday Fresh Fruits · Tokriii",
+        "twitterDescription": "Stock up on daily essential fruits for your family: bananas, seasonal apples, citrus, and sweet limes delivered before 7 AM every morning in Delhi NCR.",
+        "twitterImage": "https://tokriii.com/uploads/categories/daily-fruits-category-thumb-1792614626065.webp",
+        "h1s": [
+          "Daily Fruits"
+        ],
+        "h2Count": 0,
+        "imageCount": 20,
+        "imagesWithoutAlt": 10,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 59351
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/exotic",
+      "slug": "exotic",
+      "label": "Exotic Fruits"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=exotic",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=exotic",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/fresh-fruits",
+      "slug": "fresh-fruits",
+      "label": "Fresh Fruits"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=fresh-fruits",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=fresh-fruits",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/fruit-hampers-combo-boxes",
+      "slug": "fruit-hampers-combo-boxes",
+      "label": "Fruit Hampers & Combo Boxes"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=fruit-hampers-combo-boxes",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=fruit-hampers-combo-boxes",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/premium",
+      "slug": "premium",
+      "label": "Premium"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=premium",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=premium",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/imported",
+      "slug": "imported",
+      "label": "Imported Fruits"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=imported",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=imported",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/dry-fruits",
+      "slug": "dry-fruits",
+      "label": "Dry Fruits"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=dry-fruits",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=dry-fruits",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/tropical",
+      "slug": "tropical",
+      "label": "Tropical Fruits"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=tropical",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=tropical",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/melons",
+      "slug": "melons",
+      "label": "Melons"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=melons",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=melons",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "category-slug",
+      "path": "/category/daily-fruits",
+      "slug": "daily-fruits",
+      "label": "Daily Fruits"
+    },
+    "live": {
+      "status": 307,
+      "headers": {
+        "location": "/shop?category=daily-fruits",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 308,
+      "headers": {
+        "location": "/shop?category=daily-fruits",
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/ultimate-luxury-fruit-hamper",
+      "name": "Ultimate Luxury Fruit Hamper"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Ultimate Luxury Fruit Hamper · Tokriii",
+        "description": "A generous luxury fruit hamper bringing together green, red, and Beauty Pears; Granny Smith, Royal Gala, and Fuji apples; Red Globe and Shine Muscat grapes; Malta, mandarins, Gold and Green Kiwi, Medjool dates, blueberries, avocado, dragon fruit, and tamarind. Ideal for special occasions, large family gatherings, and premium gifting.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/ultimate-luxury-fruit-hamper",
+        "ogTitle": "Ultimate Luxury Fruit Hamper · Tokriii",
+        "ogDescription": "A generous luxury fruit hamper bringing together green, red, and Beauty Pears; Granny Smith, Royal Gala, and Fuji apples; Red Globe and Shine Muscat grapes; Malta, mandarins, Gold and Green Kiwi, Medjool dates, blueberries, avocado, dragon fruit, and tamarind. Ideal for special occasions, large family gatherings, and premium gifting.",
+        "ogImage": "https://tokriii.com/uploads/products/ultimate-luxury-fruit-hamper-prod-1793645956239.webp",
+        "ogUrl": "https://tokriii.com/product/ultimate-luxury-fruit-hamper",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Ultimate Luxury Fruit Hamper · Tokriii",
+        "twitterDescription": "A generous luxury fruit hamper bringing together green, red, and Beauty Pears; Granny Smith, Royal Gala, and Fuji apples; Red Globe and Shine Muscat grapes; Malta, mandarins, Gold and Green Kiwi, Medjool dates, blueberries, avocado, dragon fruit, and tamarind. Ideal for special occasions, large family gatherings, and premium gifting.",
+        "twitterImage": "https://tokriii.com/uploads/products/ultimate-luxury-fruit-hamper-prod-1793645956239.webp",
+        "h1s": [
+          "Ultimate Luxury Fruit Hamper"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 69010
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Ultimate Luxury Fruit Hamper · Tokriii",
+        "description": "A generous luxury fruit hamper bringing together green, red, and Beauty Pears; Granny Smith, Royal Gala, and Fuji apples; Red Globe and Shine Muscat grapes; Malta, mandarins, Gold and Green Kiwi, Medjool dates, blueberries, avocado, dragon fruit, and tamarind. Ideal for special occasions, large family gatherings, and premium gifting.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/ultimate-luxury-fruit-hamper",
+        "ogTitle": "Ultimate Luxury Fruit Hamper · Tokriii",
+        "ogDescription": "A generous luxury fruit hamper bringing together green, red, and Beauty Pears; Granny Smith, Royal Gala, and Fuji apples; Red Globe and Shine Muscat grapes; Malta, mandarins, Gold and Green Kiwi, Medjool dates, blueberries, avocado, dragon fruit, and tamarind. Ideal for special occasions, large family gatherings, and premium gifting.",
+        "ogImage": "https://tokriii.com/uploads/products/ultimate-luxury-fruit-hamper-prod-1793645956239.webp",
+        "ogUrl": "https://tokriii.com/product/ultimate-luxury-fruit-hamper",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Ultimate Luxury Fruit Hamper · Tokriii",
+        "twitterDescription": "A generous luxury fruit hamper bringing together green, red, and Beauty Pears; Granny Smith, Royal Gala, and Fuji apples; Red Globe and Shine Muscat grapes; Malta, mandarins, Gold and Green Kiwi, Medjool dates, blueberries, avocado, dragon fruit, and tamarind. Ideal for special occasions, large family gatherings, and premium gifting.",
+        "twitterImage": "https://tokriii.com/uploads/products/ultimate-luxury-fruit-hamper-prod-1793645956239.webp",
+        "h1s": [
+          "Ultimate Luxury Fruit Hamper"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 69504
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/premium-family-fruit-feast-basket",
+      "name": "Premium Family Fruit Feast Basket"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Premium Family Fruit Feast Basket · Tokriii",
+        "description": "A thoughtfully varied fruit basket featuring avocado, Fuji and Granny Smith apples, green and red pears, Beauty Pear, Red Globe and Shine Muscat grapes, blueberries, mandarins, and Malta. A premium mix for family gatherings and everyday enjoyment.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/premium-family-fruit-feast-basket",
+        "ogTitle": "Premium Family Fruit Feast Basket · Tokriii",
+        "ogDescription": "A thoughtfully varied fruit basket featuring avocado, Fuji and Granny Smith apples, green and red pears, Beauty Pear, Red Globe and Shine Muscat grapes, blueberries, mandarins, and Malta. A premium mix for family gatherings and everyday enjoyment.",
+        "ogImage": "https://tokriii.com/uploads/products/premium-family-fruit-feast-basket-prod-1793645738213.webp",
+        "ogUrl": "https://tokriii.com/product/premium-family-fruit-feast-basket",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Premium Family Fruit Feast Basket · Tokriii",
+        "twitterDescription": "A thoughtfully varied fruit basket featuring avocado, Fuji and Granny Smith apples, green and red pears, Beauty Pear, Red Globe and Shine Muscat grapes, blueberries, mandarins, and Malta. A premium mix for family gatherings and everyday enjoyment.",
+        "twitterImage": "https://tokriii.com/uploads/products/premium-family-fruit-feast-basket-prod-1793645738213.webp",
+        "h1s": [
+          "Premium Family Fruit Feast Basket"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 68277
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Premium Family Fruit Feast Basket · Tokriii",
+        "description": "A thoughtfully varied fruit basket featuring avocado, Fuji and Granny Smith apples, green and red pears, Beauty Pear, Red Globe and Shine Muscat grapes, blueberries, mandarins, and Malta. A premium mix for family gatherings and everyday enjoyment.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/premium-family-fruit-feast-basket",
+        "ogTitle": "Premium Family Fruit Feast Basket · Tokriii",
+        "ogDescription": "A thoughtfully varied fruit basket featuring avocado, Fuji and Granny Smith apples, green and red pears, Beauty Pear, Red Globe and Shine Muscat grapes, blueberries, mandarins, and Malta. A premium mix for family gatherings and everyday enjoyment.",
+        "ogImage": "https://tokriii.com/uploads/products/premium-family-fruit-feast-basket-prod-1793645738213.webp",
+        "ogUrl": "https://tokriii.com/product/premium-family-fruit-feast-basket",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Premium Family Fruit Feast Basket · Tokriii",
+        "twitterDescription": "A thoughtfully varied fruit basket featuring avocado, Fuji and Granny Smith apples, green and red pears, Beauty Pear, Red Globe and Shine Muscat grapes, blueberries, mandarins, and Malta. A premium mix for family gatherings and everyday enjoyment.",
+        "twitterImage": "https://tokriii.com/uploads/products/premium-family-fruit-feast-basket-prod-1793645738213.webp",
+        "h1s": [
+          "Premium Family Fruit Feast Basket"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 68791
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/grand-royal-exotic-fruit-celebration-basket",
+      "name": "Grand Royal Exotic Fruit Celebration Basket"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Grand Royal Exotic Fruit Celebration Basket · Tokriii",
+        "description": "A grand assortment of premium fruits featuring Medjool and Kimia Gold dates, multiple apple varieties, mandarins, Malta, dragon fruit, brown coconut, red and green pears, Beauty Pear, avocado, Gold and Green Kiwi, blueberries, Shine Muscat, and Red Globe grapes. A generous basket for celebrations, gifting, and sharing.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/grand-royal-exotic-fruit-celebration-basket",
+        "ogTitle": "Grand Royal Exotic Fruit Celebration Basket · Tokriii",
+        "ogDescription": "A grand assortment of premium fruits featuring Medjool and Kimia Gold dates, multiple apple varieties, mandarins, Malta, dragon fruit, brown coconut, red and green pears, Beauty Pear, avocado, Gold and Green Kiwi, blueberries, Shine Muscat, and Red Globe grapes. A generous basket for celebrations, gifting, and sharing.",
+        "ogImage": "https://tokriii.com/uploads/products/grand-royal-exotic-fruit-celebration-bas-1793645405966.webp",
+        "ogUrl": "https://tokriii.com/product/grand-royal-exotic-fruit-celebration-basket",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Grand Royal Exotic Fruit Celebration Basket · Tokriii",
+        "twitterDescription": "A grand assortment of premium fruits featuring Medjool and Kimia Gold dates, multiple apple varieties, mandarins, Malta, dragon fruit, brown coconut, red and green pears, Beauty Pear, avocado, Gold and Green Kiwi, blueberries, Shine Muscat, and Red Globe grapes. A generous basket for celebrations, gifting, and sharing.",
+        "twitterImage": "https://tokriii.com/uploads/products/grand-royal-exotic-fruit-celebration-bas-1793645405966.webp",
+        "h1s": [
+          "Grand Royal Exotic Fruit Celebration Basket"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 69264
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Grand Royal Exotic Fruit Celebration Basket · Tokriii",
+        "description": "A grand assortment of premium fruits featuring Medjool and Kimia Gold dates, multiple apple varieties, mandarins, Malta, dragon fruit, brown coconut, red and green pears, Beauty Pear, avocado, Gold and Green Kiwi, blueberries, Shine Muscat, and Red Globe grapes. A generous basket for celebrations, gifting, and sharing.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/grand-royal-exotic-fruit-celebration-basket",
+        "ogTitle": "Grand Royal Exotic Fruit Celebration Basket · Tokriii",
+        "ogDescription": "A grand assortment of premium fruits featuring Medjool and Kimia Gold dates, multiple apple varieties, mandarins, Malta, dragon fruit, brown coconut, red and green pears, Beauty Pear, avocado, Gold and Green Kiwi, blueberries, Shine Muscat, and Red Globe grapes. A generous basket for celebrations, gifting, and sharing.",
+        "ogImage": "https://tokriii.com/uploads/products/grand-royal-exotic-fruit-celebration-bas-1793645405966.webp",
+        "ogUrl": "https://tokriii.com/product/grand-royal-exotic-fruit-celebration-basket",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Grand Royal Exotic Fruit Celebration Basket · Tokriii",
+        "twitterDescription": "A grand assortment of premium fruits featuring Medjool and Kimia Gold dates, multiple apple varieties, mandarins, Malta, dragon fruit, brown coconut, red and green pears, Beauty Pear, avocado, Gold and Green Kiwi, blueberries, Shine Muscat, and Red Globe grapes. A generous basket for celebrations, gifting, and sharing.",
+        "twitterImage": "https://tokriii.com/uploads/products/grand-royal-exotic-fruit-celebration-bas-1793645405966.webp",
+        "h1s": [
+          "Grand Royal Exotic Fruit Celebration Basket"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 69805
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/premium-medjool-dates-box",
+      "name": "Premium Medjool Dates Box"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Premium Medjool Dates Box · Tokriii",
+        "description": "Enjoy a 1 kg box of Medjool dates, prized for their naturally rich sweetness and soft, satisfying texture. A delicious choice for snacking, serving to guests, or adding to desserts and breakfast bowls.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/premium-medjool-dates-box",
+        "ogTitle": "Premium Medjool Dates Box · Tokriii",
+        "ogDescription": "Enjoy a 1 kg box of Medjool dates, prized for their naturally rich sweetness and soft, satisfying texture. A delicious choice for snacking, serving to guests, or adding to desserts and breakfast bowls.",
+        "ogImage": "https://tokriii.com/uploads/products/premium-medjool-dates-box-prod-1793571192497.webp",
+        "ogUrl": "https://tokriii.com/product/premium-medjool-dates-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Premium Medjool Dates Box · Tokriii",
+        "twitterDescription": "Enjoy a 1 kg box of Medjool dates, prized for their naturally rich sweetness and soft, satisfying texture. A delicious choice for snacking, serving to guests, or adding to desserts and breakfast bowls.",
+        "twitterImage": "https://tokriii.com/uploads/products/premium-medjool-dates-box-prod-1793571192497.webp",
+        "h1s": [
+          "Premium Medjool Dates Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67562
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Premium Medjool Dates Box · Tokriii",
+        "description": "Enjoy a 1 kg box of Medjool dates, prized for their naturally rich sweetness and soft, satisfying texture. A delicious choice for snacking, serving to guests, or adding to desserts and breakfast bowls.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/premium-medjool-dates-box",
+        "ogTitle": "Premium Medjool Dates Box · Tokriii",
+        "ogDescription": "Enjoy a 1 kg box of Medjool dates, prized for their naturally rich sweetness and soft, satisfying texture. A delicious choice for snacking, serving to guests, or adding to desserts and breakfast bowls.",
+        "ogImage": "https://tokriii.com/uploads/products/premium-medjool-dates-box-prod-1793571192497.webp",
+        "ogUrl": "https://tokriii.com/product/premium-medjool-dates-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Premium Medjool Dates Box · Tokriii",
+        "twitterDescription": "Enjoy a 1 kg box of Medjool dates, prized for their naturally rich sweetness and soft, satisfying texture. A delicious choice for snacking, serving to guests, or adding to desserts and breakfast bowls.",
+        "twitterImage": "https://tokriii.com/uploads/products/premium-medjool-dates-box-prod-1793571192497.webp",
+        "h1s": [
+          "Premium Medjool Dates Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 68070
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/zespri-gold-kiwi-box-16-pieces",
+      "name": "Zespri Gold Kiwi Box – 16 Pieces"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Zespri Gold Kiwi Box – 16 Pieces · Tokriii",
+        "description": "A 16-piece box of imported Zespri Gold Kiwis, offering a convenient way to enjoy their distinctive sweet flavour. Great for snacking, fruit bowls, and serving to guests.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/zespri-gold-kiwi-box-16-pieces",
+        "ogTitle": "Zespri Gold Kiwi Box – 16 Pieces · Tokriii",
+        "ogDescription": "A 16-piece box of imported Zespri Gold Kiwis, offering a convenient way to enjoy their distinctive sweet flavour. Great for snacking, fruit bowls, and serving to guests.",
+        "ogImage": "https://tokriii.com/uploads/products/zespri-gold-kiwi-box-16-pieces-prod-1793570943032.webp",
+        "ogUrl": "https://tokriii.com/product/zespri-gold-kiwi-box-16-pieces",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Zespri Gold Kiwi Box – 16 Pieces · Tokriii",
+        "twitterDescription": "A 16-piece box of imported Zespri Gold Kiwis, offering a convenient way to enjoy their distinctive sweet flavour. Great for snacking, fruit bowls, and serving to guests.",
+        "twitterImage": "https://tokriii.com/uploads/products/zespri-gold-kiwi-box-16-pieces-prod-1793570943032.webp",
+        "h1s": [
+          "Zespri Gold Kiwi Box – 16 Pieces"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67422
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Zespri Gold Kiwi Box – 16 Pieces · Tokriii",
+        "description": "A 16-piece box of imported Zespri Gold Kiwis, offering a convenient way to enjoy their distinctive sweet flavour. Great for snacking, fruit bowls, and serving to guests.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/zespri-gold-kiwi-box-16-pieces",
+        "ogTitle": "Zespri Gold Kiwi Box – 16 Pieces · Tokriii",
+        "ogDescription": "A 16-piece box of imported Zespri Gold Kiwis, offering a convenient way to enjoy their distinctive sweet flavour. Great for snacking, fruit bowls, and serving to guests.",
+        "ogImage": "https://tokriii.com/uploads/products/zespri-gold-kiwi-box-16-pieces-prod-1793570943032.webp",
+        "ogUrl": "https://tokriii.com/product/zespri-gold-kiwi-box-16-pieces",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Zespri Gold Kiwi Box – 16 Pieces · Tokriii",
+        "twitterDescription": "A 16-piece box of imported Zespri Gold Kiwis, offering a convenient way to enjoy their distinctive sweet flavour. Great for snacking, fruit bowls, and serving to guests.",
+        "twitterImage": "https://tokriii.com/uploads/products/zespri-gold-kiwi-box-16-pieces-prod-1793570943032.webp",
+        "h1s": [
+          "Zespri Gold Kiwi Box – 16 Pieces"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67954
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/imported-blueberry-family-pack-1-5-kg",
+      "name": "Imported Blueberry Family Pack – 1.5 kg"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Imported Blueberry Family Pack – 1.5 kg · Tokriii",
+        "description": "A 1.5 kg selection of fresh imported blueberries, arranged in 12 packs. Convenient for portioning and enjoying with breakfast, desserts, smoothies, or as a snack.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/imported-blueberry-family-pack-1-5-kg",
+        "ogTitle": "Imported Blueberry Family Pack – 1.5 kg · Tokriii",
+        "ogDescription": "A 1.5 kg selection of fresh imported blueberries, arranged in 12 packs. Convenient for portioning and enjoying with breakfast, desserts, smoothies, or as a snack.",
+        "ogImage": "https://tokriii.com/uploads/products/imported-blueberry-family-pack-1-5-kg-pr-1793570722179.webp",
+        "ogUrl": "https://tokriii.com/product/imported-blueberry-family-pack-1-5-kg",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Imported Blueberry Family Pack – 1.5 kg · Tokriii",
+        "twitterDescription": "A 1.5 kg selection of fresh imported blueberries, arranged in 12 packs. Convenient for portioning and enjoying with breakfast, desserts, smoothies, or as a snack.",
+        "twitterImage": "https://tokriii.com/uploads/products/imported-blueberry-family-pack-1-5-kg-pr-1793570722179.webp",
+        "h1s": [
+          "Imported Blueberry Family Pack – 1.5 kg"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67572
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Imported Blueberry Family Pack – 1.5 kg · Tokriii",
+        "description": "A 1.5 kg selection of fresh imported blueberries, arranged in 12 packs. Convenient for portioning and enjoying with breakfast, desserts, smoothies, or as a snack.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/imported-blueberry-family-pack-1-5-kg",
+        "ogTitle": "Imported Blueberry Family Pack – 1.5 kg · Tokriii",
+        "ogDescription": "A 1.5 kg selection of fresh imported blueberries, arranged in 12 packs. Convenient for portioning and enjoying with breakfast, desserts, smoothies, or as a snack.",
+        "ogImage": "https://tokriii.com/uploads/products/imported-blueberry-family-pack-1-5-kg-pr-1793570722179.webp",
+        "ogUrl": "https://tokriii.com/product/imported-blueberry-family-pack-1-5-kg",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Imported Blueberry Family Pack – 1.5 kg · Tokriii",
+        "twitterDescription": "A 1.5 kg selection of fresh imported blueberries, arranged in 12 packs. Convenient for portioning and enjoying with breakfast, desserts, smoothies, or as a snack.",
+        "twitterImage": "https://tokriii.com/uploads/products/imported-blueberry-family-pack-1-5-kg-pr-1793570722179.webp",
+        "h1s": [
+          "Imported Blueberry Family Pack – 1.5 kg"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 68119
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/ripe-ready-imported-avocado-box",
+      "name": "Ripe & Ready Imported Avocado Box"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Ripe & Ready Imported Avocado Box · Tokriii",
+        "description": "A 3.5 kg+ box of imported avocados supplied as ripe and ready to eat, in the listed 22D, 18D, and 16D size grades. Convenient for customers who want avocados for immediate use.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/ripe-ready-imported-avocado-box",
+        "ogTitle": "Ripe & Ready Imported Avocado Box · Tokriii",
+        "ogDescription": "A 3.5 kg+ box of imported avocados supplied as ripe and ready to eat, in the listed 22D, 18D, and 16D size grades. Convenient for customers who want avocados for immediate use.",
+        "ogImage": "https://tokriii.com/uploads/products/ripe-ready-imported-avocado-box-prod-1793570466361.webp",
+        "ogUrl": "https://tokriii.com/product/ripe-ready-imported-avocado-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Ripe & Ready Imported Avocado Box · Tokriii",
+        "twitterDescription": "A 3.5 kg+ box of imported avocados supplied as ripe and ready to eat, in the listed 22D, 18D, and 16D size grades. Convenient for customers who want avocados for immediate use.",
+        "twitterImage": "https://tokriii.com/uploads/products/ripe-ready-imported-avocado-box-prod-1793570466361.webp",
+        "h1s": [
+          "Ripe & Ready Imported Avocado Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 68124
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/fresh-imported-avocado-box",
+      "name": "Fresh Imported Avocado Box"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Fresh Imported Avocado Box · Tokriii",
+        "description": "A box of fresh imported avocados in the listed 22D, 18D, and 16D size grades. A versatile fruit for salads, sandwiches, spreads, and a variety of recipes.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/fresh-imported-avocado-box",
+        "ogTitle": "Fresh Imported Avocado Box · Tokriii",
+        "ogDescription": "A box of fresh imported avocados in the listed 22D, 18D, and 16D size grades. A versatile fruit for salads, sandwiches, spreads, and a variety of recipes.",
+        "ogImage": "https://tokriii.com/uploads/products/chatgpt-image-nov-18--2026--09_16_35-pm-1795016877110.png",
+        "ogUrl": "https://tokriii.com/product/fresh-imported-avocado-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fresh Imported Avocado Box · Tokriii",
+        "twitterDescription": "A box of fresh imported avocados in the listed 22D, 18D, and 16D size grades. A versatile fruit for salads, sandwiches, spreads, and a variety of recipes.",
+        "twitterImage": "https://tokriii.com/uploads/products/chatgpt-image-nov-18--2026--09_16_35-pm-1795016877110.png",
+        "h1s": [
+          "Fresh Imported Avocado Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67186
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Fresh Imported Avocado Box · Tokriii",
+        "description": "A 4 kg box of fresh imported avocados in the listed 22D, 18D, and 16D size grades. A versatile fruit for salads, sandwiches, spreads, and a variety of recipes.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/fresh-imported-avocado-box",
+        "ogTitle": "Fresh Imported Avocado Box · Tokriii",
+        "ogDescription": "A 4 kg box of fresh imported avocados in the listed 22D, 18D, and 16D size grades. A versatile fruit for salads, sandwiches, spreads, and a variety of recipes.",
+        "ogImage": "https://tokriii.com/uploads/products/fresh-imported-avocado-box-prod-1793570197268.webp",
+        "ogUrl": "https://tokriii.com/product/fresh-imported-avocado-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fresh Imported Avocado Box · Tokriii",
+        "twitterDescription": "A 4 kg box of fresh imported avocados in the listed 22D, 18D, and 16D size grades. A versatile fruit for salads, sandwiches, spreads, and a variety of recipes.",
+        "twitterImage": "https://tokriii.com/uploads/products/fresh-imported-avocado-box-prod-1793570197268.webp",
+        "h1s": [
+          "Fresh Imported Avocado Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67684
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/imported-apple-family-box",
+      "name": "Imported Apple Family Box"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Imported Apple Family Box · Tokriii",
+        "description": "A family-sized 4–5 kg box of imported apples, ideal for regular household consumption, sharing, and keeping a versatile fruit option available throughout the week.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/imported-apple-family-box",
+        "ogTitle": "Imported Apple Family Box · Tokriii",
+        "ogDescription": "A family-sized 4–5 kg box of imported apples, ideal for regular household consumption, sharing, and keeping a versatile fruit option available throughout the week.",
+        "ogImage": "https://tokriii.com/uploads/products/imported-apple-family-box-prod-1793569959285.webp",
+        "ogUrl": "https://tokriii.com/product/imported-apple-family-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Imported Apple Family Box · Tokriii",
+        "twitterDescription": "A family-sized 4–5 kg box of imported apples, ideal for regular household consumption, sharing, and keeping a versatile fruit option available throughout the week.",
+        "twitterImage": "https://tokriii.com/uploads/products/imported-apple-family-box-prod-1793569959285.webp",
+        "h1s": [
+          "Imported Apple Family Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67186
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Imported Apple Family Box · Tokriii",
+        "description": "A family-sized 4–5 kg box of imported apples, ideal for regular household consumption, sharing, and keeping a versatile fruit option available throughout the week.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/imported-apple-family-box",
+        "ogTitle": "Imported Apple Family Box · Tokriii",
+        "ogDescription": "A family-sized 4–5 kg box of imported apples, ideal for regular household consumption, sharing, and keeping a versatile fruit option available throughout the week.",
+        "ogImage": "https://tokriii.com/uploads/products/imported-apple-family-box-prod-1793569959285.webp",
+        "ogUrl": "https://tokriii.com/product/imported-apple-family-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Imported Apple Family Box · Tokriii",
+        "twitterDescription": "A family-sized 4–5 kg box of imported apples, ideal for regular household consumption, sharing, and keeping a versatile fruit option available throughout the week.",
+        "twitterImage": "https://tokriii.com/uploads/products/imported-apple-family-box-prod-1793569959285.webp",
+        "h1s": [
+          "Imported Apple Family Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67685
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/zespri-green-kiwi-box-24-pieces",
+      "name": "Zespri Green Kiwi Box – 24 Pieces"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Zespri Green Kiwi Box – 24 Pieces · Tokriii",
+        "description": "A 24-piece box of imported Zespri Green Kiwis. Enjoy their distinctive tangy-sweet flavour as a snack or add sliced kiwi to breakfast bowls, desserts, and fruit platters.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/zespri-green-kiwi-box-24-pieces",
+        "ogTitle": "Zespri Green Kiwi Box – 24 Pieces · Tokriii",
+        "ogDescription": "A 24-piece box of imported Zespri Green Kiwis. Enjoy their distinctive tangy-sweet flavour as a snack or add sliced kiwi to breakfast bowls, desserts, and fruit platters.",
+        "ogImage": "https://tokriii.com/uploads/products/zespri-green-kiwi-box-24-pieces-prod-1793569717182.webp",
+        "ogUrl": "https://tokriii.com/product/zespri-green-kiwi-box-24-pieces",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Zespri Green Kiwi Box – 24 Pieces · Tokriii",
+        "twitterDescription": "A 24-piece box of imported Zespri Green Kiwis. Enjoy their distinctive tangy-sweet flavour as a snack or add sliced kiwi to breakfast bowls, desserts, and fruit platters.",
+        "twitterImage": "https://tokriii.com/uploads/products/zespri-green-kiwi-box-24-pieces-prod-1793569717182.webp",
+        "h1s": [
+          "Zespri Green Kiwi Box – 24 Pieces"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67462
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Zespri Green Kiwi Box – 24 Pieces · Tokriii",
+        "description": "A 24-piece box of imported Zespri Green Kiwis. Enjoy their distinctive tangy-sweet flavour as a snack or add sliced kiwi to breakfast bowls, desserts, and fruit platters.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/zespri-green-kiwi-box-24-pieces",
+        "ogTitle": "Zespri Green Kiwi Box – 24 Pieces · Tokriii",
+        "ogDescription": "A 24-piece box of imported Zespri Green Kiwis. Enjoy their distinctive tangy-sweet flavour as a snack or add sliced kiwi to breakfast bowls, desserts, and fruit platters.",
+        "ogImage": "https://tokriii.com/uploads/products/zespri-green-kiwi-box-24-pieces-prod-1793569717182.webp",
+        "ogUrl": "https://tokriii.com/product/zespri-green-kiwi-box-24-pieces",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Zespri Green Kiwi Box – 24 Pieces · Tokriii",
+        "twitterDescription": "A 24-piece box of imported Zespri Green Kiwis. Enjoy their distinctive tangy-sweet flavour as a snack or add sliced kiwi to breakfast bowls, desserts, and fruit platters.",
+        "twitterImage": "https://tokriii.com/uploads/products/zespri-green-kiwi-box-24-pieces-prod-1793569717182.webp",
+        "h1s": [
+          "Zespri Green Kiwi Box – 24 Pieces"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67998
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/fresh-mandarin-orange-family-box",
+      "name": "Fresh Mandarin Orange Family Box"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Fresh Mandarin Orange Family Box · Tokriii",
+        "description": "A 10 kg box of fresh mandarins, offering a convenient supply of easy-to-enjoy citrus fruit for families, gatherings, and everyday refreshment.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/fresh-mandarin-orange-family-box",
+        "ogTitle": "Fresh Mandarin Orange Family Box · Tokriii",
+        "ogDescription": "A 10 kg box of fresh mandarins, offering a convenient supply of easy-to-enjoy citrus fruit for families, gatherings, and everyday refreshment.",
+        "ogImage": "https://tokriii.com/uploads/products/fresh-mandarin-orange-family-box-prod-1793569553449.webp",
+        "ogUrl": "https://tokriii.com/product/fresh-mandarin-orange-family-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fresh Mandarin Orange Family Box · Tokriii",
+        "twitterDescription": "A 10 kg box of fresh mandarins, offering a convenient supply of easy-to-enjoy citrus fruit for families, gatherings, and everyday refreshment.",
+        "twitterImage": "https://tokriii.com/uploads/products/fresh-mandarin-orange-family-box-prod-1793569553449.webp",
+        "h1s": [
+          "Fresh Mandarin Orange Family Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67719
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/imported-green-pear-bulk-box",
+      "name": "Imported Green Pear Bulk Box"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Imported Green Pear Bulk Box · Tokriii",
+        "description": "A 12 kg bulk box of imported green pears, containing approximately 80 pieces. Suitable for family use, gatherings, and customers looking for a larger quantity of fresh pears.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/imported-green-pear-bulk-box",
+        "ogTitle": "Imported Green Pear Bulk Box · Tokriii",
+        "ogDescription": "A 12 kg bulk box of imported green pears, containing approximately 80 pieces. Suitable for family use, gatherings, and customers looking for a larger quantity of fresh pears.",
+        "ogImage": "https://tokriii.com/uploads/products/imported-green-pear-bulk-box-prod-1793569247623.webp",
+        "ogUrl": "https://tokriii.com/product/imported-green-pear-bulk-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Imported Green Pear Bulk Box · Tokriii",
+        "twitterDescription": "A 12 kg bulk box of imported green pears, containing approximately 80 pieces. Suitable for family use, gatherings, and customers looking for a larger quantity of fresh pears.",
+        "twitterImage": "https://tokriii.com/uploads/products/imported-green-pear-bulk-box-prod-1793569247623.webp",
+        "h1s": [
+          "Imported Green Pear Bulk Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67930
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/imported-beauty-pear-bulk-box",
+      "name": "Imported Beauty Pear Bulk Box"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Imported Beauty Pear Bulk Box · Tokriii",
+        "description": "A bulk box of imported Beauty Pears, with approximately 80 pieces in 12 kg. A practical option for larger families, offices, events, or bulk fruit requirements.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/imported-beauty-pear-bulk-box",
+        "ogTitle": "Imported Beauty Pear Bulk Box · Tokriii",
+        "ogDescription": "A bulk box of imported Beauty Pears, with approximately 80 pieces in 12 kg. A practical option for larger families, offices, events, or bulk fruit requirements.",
+        "ogImage": "https://tokriii.com/uploads/products/imported-beauty-pear-bulk-box-prod-1793569088815.webp",
+        "ogUrl": "https://tokriii.com/product/imported-beauty-pear-bulk-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Imported Beauty Pear Bulk Box · Tokriii",
+        "twitterDescription": "A bulk box of imported Beauty Pears, with approximately 80 pieces in 12 kg. A practical option for larger families, offices, events, or bulk fruit requirements.",
+        "twitterImage": "https://tokriii.com/uploads/products/imported-beauty-pear-bulk-box-prod-1793569088815.webp",
+        "h1s": [
+          "Imported Beauty Pear Bulk Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67818
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/shine-muscat-seedless-grapes-box",
+      "name": "Shine Muscat Seedless Grapes Box"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Shine Muscat Seedless Grapes Box Family Pack · Tokriii",
+        "description": "A box of fresh Shine Muscat seedless grapes. Their crisp texture and sweet, aromatic flavour make them a delightful choice for sharing, entertaining, or enjoying chilled.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/shine-muscat-seedless-grapes-box",
+        "ogTitle": "Shine Muscat Seedless Grapes Box Family Pack · Tokriii",
+        "ogDescription": "A box of fresh Shine Muscat seedless grapes. Their crisp texture and sweet, aromatic flavour make them a delightful choice for sharing, entertaining, or enjoying chilled.",
+        "ogImage": "https://tokriii.com/uploads/products/shine-muscat-seedless-grapes-box-prod-1793568789733.webp",
+        "ogUrl": "https://tokriii.com/product/shine-muscat-seedless-grapes-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Shine Muscat Seedless Grapes Box Family Pack · Tokriii",
+        "twitterDescription": "A box of fresh Shine Muscat seedless grapes. Their crisp texture and sweet, aromatic flavour make them a delightful choice for sharing, entertaining, or enjoying chilled.",
+        "twitterImage": "https://tokriii.com/uploads/products/shine-muscat-seedless-grapes-box-prod-1793568789733.webp",
+        "h1s": [
+          "Shine Muscat Seedless Grapes Box Family Pack"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67643
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Shine Muscat Seedless Grapes Box · Tokriii",
+        "description": "A 5 kg box of fresh Shine Muscat seedless grapes. Their crisp texture and sweet, aromatic flavour make them a delightful choice for sharing, entertaining, or enjoying chilled.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/shine-muscat-seedless-grapes-box",
+        "ogTitle": "Shine Muscat Seedless Grapes Box · Tokriii",
+        "ogDescription": "A 5 kg box of fresh Shine Muscat seedless grapes. Their crisp texture and sweet, aromatic flavour make them a delightful choice for sharing, entertaining, or enjoying chilled.",
+        "ogImage": "https://tokriii.com/uploads/products/shine-muscat-seedless-grapes-box-prod-1793568789733.webp",
+        "ogUrl": "https://tokriii.com/product/shine-muscat-seedless-grapes-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Shine Muscat Seedless Grapes Box · Tokriii",
+        "twitterDescription": "A 5 kg box of fresh Shine Muscat seedless grapes. Their crisp texture and sweet, aromatic flavour make them a delightful choice for sharing, entertaining, or enjoying chilled.",
+        "twitterImage": "https://tokriii.com/uploads/products/shine-muscat-seedless-grapes-box-prod-1793568789733.webp",
+        "h1s": [
+          "Shine Muscat Seedless Grapes Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 68079
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "product",
+      "path": "/product/red-globe-grapes-family-box",
+      "name": "Red Globe Grapes Family Box"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Red Globe Grapes Family Pack · Tokriii",
+        "description": "A box of fresh Red Globe grapes, known for their attractive appearance and juicy bite. Ideal for family sharing, gatherings, and serving chilled.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/product/red-globe-grapes-family-box",
+        "ogTitle": "Red Globe Grapes Family Pack · Tokriii",
+        "ogDescription": "A box of fresh Red Globe grapes, known for their attractive appearance and juicy bite. Ideal for family sharing, gatherings, and serving chilled.",
+        "ogImage": "https://tokriii.com/uploads/products/red-globe-grapes-family-box-prod-1793568634141.webp",
+        "ogUrl": "https://tokriii.com/product/red-globe-grapes-family-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Red Globe Grapes Family Pack · Tokriii",
+        "twitterDescription": "A box of fresh Red Globe grapes, known for their attractive appearance and juicy bite. Ideal for family sharing, gatherings, and serving chilled.",
+        "twitterImage": "https://tokriii.com/uploads/products/red-globe-grapes-family-box-prod-1793568634141.webp",
+        "h1s": [
+          "Red Globe Grapes Family Pack"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67091
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Red Globe Grapes Family Box · Tokriii",
+        "description": "A generous 6 kg box of fresh Red Globe grapes, known for their attractive appearance and juicy bite. Ideal for family sharing, gatherings, and serving chilled.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/product/red-globe-grapes-family-box",
+        "ogTitle": "Red Globe Grapes Family Box · Tokriii",
+        "ogDescription": "A generous 6 kg box of fresh Red Globe grapes, known for their attractive appearance and juicy bite. Ideal for family sharing, gatherings, and serving chilled.",
+        "ogImage": "https://tokriii.com/uploads/products/red-globe-grapes-family-box-prod-1793568634141.webp",
+        "ogUrl": "https://tokriii.com/product/red-globe-grapes-family-box",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Red Globe Grapes Family Box · Tokriii",
+        "twitterDescription": "A generous 6 kg box of fresh Red Globe grapes, known for their attractive appearance and juicy bite. Ideal for family sharing, gatherings, and serving chilled.",
+        "twitterImage": "https://tokriii.com/uploads/products/red-globe-grapes-family-box-prod-1793568634141.webp",
+        "h1s": [
+          "Red Globe Grapes Family Box"
+        ],
+        "h2Count": 2,
+        "imageCount": 16,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 67693
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "blog",
+      "path": "/blog/pineapple-tongue-tingle-fruit-mysteries",
+      "title": "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained · Tokriii",
+        "description": "Why does pineapple make your tongue tingle? Is the white powder on grapes safe? Discover 8 surprising fruit mysteries, the science behind them, and useful food facts.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog/pineapple-tongue-tingle-fruit-mysteries",
+        "ogTitle": "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained · Tokriii",
+        "ogDescription": "Why does pineapple make your tongue tingle? Is the white powder on grapes safe? Discover 8 surprising fruit mysteries, the science behind them, and useful food facts.",
+        "ogImage": "https://tokriii.com/uploads/blog/fruit-mystery-magnifier-still-life-1792866732128.png",
+        "ogUrl": "https://tokriii.com/blog/pineapple-tongue-tingle-fruit-mysteries",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained · Tokriii",
+        "twitterDescription": "Why does pineapple make your tongue tingle? Is the white powder on grapes safe? Discover 8 surprising fruit mysteries, the science behind them, and useful food facts.",
+        "twitterImage": "https://tokriii.com/uploads/blog/fruit-mystery-magnifier-still-life-1792866732128.png",
+        "h1s": [
+          "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained"
+        ],
+        "h2Count": 14,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 126378
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained · Tokriii",
+        "description": "Why does pineapple make your tongue tingle? Is the white powder on grapes safe? Discover 8 surprising fruit mysteries, the science behind them, and useful food facts.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog/pineapple-tongue-tingle-fruit-mysteries",
+        "ogTitle": "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained · Tokriii",
+        "ogDescription": "Why does pineapple make your tongue tingle? Is the white powder on grapes safe? Discover 8 surprising fruit mysteries, the science behind them, and useful food facts.",
+        "ogImage": "https://tokriii.com/uploads/blog/fruit-mystery-magnifier-still-life-1792866732128.png",
+        "ogUrl": "https://tokriii.com/blog/pineapple-tongue-tingle-fruit-mysteries",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained · Tokriii",
+        "twitterDescription": "Why does pineapple make your tongue tingle? Is the white powder on grapes safe? Discover 8 surprising fruit mysteries, the science behind them, and useful food facts.",
+        "twitterImage": "https://tokriii.com/uploads/blog/fruit-mystery-magnifier-still-life-1792866732128.png",
+        "h1s": [
+          "Why Does Pineapple Tingle? 8 Surprising Fruit Mysteries Explained"
+        ],
+        "h2Count": 14,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 127574
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "blog",
+      "path": "/blog/vitamin-c-rich-fruits-india",
+      "title": "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India · Tokriii",
+        "description": "Did you know guava can have over four times the vitamin C of oranges by weight? Compare seven popular fruits, discover surprising nutrition facts and find delicious ways to enjoy them.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog/vitamin-c-rich-fruits-india",
+        "ogTitle": "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India · Tokriii",
+        "ogDescription": "Did you know guava can have over four times the vitamin C of oranges by weight? Compare seven popular fruits, discover surprising nutrition facts and find delicious ways to enjoy them.",
+        "ogImage": "https://tokriii.com/uploads/blog/sunlit-tropical-fruit-tabletop-arrangeme-1792771127726.png",
+        "ogUrl": "https://tokriii.com/blog/vitamin-c-rich-fruits-india",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India · Tokriii",
+        "twitterDescription": "Did you know guava can have over four times the vitamin C of oranges by weight? Compare seven popular fruits, discover surprising nutrition facts and find delicious ways to enjoy them.",
+        "twitterImage": "https://tokriii.com/uploads/blog/sunlit-tropical-fruit-tabletop-arrangeme-1792771127726.png",
+        "h1s": [
+          "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India"
+        ],
+        "h2Count": 15,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 122578
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India · Tokriii",
+        "description": "Did you know guava can have over four times the vitamin C of oranges by weight? Compare seven popular fruits, discover surprising nutrition facts and find delicious ways to enjoy them.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog/vitamin-c-rich-fruits-india",
+        "ogTitle": "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India · Tokriii",
+        "ogDescription": "Did you know guava can have over four times the vitamin C of oranges by weight? Compare seven popular fruits, discover surprising nutrition facts and find delicious ways to enjoy them.",
+        "ogImage": "https://tokriii.com/uploads/blog/sunlit-tropical-fruit-tabletop-arrangeme-1792771127726.png",
+        "ogUrl": "https://tokriii.com/blog/vitamin-c-rich-fruits-india",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India · Tokriii",
+        "twitterDescription": "Did you know guava can have over four times the vitamin C of oranges by weight? Compare seven popular fruits, discover surprising nutrition facts and find delicious ways to enjoy them.",
+        "twitterImage": "https://tokriii.com/uploads/blog/sunlit-tropical-fruit-tabletop-arrangeme-1792771127726.png",
+        "h1s": [
+          "Guava vs Orange vs Kiwi: 7 Vitamin C-Rich Fruits in India"
+        ],
+        "h2Count": 15,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 123706
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "blog",
+      "path": "/blog/whole-fruit-vs-fruit-juice",
+      "title": "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition · Tokriii",
+        "description": "Is fresh fruit juice really as healthy as eating whole fruit? Discover 9 important facts about natural sugar, fibre, smoothies and the smarter ways to enjoy your favourite fruits.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog/whole-fruit-vs-fruit-juice",
+        "ogTitle": "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition · Tokriii",
+        "ogDescription": "Is fresh fruit juice really as healthy as eating whole fruit? Discover 9 important facts about natural sugar, fibre, smoothies and the smarter ways to enjoy your favourite fruits.",
+        "ogImage": "https://tokriii.com/uploads/blog/sunlit-fruit-bowl-and-juices-1792662942540.png",
+        "ogUrl": "https://tokriii.com/blog/whole-fruit-vs-fruit-juice",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition · Tokriii",
+        "twitterDescription": "Is fresh fruit juice really as healthy as eating whole fruit? Discover 9 important facts about natural sugar, fibre, smoothies and the smarter ways to enjoy your favourite fruits.",
+        "twitterImage": "https://tokriii.com/uploads/blog/sunlit-fruit-bowl-and-juices-1792662942540.png",
+        "h1s": [
+          "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition"
+        ],
+        "h2Count": 17,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 119708
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition · Tokriii",
+        "description": "Is fresh fruit juice really as healthy as eating whole fruit? Discover 9 important facts about natural sugar, fibre, smoothies and the smarter ways to enjoy your favourite fruits.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog/whole-fruit-vs-fruit-juice",
+        "ogTitle": "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition · Tokriii",
+        "ogDescription": "Is fresh fruit juice really as healthy as eating whole fruit? Discover 9 important facts about natural sugar, fibre, smoothies and the smarter ways to enjoy your favourite fruits.",
+        "ogImage": "https://tokriii.com/uploads/blog/sunlit-fruit-bowl-and-juices-1792662942540.png",
+        "ogUrl": "https://tokriii.com/blog/whole-fruit-vs-fruit-juice",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition · Tokriii",
+        "twitterDescription": "Is fresh fruit juice really as healthy as eating whole fruit? Discover 9 important facts about natural sugar, fibre, smoothies and the smarter ways to enjoy your favourite fruits.",
+        "twitterImage": "https://tokriii.com/uploads/blog/sunlit-fruit-bowl-and-juices-1792662942540.png",
+        "h1s": [
+          "Whole Fruit vs Fruit Juice: 9 Facts About Sugar, Fibre & Nutrition"
+        ],
+        "h2Count": 17,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 120908
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "blog",
+      "path": "/blog/how-to-pick-ripe-fruits-buying-guide",
+      "title": "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work · Tokriii",
+        "description": "Is a yellow watermelon spot good? Can mango colour reveal ripeness? Discover 13 practical fruit-buying tips, common myths and ways to choose delicious fruits with more confidence.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog/how-to-pick-ripe-fruits-buying-guide",
+        "ogTitle": "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work · Tokriii",
+        "ogDescription": "Is a yellow watermelon spot good? Can mango colour reveal ripeness? Discover 13 practical fruit-buying tips, common myths and ways to choose delicious fruits with more confidence.",
+        "ogImage": "https://tokriii.com/uploads/blog/fresh-fruit-market-selection-1792661588964.png",
+        "ogUrl": "https://tokriii.com/blog/how-to-pick-ripe-fruits-buying-guide",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work · Tokriii",
+        "twitterDescription": "Is a yellow watermelon spot good? Can mango colour reveal ripeness? Discover 13 practical fruit-buying tips, common myths and ways to choose delicious fruits with more confidence.",
+        "twitterImage": "https://tokriii.com/uploads/blog/fresh-fruit-market-selection-1792661588964.png",
+        "h1s": [
+          "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work"
+        ],
+        "h2Count": 21,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 136842
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work · Tokriii",
+        "description": "Is a yellow watermelon spot good? Can mango colour reveal ripeness? Discover 13 practical fruit-buying tips, common myths and ways to choose delicious fruits with more confidence.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog/how-to-pick-ripe-fruits-buying-guide",
+        "ogTitle": "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work · Tokriii",
+        "ogDescription": "Is a yellow watermelon spot good? Can mango colour reveal ripeness? Discover 13 practical fruit-buying tips, common myths and ways to choose delicious fruits with more confidence.",
+        "ogImage": "https://tokriii.com/uploads/blog/fresh-fruit-market-selection-1792661588964.png",
+        "ogUrl": "https://tokriii.com/blog/how-to-pick-ripe-fruits-buying-guide",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work · Tokriii",
+        "twitterDescription": "Is a yellow watermelon spot good? Can mango colour reveal ripeness? Discover 13 practical fruit-buying tips, common myths and ways to choose delicious fruits with more confidence.",
+        "twitterImage": "https://tokriii.com/uploads/blog/fresh-fruit-market-selection-1792661588964.png",
+        "h1s": [
+          "How to Pick Ripe Fruits: 13 Smart Buying Tips That Actually Work"
+        ],
+        "h2Count": 21,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 138040
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "blog",
+      "path": "/blog/winter-fruits-in-india-seasonal-guide",
+      "title": "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)?"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)? · Tokriii",
+        "description": "Which fruits are best to buy in India during winter? Explore 10 seasonal favourites, a November–March fruit calendar, expert buying tips and delicious ways to enjoy them.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog/winter-fruits-in-india-seasonal-guide",
+        "ogTitle": "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)? · Tokriii",
+        "ogDescription": "Which fruits are best to buy in India during winter? Explore 10 seasonal favourites, a November–March fruit calendar, expert buying tips and delicious ways to enjoy them.",
+        "ogImage": "https://tokriii.com/uploads/blog/abundant-rustic-fruit-basket-still-life-1792487205512.png",
+        "ogUrl": "https://tokriii.com/blog/winter-fruits-in-india-seasonal-guide",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)? · Tokriii",
+        "twitterDescription": "Which fruits are best to buy in India during winter? Explore 10 seasonal favourites, a November–March fruit calendar, expert buying tips and delicious ways to enjoy them.",
+        "twitterImage": "https://tokriii.com/uploads/blog/abundant-rustic-fruit-basket-still-life-1792487205512.png",
+        "h1s": [
+          "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)?"
+        ],
+        "h2Count": 18,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 123547
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)? · Tokriii",
+        "description": "Which fruits are best to buy in India during winter? Explore 10 seasonal favourites, a November–March fruit calendar, expert buying tips and delicious ways to enjoy them.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog/winter-fruits-in-india-seasonal-guide",
+        "ogTitle": "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)? · Tokriii",
+        "ogDescription": "Which fruits are best to buy in India during winter? Explore 10 seasonal favourites, a November–March fruit calendar, expert buying tips and delicious ways to enjoy them.",
+        "ogImage": "https://tokriii.com/uploads/blog/abundant-rustic-fruit-basket-still-life-1792487205512.png",
+        "ogUrl": "https://tokriii.com/blog/winter-fruits-in-india-seasonal-guide",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)? · Tokriii",
+        "twitterDescription": "Which fruits are best to buy in India during winter? Explore 10 seasonal favourites, a November–March fruit calendar, expert buying tips and delicious ways to enjoy them.",
+        "twitterImage": "https://tokriii.com/uploads/blog/abundant-rustic-fruit-basket-still-life-1792487205512.png",
+        "h1s": [
+          "10 Winter Fruits in India: What's Actually in Season (Nov–Mar)?"
+        ],
+        "h2Count": 18,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 124726
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "blog",
+      "path": "/blog/fruit-chaat-recipe-indian-fruit-salad",
+      "title": "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar · Tokriii",
+        "description": "Bored of plain fruit? Discover 7 delicious Indian fruit chaat recipes, from classic Delhi-style masala chaat to tropical, creamy and exotic fruit bowls. Easy to make, colourful and no added sugar required.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog/fruit-chaat-recipe-indian-fruit-salad",
+        "ogTitle": "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar · Tokriii",
+        "ogDescription": "Bored of plain fruit? Discover 7 delicious Indian fruit chaat recipes, from classic Delhi-style masala chaat to tropical, creamy and exotic fruit bowls. Easy to make, colourful and no added sugar required.",
+        "ogImage": "https://tokriii.com/uploads/blog/colorful-mint-garnished-fruit-chaat-1792486567599.png",
+        "ogUrl": "https://tokriii.com/blog/fruit-chaat-recipe-indian-fruit-salad",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar · Tokriii",
+        "twitterDescription": "Bored of plain fruit? Discover 7 delicious Indian fruit chaat recipes, from classic Delhi-style masala chaat to tropical, creamy and exotic fruit bowls. Easy to make, colourful and no added sugar required.",
+        "twitterImage": "https://tokriii.com/uploads/blog/colorful-mint-garnished-fruit-chaat-1792486567599.png",
+        "h1s": [
+          "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar"
+        ],
+        "h2Count": 14,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 117347
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar · Tokriii",
+        "description": "Bored of plain fruit? Discover 7 delicious Indian fruit chaat recipes, from classic Delhi-style masala chaat to tropical, creamy and exotic fruit bowls. Easy to make, colourful and no added sugar required.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog/fruit-chaat-recipe-indian-fruit-salad",
+        "ogTitle": "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar · Tokriii",
+        "ogDescription": "Bored of plain fruit? Discover 7 delicious Indian fruit chaat recipes, from classic Delhi-style masala chaat to tropical, creamy and exotic fruit bowls. Easy to make, colourful and no added sugar required.",
+        "ogImage": "https://tokriii.com/uploads/blog/colorful-mint-garnished-fruit-chaat-1792486567599.png",
+        "ogUrl": "https://tokriii.com/blog/fruit-chaat-recipe-indian-fruit-salad",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar · Tokriii",
+        "twitterDescription": "Bored of plain fruit? Discover 7 delicious Indian fruit chaat recipes, from classic Delhi-style masala chaat to tropical, creamy and exotic fruit bowls. Easy to make, colourful and no added sugar required.",
+        "twitterImage": "https://tokriii.com/uploads/blog/colorful-mint-garnished-fruit-chaat-1792486567599.png",
+        "h1s": [
+          "7 Easy Fruit Chaat Recipes: Indian-Style Fruit Salads Without Added Sugar"
+        ],
+        "h2Count": 14,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 118569
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "blog",
+      "path": "/blog/exotic-fruits-in-india-guide",
+      "title": "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More · Tokriii",
+        "description": "Ever wondered what rambutan, mangosteen, dragon fruit or longan tastes like? Discover 10 exotic and premium fruits in India, how to eat them, and delicious ways to try each one.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog/exotic-fruits-in-india-guide",
+        "ogTitle": "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More · Tokriii",
+        "ogDescription": "Ever wondered what rambutan, mangosteen, dragon fruit or longan tastes like? Discover 10 exotic and premium fruits in India, how to eat them, and delicious ways to try each one.",
+        "ogImage": "https://tokriii.com/uploads/blog/exotic-fruit-market-still-life-1792317161600.png",
+        "ogUrl": "https://tokriii.com/blog/exotic-fruits-in-india-guide",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More · Tokriii",
+        "twitterDescription": "Ever wondered what rambutan, mangosteen, dragon fruit or longan tastes like? Discover 10 exotic and premium fruits in India, how to eat them, and delicious ways to try each one.",
+        "twitterImage": "https://tokriii.com/uploads/blog/exotic-fruit-market-still-life-1792317161600.png",
+        "h1s": [
+          "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More"
+        ],
+        "h2Count": 16,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 110748
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More · Tokriii",
+        "description": "Ever wondered what rambutan, mangosteen, dragon fruit or longan tastes like? Discover 10 exotic and premium fruits in India, how to eat them, and delicious ways to try each one.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog/exotic-fruits-in-india-guide",
+        "ogTitle": "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More · Tokriii",
+        "ogDescription": "Ever wondered what rambutan, mangosteen, dragon fruit or longan tastes like? Discover 10 exotic and premium fruits in India, how to eat them, and delicious ways to try each one.",
+        "ogImage": "https://tokriii.com/uploads/blog/exotic-fruit-market-still-life-1792317161600.png",
+        "ogUrl": "https://tokriii.com/blog/exotic-fruits-in-india-guide",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More · Tokriii",
+        "twitterDescription": "Ever wondered what rambutan, mangosteen, dragon fruit or longan tastes like? Discover 10 exotic and premium fruits in India, how to eat them, and delicious ways to try each one.",
+        "twitterImage": "https://tokriii.com/uploads/blog/exotic-fruit-market-still-life-1792317161600.png",
+        "h1s": [
+          "10 Exotic Fruits in India You Must Try: Taste, How to Eat & More"
+        ],
+        "h2Count": 16,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 111940
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "blog",
+      "path": "/blog/how-to-store-fruits-at-home-india",
+      "title": "Fridge or Counter? How to Store 15 Fruits at Home in India"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Fridge or Counter? How to Store 15 Fruits at Home in India · Tokriii",
+        "description": "Are you storing bananas, apples, kiwi and avocados correctly? Discover which fruits belong in the fridge, which need the counter, and simple tips to keep 15 popular fruits fresh for longer.",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/blog/how-to-store-fruits-at-home-india",
+        "ogTitle": "Fridge or Counter? How to Store 15 Fruits at Home in India · Tokriii",
+        "ogDescription": "Are you storing bananas, apples, kiwi and avocados correctly? Discover which fruits belong in the fridge, which need the counter, and simple tips to keep 15 popular fruits fresh for longer.",
+        "ogImage": "https://tokriii.com/uploads/blog/fresh-fruit-kitchen-abundance-1792316699220.png",
+        "ogUrl": "https://tokriii.com/blog/how-to-store-fruits-at-home-india",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fridge or Counter? How to Store 15 Fruits at Home in India · Tokriii",
+        "twitterDescription": "Are you storing bananas, apples, kiwi and avocados correctly? Discover which fruits belong in the fridge, which need the counter, and simple tips to keep 15 popular fruits fresh for longer.",
+        "twitterImage": "https://tokriii.com/uploads/blog/fresh-fruit-kitchen-abundance-1792316699220.png",
+        "h1s": [
+          "Fridge or Counter? How to Store 15 Fruits at Home in India"
+        ],
+        "h2Count": 8,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 107728
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Fridge or Counter? How to Store 15 Fruits at Home in India · Tokriii",
+        "description": "Are you storing bananas, apples, kiwi and avocados correctly? Discover which fruits belong in the fridge, which need the counter, and simple tips to keep 15 popular fruits fresh for longer.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/blog/how-to-store-fruits-at-home-india",
+        "ogTitle": "Fridge or Counter? How to Store 15 Fruits at Home in India · Tokriii",
+        "ogDescription": "Are you storing bananas, apples, kiwi and avocados correctly? Discover which fruits belong in the fridge, which need the counter, and simple tips to keep 15 popular fruits fresh for longer.",
+        "ogImage": "https://tokriii.com/uploads/blog/fresh-fruit-kitchen-abundance-1792316699220.png",
+        "ogUrl": "https://tokriii.com/blog/how-to-store-fruits-at-home-india",
+        "ogType": "article",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Fridge or Counter? How to Store 15 Fruits at Home in India · Tokriii",
+        "twitterDescription": "Are you storing bananas, apples, kiwi and avocados correctly? Discover which fruits belong in the fridge, which need the counter, and simple tips to keep 15 popular fruits fresh for longer.",
+        "twitterImage": "https://tokriii.com/uploads/blog/fresh-fruit-kitchen-abundance-1792316699220.png",
+        "h1s": [
+          "Fridge or Counter? How to Store 15 Fruits at Home in India"
+        ],
+        "h2Count": 8,
+        "imageCount": 12,
+        "imagesWithoutAlt": 8,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 108894
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/about",
+      "slug": "about"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "About Tokriii · Tokriii",
+        "description": "At Tokriii, we believe that every fruit should be as fresh, nutritious, and delicious as nature intended. Our mission is simple—to bring premium-quality fruits ",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/about",
+        "ogTitle": "About Tokriii · Tokriii",
+        "ogDescription": "At Tokriii, we believe that every fruit should be as fresh, nutritious, and delicious as nature intended. Our mission is simple—to bring premium-quality fruits ",
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/about",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "About Tokriii · Tokriii",
+        "twitterDescription": "At Tokriii, we believe that every fruit should be as fresh, nutritious, and delicious as nature intended. Our mission is simple—to bring premium-quality fruits ",
+        "twitterImage": null,
+        "h1s": [
+          "About Tokriii"
+        ],
+        "h2Count": 11,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 43202
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "About Tokriii — Direct from Azadpur Mandi to Delhi NCR Doorsteps",
+        "description": "Discover how Tokriii sources grade-A fresh, imported, and exotic fruits directly from farmers and Azadpur Mandi, delivering farm freshness to Delhi NCR homes every morning.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/about",
+        "ogTitle": "About Tokriii — Direct from Azadpur Mandi to Delhi NCR Doorsteps",
+        "ogDescription": "Discover how Tokriii sources grade-A fresh, imported, and exotic fruits directly from farmers and Azadpur Mandi, delivering farm freshness to Delhi NCR homes every morning.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/about",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "About Tokriii — Direct from Azadpur Mandi to Delhi NCR Doorsteps",
+        "twitterDescription": "Discover how Tokriii sources grade-A fresh, imported, and exotic fruits directly from farmers and Azadpur Mandi, delivering farm freshness to Delhi NCR homes every morning.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "About Tokriii"
+        ],
+        "h2Count": 11,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 44913
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/careers",
+      "slug": "careers"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Careers · Tokriii",
+        "description": null,
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/careers",
+        "ogTitle": "Careers · Tokriii",
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/careers",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Careers · Tokriii",
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [
+          "Careers"
+        ],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 31061
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Careers at Tokriii — Join Our Fresh Fruit Revolution in Delhi NCR",
+        "description": "Explore career opportunities and job openings at Tokriii. Join our team in fresh fruit procurement, cold-chain operations, and quick commerce delivery in Delhi NCR.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/careers",
+        "ogTitle": "Careers at Tokriii — Join Our Fresh Fruit Revolution in Delhi NCR",
+        "ogDescription": "Explore career opportunities and job openings at Tokriii. Join our team in fresh fruit procurement, cold-chain operations, and quick commerce delivery in Delhi NCR.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/careers",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Careers at Tokriii — Join Our Fresh Fruit Revolution in Delhi NCR",
+        "twitterDescription": "Explore career opportunities and job openings at Tokriii. Join our team in fresh fruit procurement, cold-chain operations, and quick commerce delivery in Delhi NCR.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Careers"
+        ],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 34051
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/privacy-policy",
+      "slug": "privacy-policy"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Privacy Policy · Tokriii",
+        "description": "Last Updated: June 2026 Welcome to Tokriii. Your privacy is important to us. This Privacy Policy explains how M Mahajan Trading Pvt. Ltd., operating under the b",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/privacy-policy",
+        "ogTitle": "Privacy Policy · Tokriii",
+        "ogDescription": "Last Updated: June 2026 Welcome to Tokriii. Your privacy is important to us. This Privacy Policy explains how M Mahajan Trading Pvt. Ltd., operating under the b",
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/privacy-policy",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Privacy Policy · Tokriii",
+        "twitterDescription": "Last Updated: June 2026 Welcome to Tokriii. Your privacy is important to us. This Privacy Policy explains how M Mahajan Trading Pvt. Ltd., operating under the b",
+        "twitterImage": null,
+        "h1s": [
+          "Privacy Policy"
+        ],
+        "h2Count": 15,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 49792
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Privacy Policy — Tokriii Customer Data Protection & Security",
+        "description": "Read Tokriii's Privacy Policy to understand how we safeguard your personal data, delivery address, and payment information with encrypted, confidential standards.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/privacy-policy",
+        "ogTitle": "Privacy Policy — Tokriii Customer Data Protection & Security",
+        "ogDescription": "Read Tokriii's Privacy Policy to understand how we safeguard your personal data, delivery address, and payment information with encrypted, confidential standards.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/privacy-policy",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Privacy Policy — Tokriii Customer Data Protection & Security",
+        "twitterDescription": "Read Tokriii's Privacy Policy to understand how we safeguard your personal data, delivery address, and payment information with encrypted, confidential standards.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Privacy Policy"
+        ],
+        "h2Count": 14,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 49689
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/terms-and-conditions",
+      "slug": "terms-and-conditions"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Terms & Conditions · Tokriii",
+        "description": "Last Updated: June 2026 Welcome to Tokriii. These Terms & Conditions (\"Terms\") govern your access to and use of the website www.tokriii.com and the purchase of ",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/terms-and-conditions",
+        "ogTitle": "Terms & Conditions · Tokriii",
+        "ogDescription": "Last Updated: June 2026 Welcome to Tokriii. These Terms & Conditions (\"Terms\") govern your access to and use of the website www.tokriii.com and the purchase of ",
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/terms-and-conditions",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Terms & Conditions · Tokriii",
+        "twitterDescription": "Last Updated: June 2026 Welcome to Tokriii. These Terms & Conditions (\"Terms\") govern your access to and use of the website www.tokriii.com and the purchase of ",
+        "twitterImage": null,
+        "h1s": [
+          "Terms & Conditions"
+        ],
+        "h2Count": 21,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 51964
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Terms & Conditions — Tokriii Online Fruit Store Guidelines",
+        "description": "Review the terms and conditions governing fruit orders, delivery schedules, payments, refunds, and user obligations on Tokriii.com and the Tokriii mobile app.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/terms-and-conditions",
+        "ogTitle": "Terms & Conditions — Tokriii Online Fruit Store Guidelines",
+        "ogDescription": "Review the terms and conditions governing fruit orders, delivery schedules, payments, refunds, and user obligations on Tokriii.com and the Tokriii mobile app.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/terms-and-conditions",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Terms & Conditions — Tokriii Online Fruit Store Guidelines",
+        "twitterDescription": "Review the terms and conditions governing fruit orders, delivery schedules, payments, refunds, and user obligations on Tokriii.com and the Tokriii mobile app.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Terms & Conditions"
+        ],
+        "h2Count": 21,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 53514
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/help-faqs",
+      "slug": "help-faqs"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Frequently Asked Questions (FAQ) · Tokriii",
+        "description": "Welcome to the Tokriii Frequently Asked Questions page. Here you'll find answers to some of the most common questions about our products, ordering process, deli",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/help-faqs",
+        "ogTitle": "Frequently Asked Questions (FAQ) · Tokriii",
+        "ogDescription": "Welcome to the Tokriii Frequently Asked Questions page. Here you'll find answers to some of the most common questions about our products, ordering process, deli",
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/help-faqs",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Frequently Asked Questions (FAQ) · Tokriii",
+        "twitterDescription": "Welcome to the Tokriii Frequently Asked Questions page. Here you'll find answers to some of the most common questions about our products, ordering process, deli",
+        "twitterImage": null,
+        "h1s": [
+          "Frequently Asked Questions (FAQ)"
+        ],
+        "h2Count": 9,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 44770
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Help & FAQs — Delivery, Ordering & Freshness Questions · Tokriii",
+        "description": "Get answers to common questions about Tokriii morning deliveries, Delhi NCR serviceable pincodes, quality checks, return policies, packaging, and payment modes.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/help-faqs",
+        "ogTitle": "Help & FAQs — Delivery, Ordering & Freshness Questions · Tokriii",
+        "ogDescription": "Get answers to common questions about Tokriii morning deliveries, Delhi NCR serviceable pincodes, quality checks, return policies, packaging, and payment modes.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/help-faqs",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Help & FAQs — Delivery, Ordering & Freshness Questions · Tokriii",
+        "twitterDescription": "Get answers to common questions about Tokriii morning deliveries, Delhi NCR serviceable pincodes, quality checks, return policies, packaging, and payment modes.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Frequently Asked Questions (FAQ)"
+        ],
+        "h2Count": 9,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 56624
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/returns-policy",
+      "slug": "returns-policy"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Returns & Refund Policy · Tokriii",
+        "description": "Last Updated: June 2026 At Tokriii, customer satisfaction is our priority. We take great care in sourcing, inspecting, and delivering fresh, premium-quality fru",
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/returns-policy",
+        "ogTitle": "Returns & Refund Policy · Tokriii",
+        "ogDescription": "Last Updated: June 2026 At Tokriii, customer satisfaction is our priority. We take great care in sourcing, inspecting, and delivering fresh, premium-quality fru",
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/returns-policy",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Returns & Refund Policy · Tokriii",
+        "twitterDescription": "Last Updated: June 2026 At Tokriii, customer satisfaction is our priority. We take great care in sourcing, inspecting, and delivering fresh, premium-quality fru",
+        "twitterImage": null,
+        "h1s": [
+          "Returns & Refund Policy"
+        ],
+        "h2Count": 11,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 44711
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Returns & Refund Policy — 100% Freshness Guarantee · Tokriii",
+        "description": "Learn about Tokriii's hassle-free replacement and refund policy. If any fruit fails our freshness standard upon delivery, we provide prompt refunds or replacements.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/returns-policy",
+        "ogTitle": "Returns & Refund Policy — 100% Freshness Guarantee · Tokriii",
+        "ogDescription": "Learn about Tokriii's hassle-free replacement and refund policy. If any fruit fails our freshness standard upon delivery, we provide prompt refunds or replacements.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/returns-policy",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Returns & Refund Policy — 100% Freshness Guarantee · Tokriii",
+        "twitterDescription": "Learn about Tokriii's hassle-free replacement and refund policy. If any fruit fails our freshness standard upon delivery, we provide prompt refunds or replacements.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Returns & Refund Policy"
+        ],
+        "h2Count": 11,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 46377
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/support-center",
+      "slug": "support-center"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Support Center · Tokriii",
+        "description": null,
+        "robots": "index, follow",
+        "canonical": "https://tokriii.com/support-center",
+        "ogTitle": "Support Center · Tokriii",
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": "https://tokriii.com/support-center",
+        "ogType": "website",
+        "twitterCard": "summary",
+        "twitterTitle": "Support Center · Tokriii",
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [
+          "Support Center"
+        ],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 31166
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Support Center — Contact Tokriii Customer Care in Delhi NCR",
+        "description": "Connect with Tokriii customer support via WhatsApp (+91 9580280280), phone, or email. We assist with order tracking, morning delivery updates, and quality queries.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/support-center",
+        "ogTitle": "Support Center — Contact Tokriii Customer Care in Delhi NCR",
+        "ogDescription": "Connect with Tokriii customer support via WhatsApp (+91 9580280280), phone, or email. We assist with order tracking, morning delivery updates, and quality queries.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/support-center",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Support Center — Contact Tokriii Customer Care in Delhi NCR",
+        "twitterDescription": "Connect with Tokriii customer support via WhatsApp (+91 9580280280), phone, or email. We assist with order tracking, morning delivery updates, and quality queries.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Support Center"
+        ],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 34114
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/shipping-and-delivery-policy",
+      "slug": "shipping-and-delivery-policy"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Shipping & Delivery Policy — Morning & Express Drops · Tokriii",
+        "description": "Check Tokriii shipping fees, free delivery thresholds, order cutoff times, morning delivery before 7:00 AM, and 90-minute express service across Delhi NCR.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/shipping-and-delivery-policy",
+        "ogTitle": "Shipping & Delivery Policy — Morning & Express Drops · Tokriii",
+        "ogDescription": "Check Tokriii shipping fees, free delivery thresholds, order cutoff times, morning delivery before 7:00 AM, and 90-minute express service across Delhi NCR.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/shipping-and-delivery-policy",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Shipping & Delivery Policy — Morning & Express Drops · Tokriii",
+        "twitterDescription": "Check Tokriii shipping fees, free delivery thresholds, order cutoff times, morning delivery before 7:00 AM, and 90-minute express service across Delhi NCR.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Shipping & Delivery Policy",
+          "Shipping & Delivery Policy"
+        ],
+        "h2Count": 14,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 46661
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/cancellation-policy",
+      "slug": "cancellation-policy"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Cancellation Policy — Easy Order Cancellations · Tokriii",
+        "description": "Understand Tokriii order cancellation guidelines. Cancel easily before order packing or dispatch with immediate wallet or original payment method refunds.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/cancellation-policy",
+        "ogTitle": "Cancellation Policy — Easy Order Cancellations · Tokriii",
+        "ogDescription": "Understand Tokriii order cancellation guidelines. Cancel easily before order packing or dispatch with immediate wallet or original payment method refunds.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/cancellation-policy",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Cancellation Policy — Easy Order Cancellations · Tokriii",
+        "twitterDescription": "Understand Tokriii order cancellation guidelines. Cancel easily before order packing or dispatch with immediate wallet or original payment method refunds.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Cancellation Policy",
+          "Cancellation Policy"
+        ],
+        "h2Count": 7,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 42585
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/cookie-policy",
+      "slug": "cookie-policy"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Cookie Policy — Website Experience & Privacy Preferences · Tokriii",
+        "description": "Learn how Tokriii uses cookies and essential storage to preserve your cart, deliver personalized fruit recommendations, and protect your secure session.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/cookie-policy",
+        "ogTitle": "Cookie Policy — Website Experience & Privacy Preferences · Tokriii",
+        "ogDescription": "Learn how Tokriii uses cookies and essential storage to preserve your cart, deliver personalized fruit recommendations, and protect your secure session.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/cookie-policy",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Cookie Policy — Website Experience & Privacy Preferences · Tokriii",
+        "twitterDescription": "Learn how Tokriii uses cookies and essential storage to preserve your cart, deliver personalized fruit recommendations, and protect your secure session.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Cookie Policy",
+          "Cookie Policy"
+        ],
+        "h2Count": 8,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 45117
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "cms",
+      "path": "/freshness-guarantee",
+      "slug": "freshness-guarantee"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Freshness Guarantee — Farm-Fresh Handpicked Quality · Tokriii",
+        "description": "Our promise: 100% naturally ripened, farm-fresh, chemically untouched fruits handpicked daily at Azadpur Mandi. If anything is subpar, we replace it instantly.",
+        "robots": "noindex, nofollow",
+        "canonical": "https://tokriii.com/freshness-guarantee",
+        "ogTitle": "Freshness Guarantee — Farm-Fresh Handpicked Quality · Tokriii",
+        "ogDescription": "Our promise: 100% naturally ripened, farm-fresh, chemically untouched fruits handpicked daily at Azadpur Mandi. If anything is subpar, we replace it instantly.",
+        "ogImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "ogUrl": "https://tokriii.com/freshness-guarantee",
+        "ogType": "website",
+        "twitterCard": "summary_large_image",
+        "twitterTitle": "Freshness Guarantee — Farm-Fresh Handpicked Quality · Tokriii",
+        "twitterDescription": "Our promise: 100% naturally ripened, farm-fresh, chemically untouched fruits handpicked daily at Azadpur Mandi. If anything is subpar, we replace it instantly.",
+        "twitterImage": "https://tokriii.com/uploads/general/hero-image-1789854996436-1789856580595.webp",
+        "h1s": [
+          "Freshness Guarantee",
+          "Freshness Guarantee"
+        ],
+        "h2Count": 10,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 43813
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "private",
+      "path": "/cart"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 29045
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 28972
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "private",
+      "path": "/checkout"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 29035
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 28962
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "private",
+      "path": "/account"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 29030
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 5,
+        "imagesWithoutAlt": 1,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 28957
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "private",
+      "path": "/login"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 0,
+        "imagesWithoutAlt": 0,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 11461
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 0,
+        "imagesWithoutAlt": 0,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 11358
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "private",
+      "path": "/profile"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 0,
+        "imagesWithoutAlt": 0,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 11471
+      }
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": {
+        "lang": "en-IN",
+        "title": "Tokriii — Premium & Exotic Fruits",
+        "description": null,
+        "robots": "noindex, nofollow",
+        "canonical": null,
+        "ogTitle": null,
+        "ogDescription": null,
+        "ogImage": null,
+        "ogUrl": null,
+        "ogType": null,
+        "twitterCard": null,
+        "twitterTitle": null,
+        "twitterDescription": null,
+        "twitterImage": null,
+        "h1s": [],
+        "h2Count": 0,
+        "imageCount": 0,
+        "imagesWithoutAlt": 0,
+        "jsonLdTypes": [],
+        "jsonLd": [],
+        "bodyLength": 11368
+      }
+    }
+  },
+  {
+    "route": {
+      "type": "robots",
+      "path": "/robots.txt"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "no-store"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "no-store"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "sitemap",
+      "path": "/sitemap.xml"
+    },
+    "live": {
+      "status": 200,
+      "headers": {
+        "cacheControl": "no-store"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 200,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "no-store"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "404-test",
+      "path": "/non-existent-page-test-404"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 404,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "404-product",
+      "path": "/product/non-existent-product-test-404"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 404,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  },
+  {
+    "route": {
+      "type": "404-blog",
+      "path": "/blog/non-existent-blog-test-404"
+    },
+    "live": {
+      "status": 404,
+      "headers": {
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    },
+    "local": {
+      "status": 404,
+      "headers": {
+        "xRobotsTag": "noindex, nofollow",
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      "parsed": null
+    }
+  }
+]

@@ -125,7 +125,9 @@ for (const [kind, item] of [['product', products[0]], ['blog', blogs[0]]]) {
   }
   const sourceImage = kind === 'product' ? item.image : item.coverImage
   if (sourceImage && /^https?:\/\//i.test(sourceImage)) {
-    assert.equal(meta.find((node) => node.attribs.property === 'og:image')?.attribs.content, sourceImage, `${kind} Open Graph image incorrect`)
+    const ogImage = meta.find((node) => node.attribs.property === 'og:image')?.attribs.content
+    const expectedCanonicalImage = sourceImage.replace(/^http:\/\/(?:localhost|127\.0\.0\.1):\d+/, 'https://tokriii.com')
+    assert.ok(ogImage === sourceImage || ogImage === expectedCanonicalImage, `${kind} Open Graph image incorrect`)
   }
 
   const canonical = findAll((node) => node.type === 'tag' && node.name === 'link' && node.attribs.rel === 'canonical', dom.children)[0]
