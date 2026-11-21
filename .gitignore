@@ -45,3 +45,5 @@ docs/ui-parity-audit/screenshots/
 
 # Isolated tracking verification build
 .next.tracking-verification/
+.playwright-mcp/
+*.playwright-mcp/

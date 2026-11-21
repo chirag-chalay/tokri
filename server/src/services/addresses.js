@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { ADDRESS_DETAIL_FIELDS, composeAddressLines } from '../../../shared/addressFields.js'
 import { prisma } from '../lib/prisma.js'
 import {
   assertPincodeServiceable,
@@ -49,20 +50,25 @@ function readMapPin(input = {}) {
 function sanitizeAddressInput(input = {}, fallbackPhone = '') {
   const label = LABELS.has(input.label) ? input.label : 'Home'
   const name = String(input.name || '').trim()
-  const line1 = String(input.line1 || '').trim()
-  const line2 = String(input.line2 || '').trim()
+  const details = input.addressDetailsVersion === 1
+    ? Object.fromEntries(ADDRESS_DETAIL_FIELDS.map(key => [key, String(input[key] || '').trim().slice(0, 300)]))
+    : null
+  const lines = details ? composeAddressLines(details) : input
+  const line1 = String(lines.line1 || '').trim()
+  const line2 = String(lines.line2 || '').trim()
   const city = String(input.city || '').trim()
   const state = String(input.state || '').trim()
-  const pincode = String(input.pincode || '').replace(/\D/g, '').slice(0, 6)
+  const pincode = details ? String(input.pincode || '').trim() : String(input.pincode || '').replace(/\D/g, '').slice(0, 6)
   const landmark = String(input.landmark || '').trim()
   const phone = normalizePhone(input.phone) || fallbackPhone
 
   if (!name) throw Object.assign(new Error('Full name is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
+  if (details && !details.houseNumber && !details.building) throw Object.assign(new Error('House / flat / plot number or building is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
   if (!line1) throw Object.assign(new Error('House / flat details are required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
   if (!line2) throw Object.assign(new Error('Street / area is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
   if (!city) throw Object.assign(new Error('City is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
   if (!state) throw Object.assign(new Error('State is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
-  if (pincode.length !== 6) throw Object.assign(new Error('Enter a valid 6-digit pincode.'), { status: 400, reasonCode: 'PINCODE_INVALID' })
+  if (pincode.length !== 6 || (details && !/^[1-9][0-9]{5}$/.test(pincode))) throw Object.assign(new Error('Enter a valid 6-digit pincode.'), { status: 400, reasonCode: 'PINCODE_INVALID' })
   if (!phone) throw Object.assign(new Error('A valid mobile number is required.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
 
   return {
@@ -76,6 +82,7 @@ function sanitizeAddressInput(input = {}, fallbackPhone = '') {
     pincode,
     landmark,
     ...readMapPin(input),
+    ...(details ? { ...details, addressDetailsVersion: 1 } : {}),
   }
 }
 
@@ -165,8 +172,15 @@ export async function updateAddress(customerId, addressId, input) {
 
   const payload = sanitizeAddressInput(input, customer.phone)
   await assertPincodeServiceable(payload.pincode)
+  const previous = { ...addresses[index] }
+  if (payload.addressDetailsVersion !== 1) {
+    // Older/native clients still edit line1/line2. Drop stale structured metadata
+    // on that record so a subsequent web edit does not resurrect old details.
+    delete previous.addressDetailsVersion
+    for (const field of ADDRESS_DETAIL_FIELDS) delete previous[field]
+  }
   const updated = {
-    ...addresses[index],
+    ...previous,
     ...payload,
     updatedAt: new Date().toISOString(),
   }

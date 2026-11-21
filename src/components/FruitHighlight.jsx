@@ -14,7 +14,7 @@ export default function FruitHighlight({ image, rawUrls = false }) {
         >
           <img
             src={rawUrls ? image : resolveAssetUrl(image)}
-            alt="Home highlight"
+            alt="Tokriii Fresh Seasonal Fruit Highlights Delhi NCR"
             className="block w-full object-cover transition duration-300 group-hover:scale-[1.015] group-hover:brightness-95"
             decoding="async"
           />
