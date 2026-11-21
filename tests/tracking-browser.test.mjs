@@ -73,6 +73,9 @@ test('granted Search and checkout share a Pixel and server event identity', asyn
   window.location = new URL('https://tokriii.com/shop?fbclid=real-test-click')
   await b.adapter.trackPageView('/shop?fbclid=real-test-click')
   assert.match(b.cookies.get('_fbc'), /^fb\.1\.\d{13}\.real-test-click$/)
+  assert.equal(b.requests.length, 0, 'First server event waits for the Pixel browser ID')
+  b.cookies.set('_fbp', 'fb.1.1795210000000.123456789')
+  b.scripts.find(script => script.src.includes('fbevents.js')).onload()
   b.adapter.trackSearch('Dragon Fruit')
   b.adapter.trackSearch('98765-43210')
   await b.adapter.trackCommerce('begin_checkout', {

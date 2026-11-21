@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "${TOKRIII_NEXT_RELEASE_ROOT:-$repo_root}"
 export NODE_ENV=production
 export TOKRIII_SERVER_API_ORIGIN="${TOKRIII_SERVER_API_ORIGIN:-http://127.0.0.1:5173}"
 export TOKRIII_API_PROXY_TARGET="${TOKRIII_API_PROXY_TARGET:-http://127.0.0.1:5173}"
