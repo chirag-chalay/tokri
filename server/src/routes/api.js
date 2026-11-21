@@ -4,6 +4,11 @@ import { prisma } from '../lib/prisma.js'
 import { formatPublicSettings } from '../utils/settings.js'
 import { formatCategory, formatProduct, formatPage, formatBlog, formatBlogSummary, toPublicAssetUrl } from '../utils/formatters.js'
 import { PRODUCT_CATEGORY_INCLUDE, categoryProductWhere } from '../utils/catalog.js'
+import { searchAddresses } from '../services/addressSearch.js'
+import { addressSearchLimit } from '../middleware/addressSearchLimit.js'
+import { mapplsEnabled } from '../services/mappls.js'
+import { assertPincodeServiceable, deliveryAvailability } from '../services/delivery.js'
+import { pincodeSuggestions } from '../services/pincodeSuggestions.js'
 import { reverseGeocode } from '../services/geocode.js'
 import authRouter from './auth.js'
 import accountRouter from './account.js'
@@ -39,6 +44,40 @@ router.use('/checkout', checkoutRouter)
 router.use('/app', appRouter)
 router.use('/partner', partnerRouter)
 router.use('/tracking', trackingRouter)
+
+// POST keeps customer-entered address queries out of URL/access logs.
+router.post('/addresses/search', addressSearchLimit(), async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const result = await searchAddresses(req.body?.query)
+    res.json({ ...result, attributionLogo: mapplsEnabled() ? process.env.MAPPLS_ATTRIBUTION_LOGO_PATH : null })
+  } catch {
+    // No query text or upstream URLs in failure responses.
+    res.status(503).json({ message: 'Address search is unavailable. Please enter your address manually.' })
+  }
+})
+
+router.get('/delivery/availability', addressSearchLimit({ limit: 60 }), async (req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const pincode = typeof req.query.pincode === 'string' ? req.query.pincode : ''
+    if (!/^[1-9][0-9]{5}$/.test(pincode)) return res.status(400).json({ message: 'Enter a valid 6-digit pincode.' })
+    const row = await assertPincodeServiceable(pincode)
+    res.json({ pincode, delivery: deliveryAvailability(row) })
+  } catch (error) {
+    if (error.status === 400) return res.json({ pincode: req.query.pincode, delivery: deliveryAvailability(null) })
+    next(error)
+  }
+})
+
+router.get('/delivery/pincodes', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-store')
+    res.json({ suggestions: await pincodeSuggestions(req.query.q) })
+  } catch (error) {
+    next(error)
+  }
+})
 
 router.get('/geo/reverse', async (req, res, next) => {
   try {

@@ -396,3 +396,184 @@ outputs. The [earlier monitoring review](docs/monitoring-review/results.txt) is
 historical; its durable-outbox and Prisma-generation gaps are addressed by this work.
 
 Local schema setup, COD log recovery and current verification results: [completion report](docs/monitoring-completion/RESULTS.md). For the approved staging/production rollout procedure, see [deployment runbook](docs/monitoring-completion/PRODUCTION-DEPLOYMENT.md).
+
+## Address autocomplete (2026-11-16)
+
+The shared customer `AddressFormModal` serves checkout, the header address picker
+and Saved Addresses in both Vite and Next.js. It now uses `AddressAutocomplete`
+and the shared portal-based `AutocompleteInput`; `PincodeAutocomplete` reuses the
+same keyboard, touch, scrolling and visual-viewport positioning behavior.
+Address search starts at three characters with a 300 ms debounce and returns at
+most eight matches. Numeric pincode autocomplete still starts at the first digit.
+
+`POST /api/v1/addresses/search` accepts `{ "query": "Plot 25 Sector 46" }`.
+Queries are POST bodies to keep private address text out of URL/access logs. Search
+reads the public directory and verified serviceable-pincode labels, never customer
+addresses. Each local record has a source and verification date in
+`src/data/addressDirectory.js`. Operators can extend this versioned directory only
+after verifying the location and any postal-code mapping. It has 18 sourced
+records: Sector 45/46/56/15, DLF II/III/QE and Galleria IV, Chakkarpur, South City II,
+Badshahpur, Bhondsi, Gurgaon, Palam Vihar, Railway Road, Golf Course Road, Amity
+International School (Sector 46), and Adarsh Nagar (Delhi). This is limited,
+explicit coverage, not a complete Gurugram address database. Sector 15 and Golf
+Course Road intentionally have no default pincode. No private house, flat, plot,
+subsector, society or block is invented or inferred from a nearby location.
+
+Selecting a suggestion fills available structured fields, retains customer house,
+floor and portion details, and clears an old pincode if the match has none. Search
+terms such as "Plot 25" are retained as customer-entered text, not labeled as
+verified geographic results. Fields populated by an earlier suggestion can be
+replaced; subsequent customer edits are preserved. All fields remain editable.
+`GET /api/v1/delivery/availability?pincode=122003` delegates to the existing
+`assertPincodeServiceable` and `deliveryAvailability` functions. Morning and Same
+Day feedback uses those results only. Save and order validation remain mandatory.
+The existing empty-network legacy fallback in `delivery.js` is unchanged.
+
+New saves store `addressDetailsVersion: 1` plus houseNumber, floor, building,
+street and locality in the existing customer address JSON. They also compose
+legacy line1/line2 for order, invoice and native-client compatibility. Editing an
+older address preserves its entire original lines rather than splitting them by
+commas. Older clients editing line1/line2 clear obsolete structured metadata on
+that edited record. No migration or rewrite of existing addresses is required.
+Pricing, delivery charges, taxes, payments and order calculations are unchanged.
+
+### Provider configuration and limits
+
+No Mappls or Google Places credentials were present during implementation. The
+working default is the verified local directory. The server-only Mappls
+Autosuggest REST adapter has a Gurugram location bias, without a hard boundary
+that excludes Delhi. It processes genuine suggestedLocations only, requests
+structured address tokens and never guesses a pincode from a display string.
+Unstructured provider results require manual completion of missing fields.
+
+Mappls Geocoding was evaluated but is not called automatically: a text geocode
+can match at a broader level than the selected premise. Do not promote a loosely
+matched geocode into an exact house/plot result. No Google adapter was added
+because no suitable existing credentials were available.
+
+Enable Mappls only with all of the following server environment configuration:
+
+- `MAPPLS_API_KEY`: commercial Autosuggest access, including address token
+  entitlement where needed. Restrict the key to the backend egress IPs. Never use
+  VITE_ or NEXT_PUBLIC_ variables for the secret.
+- `MAPPLS_ADDRESS_STORAGE_ALLOWED=true`: set only after the applicable agreement
+  permits retaining customer-selected address components for fulfillment. Provider
+  results, identifiers, and coordinates are not cached or added to the directory.
+- `MAPPLS_ATTRIBUTION_LOGO_PATH=/images/mappls-powered-by.png`: install the official
+  attribution asset under the frontend public directory, preserving its clear
+  space. Provider lists display that logo and link to Mappls. Verify the asset
+  serves successfully before enabling provider access.
+- `MAPPLS_DAILY_REQUEST_LIMIT=500`: default safety cap per Node process/day.
+  Set account-wide billing quotas in the provider console; process restarts and
+  multiple instances do not share this counter. No paid account was provisioned
+  and live billing/entitlements have not been tested.
+
+Search is limited to 30 requests/minute/IP; availability to 60. Provider calls
+have a 3.5-second timeout, four-call concurrency cap and 30-second failure cooldown.
+For multiple backend instances, configure shared ingress limits and provider
+account quotas. Provider errors return local results and manual entry remains
+available. Search responses use no-store; secrets and upstream URLs are never
+returned in provider error messages.
+
+Official references:
+
+- Autosuggest: https://developer.mappls.com/documentation/sdk/rest-apis/mappls-maps-auto-suggest-api-example/Readme/
+- Geocoding: https://developer.mappls.com/documentation/sdk/rest-apis/mappls-maps-geocoding-rest-api-example/Readme/
+- Terms: https://about.mappls.com/api/terms-%26-conditions
+- Attribution: https://about.mappls.com/api/advanced-maps/API-Branding-Guidelines.pdf
+- Gurugram postal directory: https://gurugram.gov.in/std-pin-codes/
+- Sector 46/school: https://www.amity.edu/ais/aisg2/amitywebsite.pdf
+- Sector 15: https://gurugram.gov.in/public-utility/government-primary-school-sector-15-gurugram/
+- Golf Course Road existence (not a universal pincode): https://environmentclearance.nic.in/auth/ECGeneral_Report.aspx?pid=12400
+
+### Safe local verification
+
+From the repository root, use separate terminals:
+
+```sh
+cd server
+ADDRESS_AUTOCOMPLETE_TEST_SERVER=1 node scripts/verify-address-server.js
+```
+
+```sh
+VITE_API_PROXY_TARGET=http://127.0.0.1:5253 npm run dev -- --host 127.0.0.1 --port 5249
+```
+
+```sh
+node scripts/verify-address-autocomplete.mjs
+node --test server/test/address-search.test.js server/test/pincode-suggestions.test.js server/tests/inclusive-gst.test.js
+```
+
+The isolated API uses real authentication/address/search handlers, memory-only
+customer/address storage, and a deliberately unusable database URL. Unrelated
+routes are blocked. Browser tests stub only unrelated catalog/cart/quote
+transport; they do not place orders or run payments. Tests cover desktop 1440px,
+tablet 768px, mobile 375px and narrow 320px; all requested query categories;
+unsupported/missing pincodes; manual entry; stale/slow/failed requests; authenticated
+address create/update; checkout address switching and delivery controls; legacy
+address preservation; touch/keyboard interaction; and simulated visual-viewport
+keyboard positioning. A physical iOS/Android keyboard still needs device testing.
+
+Authenticated staging test-account login, checkout configuration and saved-address
+reads returned HTTP 200 on 2026-11-16. The new staging address-search endpoint
+returned 404 because these changes have not been deployed. The new feature has
+not been verified on staging. No order, payment, production restart or deployment
+was performed. Live Mappls behavior remains unverified pending credentials and
+licensing; expanded house/plot/society coverage requires genuine provider data or
+additional sourced directory entries.
+
+Implementation files (paths relative to the repository root):
+
+- Added: `shared/addressFields.js`, `src/components/account/AutocompleteInput.jsx`,
+  `src/components/account/AddressAutocomplete.jsx`,
+  `server/src/data/addressDirectory.js`, `server/src/services/addressSearch.js`,
+  `server/src/services/mappls.js`, `server/src/middleware/addressSearchLimit.js`,
+  `server/test/address-search.test.js`, `scripts/verify-address-autocomplete.mjs`,
+  `server/scripts/verify-address-server.js`.
+- Updated: `src/components/account/AddressFormModal.jsx`,
+  `src/components/account/PincodeAutocomplete.jsx`, `server/src/routes/api.js`,
+  `server/src/services/addresses.js`, `server/.env.example`,
+  `scripts/verify-pincode-autocomplete.mjs`, `server/README.md`.
+- Earlier pincode work and unrelated pre-existing `.adminjs/bundle.js` edits were
+  preserved. No Git commit or push was requested or performed.
+
+Verification results: 19 targeted Node tests passed. Vite and Next.js production
+builds passed. Next initially encountered a generated Webpack hash-cache error;
+the old generated cache was preserved under `/tmp` and a fresh build succeeded.
+Lint passed for the edited frontend/shared verification files. The existing
+Browserslist age and Vite bundle-size warnings remain.
+
+The final browser run also passed header-picker creation and Delhi locality
+selection at all four widths. Cached Next.js rebuilds reproduced the internal
+Webpack filesystem-context hash error; clean-cache builds passed. This local
+incremental-build/toolchain limitation remains documented rather than changing
+unrelated Next.js configuration. Use a clean build cache for release verification.
+
+### Address autocomplete correction verification
+
+Reproduced the stale search label and Galleria name being copied into locality,
+and a mobile pincode field overlapping the Save footer. Removed the optional
+search helper element and repeated suggestion instructions, without replacement
+paragraphs. Galleria now maps to building/complex `Galleria Market` and locality
+`DLF Phase IV`; the component source is DLF's own Phase IV brochure, recorded in
+the directory. Postal display labels no longer become structured localities;
+provider houseName and POI tokens map separately to building and landmark.
+
+Selection synchronizes the displayed label and closes suggestions. Only a user
+edit, focus or keyboard action can open a search for the current input value;
+programmatic pincode changes cannot launch another dropdown. Dropdown bounds
+intersect the visual viewport with the actual modal scroll panel, excluding its
+header and Save footer. Panel resize is observed during keyboard changes. Arrow
+navigation scrolls the option list directly; wheel and touch boundary handling
+prevents scroll chaining to the document. Manual pincode search remains available.
+
+Runtime configuration audit confirmed the Mappls adapter exists but no API key,
+storage permission or attribution path is configured. Current coverage therefore
+remains the verified local fallback, not live Mappls search. The existing provider
+path is used when its documented configuration is available.
+
+Targeted tests: 21 passed. Browser regressions cover corrected field mapping,
+selection labels, programmatic/manual pincode behavior, actual list overflow,
+footer bounds, keyboard navigation and wheel containment in addition to the
+existing authenticated save/edit, checkout switching and eligibility checks.
+Physical device keyboards and live provider data remain unverified.
