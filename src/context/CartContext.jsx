@@ -424,7 +424,7 @@ export function CartProvider({ children }) {
   }
 
   const openDrawer = () => setShowDrawer(true)
-  const closeDrawer = () => setShowDrawer(false)
+  const closeDrawer = useCallback(() => setShowDrawer(false), [])
 
   const totalCount = useMemo(
     () => cartItems.reduce((sum, item) => sum + item.quantity, 0),

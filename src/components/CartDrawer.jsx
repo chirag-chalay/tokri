@@ -18,7 +18,6 @@ export default function CartDrawer() {
     handlingCharge,
     discount,
     grandTotal,
-    quote,
     showDrawer,
     closeDrawer,
     updateQuantity,
@@ -30,7 +29,6 @@ export default function CartDrawer() {
   } = useCart()
 
   const containerRef = useFocusTrap(Boolean(showDrawer), closeDrawer)
-  const hasPublicCoupons = (quote?.availableCoupons || []).length > 0
   const unavailableItems = unavailablePanel?.items || []
   const hasCartBody = cartItems.length > 0 || unavailableItems.length > 0
 
@@ -80,9 +78,9 @@ export default function CartDrawer() {
               onDismiss={dismissUnavailable}
             />
 
-            {hasPublicCoupons && cartItems.length ? (
+            {cartItems.length ? (
               <div className="mb-4 rounded-2xl border border-line bg-panel-2 p-4">
-                <CouponBox compact />
+                <CouponBox compact allowManualEntry />
               </div>
             ) : null}
 
