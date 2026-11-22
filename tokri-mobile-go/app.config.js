@@ -73,7 +73,7 @@ module.exports = {
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       ...(androidFirebase ? { googleServicesFile: androidFirebase } : {}),
-      versionCode: 48,
+      versionCode: 49,
       ...(metaEnabled ? { permissions: ['com.google.android.gms.permission.AD_ID'] } : {}),
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
@@ -110,6 +110,7 @@ module.exports = {
       '@react-native-firebase/analytics',
       ['expo-build-properties', { android: { minSdkVersion: 24, kotlinVersion: '2.4.0' }, ios: { useFrameworks: 'dynamic' } }],
       './plugins/withUpiApps',
+      './plugins/withOptionalPortraitFeature',
       'expo-sharing',
       [
         'expo-splash-screen',
