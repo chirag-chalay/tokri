@@ -502,7 +502,7 @@ export default function CheckoutPage() {
           <aside className="min-w-0 h-fit rounded-2xl border border-line bg-panel p-5 sm:p-6">
             <h2 className="text-lg font-bold text-white">Order summary</h2>
             <div className="mt-4">
-              <CouponBox compact />
+              <CouponBox compact allowManualEntry />
             </div>
             <ul className="mt-4 space-y-3 border-b border-line pb-4">
               {cartItems.map((item) => (
