@@ -28,6 +28,7 @@
     "db:apply-app-release": "node scripts/apply-app-release.js",
     "db:apply-social": "node scripts/apply-social-links.js",
     "test:coupons": "node --test tests/manual-coupons.test.js",
+    "test:admin-customers": "node --test tests/admin-customer-insights.test.js",
     "test:inclusive-gst": "node --test tests/inclusive-gst.test.js",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/monitoring-integration.test.js",

@@ -19,6 +19,8 @@ export const Components = {
   PincodeEdit: componentLoader.add('PincodeEdit', './components/pincode-edit.jsx'),
   StatusToggle: componentLoader.add('StatusToggle', './components/status-toggle.jsx'),
   CustomerEdit: componentLoader.add('CustomerEdit', './components/customer-edit.jsx'),
+  CustomerOrders: componentLoader.add('CustomerOrders', './components/customer-orders.jsx'),
+  CustomerCart: componentLoader.add('CustomerCart', './components/customer-cart.jsx'),
   TeamEdit: componentLoader.add('TeamEdit', './components/team-edit.jsx'),
   MediaLibrary: componentLoader.add('MediaLibrary', './components/media-library.jsx'),
   TaxEdit: componentLoader.add('TaxEdit', './components/tax-edit.jsx'),

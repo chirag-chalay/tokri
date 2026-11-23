@@ -38,6 +38,7 @@ import {
   generateQrAction,
 } from './partner-handlers.js'
 import { prepareCustomerPayload, attachCustomerAddresses, toggleCustomerActiveAction } from './customer-handlers.js'
+import { customerListExtras, viewCustomerCartAction, viewCustomerOrdersAction } from './customer-insights.js'
 import { prepareTeamPayload, afterTeamSave, toggleTeamActiveAction } from './team-handlers.js'
 import { prepareReviewPayload, toggleReviewApprovedAction } from './review-handlers.js'
 import { prepareBlogPayload, toggleBlogPublishedAction } from './blog-handlers.js'
@@ -1035,11 +1036,23 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         options: {
           name: 'Customers',
           navigation: { name: null, icon: 'User' },
-          listProperties: ['name', 'phone', 'dateOfBirth', 'isActive', 'createdAt'],
+          listProperties: ['name', 'phone', 'cartItemCount', 'cartTotal', 'dateOfBirth', 'isActive', 'createdAt'],
           editProperties: ['name', 'phone', 'dateOfBirth', 'isActive'],
           properties: {
             name: { isTitle: true, label: 'Customer' },
             phone: { isDisabled: true, label: 'Mobile' },
+            cartItemCount: {
+              type: 'number',
+              label: 'Cart items',
+              isSortable: false,
+              isVisible: { list: true, show: false, edit: false, filter: false },
+            },
+            cartTotal: {
+              type: 'string',
+              label: 'Cart value',
+              isSortable: false,
+              isVisible: { list: true, show: false, edit: false, filter: false },
+            },
             dateOfBirth: { type: 'date', label: 'Date of birth' },
             isActive: {
               label: 'Status',
@@ -1058,7 +1071,26 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
           },
           actions: {
             ...resourceActions('manageUsers'),
-            list: cmsListView('manageUsers', ['name', 'phone']),
+            list: cmsListView('manageUsers', ['name', 'phone'], { enrichRows: customerListExtras }),
+            viewOrders: {
+              actionType: 'record',
+              icon: 'ShoppingBag',
+              label: 'View Orders',
+              isVisible: true,
+              isAccessible: ({ currentAdmin }) =>
+                hasPermission(currentAdmin, 'manageUsers') && hasPermission(currentAdmin, 'manageOrders'),
+              component: Components.CustomerOrders,
+              handler: viewCustomerOrdersAction,
+            },
+            viewCart: {
+              actionType: 'record',
+              icon: 'ShoppingCart',
+              label: 'View Cart',
+              isVisible: true,
+              isAccessible: canManage('manageUsers'),
+              component: Components.CustomerCart,
+              handler: viewCustomerCartAction,
+            },
             edit: {
               isAccessible: canManage('manageUsers'),
               isVisible: true,
