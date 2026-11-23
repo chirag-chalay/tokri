@@ -1,4 +1,6 @@
 AdminJS.UserComponents = {}
+import Reports from '../src/admin/components/reports'
+AdminJS.UserComponents.Reports = Reports
 import Monitoring from '../src/admin/components/monitoring'
 AdminJS.UserComponents.Monitoring = Monitoring
 import Dashboard from '../src/admin/components/dashboard'
@@ -31,6 +33,10 @@ import StatusToggle from '../src/admin/components/status-toggle'
 AdminJS.UserComponents.StatusToggle = StatusToggle
 import CustomerEdit from '../src/admin/components/customer-edit'
 AdminJS.UserComponents.CustomerEdit = CustomerEdit
+import CustomerOrders from '../src/admin/components/customer-orders'
+AdminJS.UserComponents.CustomerOrders = CustomerOrders
+import CustomerCart from '../src/admin/components/customer-cart'
+AdminJS.UserComponents.CustomerCart = CustomerCart
 import TeamEdit from '../src/admin/components/team-edit'
 AdminJS.UserComponents.TeamEdit = TeamEdit
 import MediaLibrary from '../src/admin/components/media-library'
