@@ -21,6 +21,20 @@ test('runtime switch preserves consent identity, disables collection and never g
     logEvent: async (_instance, name, value) => { sent.push({ name, value }) },
     trackMetaAction: () => false, setMetaCustomer: () => {},
     logScreenView: async () => {}, recordTrackingOutcome: () => {},
+    canUseNativeTrackingSdks: () => true,
+    require: (name) => {
+      if (name === '@react-native-firebase/analytics') {
+        return {
+          getAnalytics: scope.getAnalytics,
+          setAnalyticsCollectionEnabled: scope.setAnalyticsCollectionEnabled,
+          setConsent: scope.setConsent,
+          setUserId: scope.setUserId,
+          logEvent: scope.logEvent,
+          logScreenView: scope.logScreenView,
+        }
+      }
+      throw new Error(`Unexpected require: ${name}`)
+    },
     buildCommercePayload: () => null, sanitizeSearchTerm: () => '', module: { exports: {} },
   }
   const source = fs.readFileSync(path.join(__dirname, '../src/lib/analytics.js'), 'utf8').replace(/^import .*$/gm, '').replace(/^export (async )?function /gm, '$1function ')

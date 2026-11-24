@@ -16,6 +16,8 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
     let hold = false, release
     let configStarted
     let holdChoice = false, choiceRead, releaseChoice
+    const Settings = { setAutoLogAppEventsEnabled: (value) => { autoEvents = value }, setAdvertiserIDCollectionEnabled: () => {}, setAdvertiserTrackingEnabled: async () => true, initializeSDK: () => { initialized += 1 } }
+    const AppEventsLogger = { setUserID: () => {}, logEvent: (...args) => sent.push(args), logPurchase: (...args) => sent.push(args) }
     const scope = {
       AsyncStorage: { getItem: async (key) => {
         const value = store.get(key) || null
@@ -32,8 +34,13 @@ test('Meta stays off before marketing consent and requires iOS ATT, withdrawal s
         return { metaEnabled: true }
       },
       getTrackingPermissionsAsync: async () => ({ status: permission }), requestTrackingPermissionsAsync: async () => { prompts += 1; return { status: permission } },
-      Settings: { setAutoLogAppEventsEnabled: (value) => { autoEvents = value }, setAdvertiserIDCollectionEnabled: () => {}, setAdvertiserTrackingEnabled: async () => true, initializeSDK: () => { initialized += 1 } },
-      AppEventsLogger: { setUserID: () => {}, logEvent: (...args) => sent.push(args), logPurchase: (...args) => sent.push(args) },
+      Settings,
+      AppEventsLogger,
+      canUseNativeTrackingSdks: () => true,
+      require: (name) => {
+        if (name === 'react-native-fbsdk-next') return { Settings, AppEventsLogger }
+        throw new Error(`Unexpected require: ${name}`)
+      },
       requireOptionalNativeModule: () => ({ activate: async () => { activations += 1; return true } }),
       buildMetaAppEvent: () => ({ method: 'event', name: 'content', parameters: {} }), recordTrackingOutcome: () => {}, module: { exports: {} },
     }
