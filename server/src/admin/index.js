@@ -16,6 +16,7 @@ import {
   serializeAdminUser,
   PERMISSION_KEYS,
 } from './permissions.js'
+import { socialLinksHandler } from './social-links.js'
 import { getSettingResource, ensureSettingsRecord } from './settings.js'
 import { prepareProductPayload, afterProductForm } from './product-handlers.js'
 import { prepareCouponPayload } from './coupon-handlers.js'
@@ -144,6 +145,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
     refreshTokenPath: `${env.adminPath}/refresh-token`,
     componentLoader,
     pages: {
+      socialMediaLinks: { label: 'Social Media Links', icon: 'Link', component: Components.SocialLinks, handler: socialLinksHandler },
       reports: { label: 'Reports', icon: 'BarChart2', component: Components.Reports, handler: reportsHandler },
       logs: { label: 'Logs & Monitoring', icon: 'Activity', component: Components.Monitoring, handler: monitoringHandler },
     },
