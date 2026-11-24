@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import { instrumentPrisma } from '../monitoring/database.js'
 
 const globalForPrisma = globalThis
-const CLIENT_GEN = 7
+const CLIENT_GEN = 8
 
 function createPrisma() {
   const client = instrumentPrisma(new PrismaClient({ log: [] }))
@@ -19,7 +19,9 @@ function getPrisma() {
     existing?.trackingDelivery &&
     existing?.monitoringOutbox &&
     existing?.monitoringOutboxBudget &&
-    existing?.deviceToken
+    existing?.deviceToken &&
+    existing?.homeLayout &&
+    existing?.homeLayoutRevision
   ) {
     return existing
   }
