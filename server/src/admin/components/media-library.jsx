@@ -160,7 +160,10 @@ const MediaLibrary = (props) => {
             onChange={(event) => uploadFiles(event.target.files)}
           />
         </label>
-        <span className="tokri-field-hint">JPG, PNG, GIF, or WebP up to 5MB each</span>
+        <div className="tokri-image-suggest" role="note">
+          <strong>Suggested</strong>
+          <span>Prefer JPG/WebP. Phone assets: banners ~720×360, category thumbs ~320×320, products ~600×600. Aim under 250KB each when possible (hard max 5MB).</span>
+        </div>
       </section>
 
       <section className="tokri-coupon-card">

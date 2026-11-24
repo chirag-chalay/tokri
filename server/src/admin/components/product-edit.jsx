@@ -345,17 +345,18 @@ const ProductEdit = (props) => {
 
         <section className="tokri-coupon-card">
           <h4>Product image</h4>
+          <div className="tokri-image-suggest" role="note">
+            <strong>Suggested</strong>
+            <span>Best size: 600×600 px (square 1:1). Enough for app + mobile web grids and product page. JPG/WebP · aim under 200KB (max 5MB).</span>
+          </div>
           <label className="tokri-upload-drop">
             {displayedImageUrl ? (
               <img src={displayedImageUrl} alt={params.name || 'Product preview'} />
             ) : (
               <span>Click to upload a square product photo</span>
             )}
-            <input ref={fileRef} type="file" accept="image/*" onChange={uploadImage} />
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={uploadImage} />
           </label>
-          <Text mt="sm" opacity={0.7}>
-            JPG, PNG, GIF, or WebP up to 5MB.
-          </Text>
         </section>
       </Box>
 

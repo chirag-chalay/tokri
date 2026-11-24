@@ -342,6 +342,10 @@ const BlogEdit = (props) => {
       <section className="tokri-coupon-card">
         <h4>Cover image</h4>
         <p>Shown on the blog listing and at the top of the story.</p>
+        <div className="tokri-image-suggest" role="note">
+          <strong>Suggested</strong>
+          <span>Best size: 800×450 px (16:9). Fine for mobile + desktop listing. JPG/WebP · aim under 200KB (max 5MB).</span>
+        </div>
         <label className="tokri-coupon-label">
           Cover
           <span className="tokri-upload-drop">
@@ -350,9 +354,8 @@ const BlogEdit = (props) => {
             ) : (
               <span>{uploading ? 'Uploading…' : 'Click to upload a cover image'}</span>
             )}
-            <input ref={fileRef} type="file" accept="image/*" onChange={uploadImage} />
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={uploadImage} />
           </span>
-          <span className="tokri-field-hint">JPG, PNG, GIF, or WebP up to 5MB</span>
         </label>
         {displayedImageUrl ? (
           <Button

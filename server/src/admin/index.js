@@ -44,6 +44,7 @@ import { prepareBlogPayload, toggleBlogPublishedAction } from './blog-handlers.j
 import { prepareAppReleasePayload } from './app-release-handlers.js'
 import { buildCatalogRoutes } from './catalogRoutes.js'
 import { buildOrderRoutes } from './orderRoutes.js'
+import { buildHomeBuilderRoutes } from './homeBuilderRoutes.js'
 import { adminLocale } from './locale.js'
 import { INDIA_STATES } from '../data/indiaStates.js'
 import { buildDashboardAnalytics } from '../services/dashboardAnalytics.js'
@@ -142,7 +143,18 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
     refreshTokenPath: `${env.adminPath}/refresh-token`,
     componentLoader,
     pages: {
-      logs: { label: 'Logs & Monitoring', icon: 'Activity', component: Components.Monitoring, handler: monitoringHandler },
+      homeBuilder: {
+        label: 'Home Builder',
+        icon: 'Home',
+        component: Components.HomeBuilder,
+        isAccessible: canManage('manageContent'),
+      },
+      logs: {
+        label: 'Logs',
+        icon: 'Activity',
+        component: Components.Monitoring,
+        handler: monitoringHandler,
+      },
     },
     dashboard: {
       component: Components.Dashboard,
@@ -159,8 +171,8 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
       styles: [`${env.adminPath}/assets/cms-theme.css`],
     },
     branding: {
-      companyName: 'Tokriii Dashboard',
-      logo: false,
+      companyName: 'tokriii',
+      logo: `${env.adminPath}/assets/tokri-logo.png?v=primary-fullcolor`,
       withMadeWithLove: false,
       favicon: '/favicon.ico',
       theme: {
@@ -186,7 +198,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         resource: { model: AdminJSPrisma.getModelByName('Product'), client: prisma },
         options: {
           name: 'Products',
-          navigation: { name: 'Catalog', icon: 'ShoppingCart' },
+          navigation: { name: 'Product management', icon: 'ShoppingCart' },
           listProperties: ['name', 'slug', 'priceValue', 'weight', 'categoryList', 'isActive'],
           editProperties: [
             'name',
@@ -296,7 +308,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         resource: { model: AdminJSPrisma.getModelByName('Category'), client: prisma },
         options: {
           name: 'Categories',
-          navigation: { name: 'Catalog', icon: 'Grid' },
+          navigation: { name: 'Product management', icon: 'Folder' },
           listProperties: ['label', 'slug', 'productDisplayLimit', 'sortOrder', 'isActive'],
           editProperties: [
             'label',
@@ -363,8 +375,8 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
       {
         resource: { model: AdminJSPrisma.getModelByName('Media'), client: prisma },
         options: {
-          name: 'Media Library',
-          navigation: { name: 'Catalog', icon: 'Image' },
+          name: 'Media',
+          navigation: { name: 'Product management', icon: 'Image' },
           listProperties: ['originalName', 'folder', 'path', 'size', 'createdAt'],
           custom: {
             apiBaseUrl: `${env.apiUrl}/api/v1`,
@@ -401,7 +413,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         resource: { model: AdminJSPrisma.getModelByName('Page'), client: prisma },
         options: {
           name: 'Pages',
-          navigation: { name: 'Content', icon: 'FileText' },
+          navigation: { name: 'Website & content', icon: 'FileText' },
           listProperties: ['title', 'slug', 'isPublished', 'updatedAt'],
           editProperties: ['title', 'slug', 'body', 'isPublished'],
           actions: {
@@ -419,8 +431,8 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
       {
         resource: { model: AdminJSPrisma.getModelByName('BlogPost'), client: prisma },
         options: {
-          name: 'Blog',
-          navigation: { name: 'Content', icon: 'BookOpen' },
+          name: 'Blog Posts',
+          navigation: { name: 'Website & content', icon: 'BookOpen' },
           listProperties: ['title', 'category', 'author', 'isPublished', 'publishedAt'],
           actions: {
             ...resourceActions('manageContent'),
@@ -475,7 +487,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         resource: { model: AdminJSPrisma.getModelByName('Review'), client: prisma },
         options: {
           name: 'Reviews',
-          navigation: { name: 'Content', icon: 'Star' },
+          navigation: { name: 'Product management', icon: 'Star' },
           listProperties: ['title', 'name', 'rating', 'isApproved', 'createdAt'],
           editProperties: ['title', 'name', 'content', 'rating', 'image', 'isApproved'],
           actions: {
@@ -530,7 +542,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         resource: { model: AdminJSPrisma.getModelByName('Order'), client: prisma },
         options: {
           name: 'Orders',
-          navigation: { name: null, icon: 'ShoppingBag' },
+          navigation: { name: 'Sales & orders', icon: 'ShoppingBag' },
           listProperties: ['orderNo', 'customerName', 'customerPhone', 'status', 'paymentStatus', 'razorpayPaymentId', 'grandTotal', 'createdAt'],
           showProperties: [
             'orderNo',
@@ -556,7 +568,9 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
             'grandTotal',
             'createdAt',
           ],
-          editProperties: ['status', 'paymentStatus', 'deliveryPartnerId'],
+          // AdminJS Prisma exposes the relation as deliveryPartner, not deliveryPartnerId.
+          // Partner assignment itself is handled in the custom OrderDetail UI/handler.
+          editProperties: ['status', 'paymentStatus'],
           actions: {
             ...resourceActions('manageOrders'),
             list: {
@@ -702,7 +716,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         resource: { model: AdminJSPrisma.getModelByName('Coupon'), client: prisma },
         options: {
           name: 'Coupons',
-          navigation: { name: null, icon: 'Tag' },
+          navigation: { name: 'Sales & orders', icon: 'Tag' },
           listProperties: ['code', 'type', 'value', 'applyOn', 'targetType', 'usageType', 'isActive', 'showAtCheckout', 'usedCount'],
           editProperties: [
             'code',
@@ -753,12 +767,20 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
           },
         },
       },
-      getSettingResource(Components.SettingsEdit),
+      (() => {
+        const settingResource = getSettingResource(Components.SettingsEdit)
+        settingResource.options = {
+          ...settingResource.options,
+          name: 'Settings',
+          navigation: { name: 'Configuration', icon: 'Settings' },
+        }
+        return settingResource
+      })(),
       {
         resource: { model: AdminJSPrisma.getModelByName('AppReleasePolicy'), client: prisma },
         options: {
-          name: 'App update',
-          navigation: { name: 'Settings', icon: 'Smartphone' },
+          name: 'App Release Policy',
+          navigation: { name: 'Configuration', icon: 'Shield' },
           listProperties: ['platform', 'enabled', 'latestBuild', 'minimumBuild', 'maintenance'],
           actions: {
             ...resourceActions('manageSettings'),
@@ -791,8 +813,8 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
       {
         resource: { model: AdminJSPrisma.getModelByName('DeliveryPartner'), client: prisma },
         options: {
-          name: 'Delivery partners',
-          navigation: { name: 'Settings', icon: 'Truck' },
+          name: 'Delivery Partners',
+          navigation: { name: 'Delivery management', icon: 'Truck' },
           listProperties: ['name', 'phone', 'city', 'panNumber', 'vehicleNumber', 'isActive'],
           editProperties: [
             'name',
@@ -917,8 +939,8 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
       {
         resource: { model: AdminJSPrisma.getModelByName('ServiceablePincode'), client: prisma },
         options: {
-          name: 'Serviceable pincodes',
-          navigation: { name: 'Settings', icon: 'MapPin' },
+          name: 'Serviceable Pincodes',
+          navigation: { name: 'Delivery management', icon: 'MapPin' },
           listProperties: ['pincode', 'city', 'areaLabel', 'partner', 'morningEnabled', 'expressEnabled', 'isActive'],
           editProperties: ['pincode', 'city', 'state', 'areaLabel', 'isActive', 'morningEnabled', 'expressEnabled', 'partner'],
           filterProperties: ['pincode', 'city', 'state', 'areaLabel', 'isActive', 'partner'],
@@ -1034,7 +1056,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         resource: { model: AdminJSPrisma.getModelByName('Customer'), client: prisma },
         options: {
           name: 'Customers',
-          navigation: { name: null, icon: 'User' },
+          navigation: { name: 'Customer management', icon: 'User' },
           listProperties: ['name', 'phone', 'dateOfBirth', 'isActive', 'createdAt'],
           editProperties: ['name', 'phone', 'dateOfBirth', 'isActive'],
           properties: {
@@ -1082,7 +1104,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         resource: { model: AdminJSPrisma.getModelByName('User'), client: prisma },
         options: {
           name: 'Team',
-          navigation: { name: null, icon: 'Users' },
+          navigation: { name: 'Customer management', icon: 'Users' },
           listProperties: ['name', 'username', 'email', 'role', 'isActive'],
           editProperties: [
             'name',
@@ -1256,6 +1278,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
 
   adminRouter.use('/catalog', buildCatalogRoutes())
   adminRouter.use('/orders', buildOrderRoutes())
+  adminRouter.use('/home-builder', buildHomeBuilderRoutes())
 
   return { admin, adminRouter }
 }

@@ -127,15 +127,25 @@ function ImageUploader({
   return (
     <label className="tokri-coupon-label">
       {label}
+      {hint ? (
+        <div className="tokri-image-suggest" role="note">
+          <strong>Suggested</strong>
+          <span>{hint}</span>
+        </div>
+      ) : null}
       <span className={`tokri-upload-drop${wide ? ' tokri-upload-drop-wide' : ''}`}>
         {displayed ? (
           <img src={displayed} alt={`${label} preview`} />
         ) : (
           <span>{uploading ? 'Uploading…' : 'Click to upload an image'}</span>
         )}
-        <input ref={fileRef} type="file" accept="image/*" onChange={onUpload} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={onUpload}
+        />
       </span>
-      <span className="tokri-field-hint">{hint}</span>
     </label>
   )
 }
@@ -759,7 +769,7 @@ const SettingsEdit = (props) => {
                 <div className="tokri-homepage-fields">
                   <ImageUploader
                     label="Home banner image"
-                    hint="Desktop / large-screen hero banner. JPG, PNG, GIF, or WebP up to 5MB."
+                    hint="Best size: 1400×350 px (about 4:1 desktop). JPG/WebP · aim under 400KB (max 5MB)."
                     value={bannerImageUrl}
                     previewUrl={bannerPreview}
                     uploading={bannerUploading}
@@ -778,7 +788,7 @@ const SettingsEdit = (props) => {
                   />
                   <ImageUploader
                     label="Home mobile banner image"
-                    hint="Shown on phones. If empty, the desktop banner is used instead."
+                    hint="Best size: 720×360 px (about 2:1 for phones). If empty, desktop banner is used. JPG/WebP · aim under 250KB (max 5MB)."
                     value={mobileBannerImageUrl}
                     previewUrl={mobileBannerPreview}
                     uploading={mobileBannerUploading}
@@ -796,7 +806,7 @@ const SettingsEdit = (props) => {
                   />
                   <ImageUploader
                     label="Fruit highlight image"
-                    hint="Replaces the kiwi image in “The Small Fruit with a Big Punch” on the website."
+                    hint="Best size: 600×600 px (square). Used in “The Small Fruit with a Big Punch”. JPG/WebP · aim under 200KB (max 5MB)."
                     value={highlightImageUrl}
                     previewUrl={highlightPreview}
                     uploading={highlightUploading}

@@ -22,13 +22,21 @@ export default async function HomePage(props) {
       ).toString()
     : ''
   const diwaliStatus = getDiwaliStatus({ searchParams: searchString })
+  const previewToken = resolvedSearchParams?.homePreview
+    ? String(Array.isArray(resolvedSearchParams.homePreview) ? resolvedSearchParams.homePreview[0] : resolvedSearchParams.homePreview)
+    : ''
 
-  const [settings, categoryResponse, bestsellerResponse, featuredResponse, reviewResponse] = await Promise.all([
+  const homepagePath = previewToken
+    ? `/home?platform=web&previewToken=${encodeURIComponent(previewToken)}`
+    : '/home?platform=web'
+
+  const [settings, categoryResponse, bestsellerResponse, featuredResponse, reviewResponse, homepage] = await Promise.all([
     publicGet('/settings/public'),
     publicGet('/categories'),
     publicGet('/products?flag=bestSeller&limit=12'),
     publicGet('/products?flag=featured&limit=100'),
     publicGet('/reviews'),
+    publicGet(homepagePath).catch(() => null),
   ])
   if (!settings || !Array.isArray(categoryResponse) || !Array.isArray(bestsellerResponse) || !Array.isArray(featuredResponse) || !Array.isArray(reviewResponse)) throw new Error('Incomplete public homepage data')
   const normalizeProducts = (items) => Array.isArray(items)
@@ -49,6 +57,12 @@ export default async function HomePage(props) {
     const products = await publicGet(`/products?category=${encodeURIComponent(slug)}&limit=12`)
     return { slug, title: category?.title || category?.label || slug.replace(/-/g, ' '), products: normalizeProducts(Array.isArray(products) ? products : products?.products) || [] }
   }))
+
+  const homepagePayload =
+    homepage && Array.isArray(homepage.sections) && homepage.sections.length
+      ? homepage
+      : { sections: null }
+
   return (
     <Home
       initialData={{
@@ -59,6 +73,7 @@ export default async function HomePage(props) {
         featured: normalizeProducts(featuredResponse),
         reviews: Array.isArray(reviewResponse) ? reviewResponse : undefined,
         diwaliStatus,
+        homepage: homepagePayload,
       }}
     />
   )

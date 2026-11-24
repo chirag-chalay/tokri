@@ -13,7 +13,9 @@ import AppHeader from '../components/AppHeader'
 import ProductCard from '../components/ProductCard'
 import LoadingView from '../components/LoadingView'
 import RemoteImage from '../components/RemoteImage'
+import HomeSectionRenderer from '../home/HomeSectionRenderer'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
+import { API_BASE_URL } from '../config'
 import { fetchJson, normalizeCategory, normalizeProduct } from '../lib/api'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
@@ -45,12 +47,57 @@ function ProductSection({ title, products, onSeeAll, onProduct, listId }) {
   )
 }
 
+function LegacyHomeBody({ data, categoryRows, openProduct, openCategory }) {
+  const styles = useThemedStyles(createStyles)
+  return (
+    <>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.catSlider}
+      >
+        {data.categories.map((category) => (
+          <Pressable
+            key={category.slug}
+            style={styles.catItem}
+            onPress={() => openCategory(category.slug)}
+          >
+            <RemoteImage uri={category.image} style={styles.catImage} />
+            <Text style={styles.catLabel} numberOfLines={2}>
+              {category.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      <ProductSection
+        listId="home_bestsellers"
+        title="Bestsellers"
+        products={data.bestSellers}
+        onProduct={openProduct}
+      />
+
+      {categoryRows.map((row) => (
+        <ProductSection
+          key={row.category.slug}
+          listId={`home_${row.category.slug}`}
+          title={row.category.label}
+          products={row.products}
+          onProduct={openProduct}
+          onSeeAll={() => openCategory(row.category.slug)}
+        />
+      ))}
+    </>
+  )
+}
+
 export default function HomeScreen({ navigation }) {
   const impressionViewport = useRef(null)
   const { colors } = useTheme()
   const styles = useThemedStyles(createStyles)
   const [data, setData] = useState({ categories: [], bestSellers: [] })
   const [categoryRows, setCategoryRows] = useState([])
+  const [sections, setSections] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -69,14 +116,12 @@ export default function HomeScreen({ navigation }) {
     navigation.navigate('Categories', { slug })
   }
 
-  const load = useCallback(async () => {
+  const loadLegacy = useCallback(async () => {
     const bootstrap = await fetchJson('/app/bootstrap')
-
     const categories = (bootstrap.categories || []).map(normalizeCategory)
     const bestSellers = (bootstrap.bestSellers || []).map(normalizeProduct)
-
     setData({ categories, bestSellers })
-    setError('')
+    setSections(null)
 
     const rows = await Promise.all(
       categories.map(async (category) => {
@@ -93,6 +138,30 @@ export default function HomeScreen({ navigation }) {
     )
     setCategoryRows(rows.filter((row) => row.products.length))
   }, [])
+
+  const load = useCallback(async () => {
+    let homeError = ''
+    try {
+      const home = await fetchJson('/home?platform=mobile')
+      if (Array.isArray(home?.sections) && home.sections.length) {
+        setSections(home.sections)
+        setError('')
+        return
+      }
+      homeError = home?.sections == null
+        ? 'Home sections are null (legacy). Publish a mobile layout in local admin.'
+        : 'Home sections array is empty. Publish mobile layout with sections.'
+    } catch (err) {
+      homeError = err?.message || 'Home request failed'
+    }
+    try {
+      await loadLegacy()
+      setError(homeError ? `${homeError}\nAPI: ${API_BASE_URL}` : '')
+    } catch (err) {
+      setError(`${homeError || 'Home failed'}; bootstrap: ${err?.message || 'failed'}\nAPI: ${API_BASE_URL}`)
+      throw err
+    }
+  }, [loadLegacy])
 
   useEffect(() => {
     load()
@@ -127,42 +196,21 @@ export default function HomeScreen({ navigation }) {
       >
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catSlider}
-        >
-          {data.categories.map((category) => (
-            <Pressable
-              key={category.slug}
-              style={styles.catItem}
-              onPress={() => openCategory(category.slug)}
-            >
-              <RemoteImage uri={category.image} style={styles.catImage} />
-              <Text style={styles.catLabel} numberOfLines={2}>
-                {category.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        <ProductSection
-          listId="home_bestsellers"
-          title="Bestsellers"
-          products={data.bestSellers}
-          onProduct={openProduct}
-        />
-
-        {categoryRows.map((row) => (
-          <ProductSection
-            key={row.category.slug}
-            listId={`home_${row.category.slug}`}
-            title={row.category.label}
-            products={row.products}
+        {Array.isArray(sections) ? (
+          <HomeSectionRenderer
+            sections={sections}
+            navigation={navigation}
             onProduct={openProduct}
-            onSeeAll={() => openCategory(row.category.slug)}
+            onCategory={openCategory}
           />
-        ))}
+        ) : (
+          <LegacyHomeBody
+            data={data}
+            categoryRows={categoryRows}
+            openProduct={openProduct}
+            openCategory={openCategory}
+          />
+        )}
 
         <View style={{ height: 28 }} />
       </Animated.ScrollView>
@@ -174,7 +222,7 @@ export default function HomeScreen({ navigation }) {
 const createStyles = (c) => ({
   screen: { flex: 1, backgroundColor: c.canvas },
   container: { flex: 1 },
-  error: { color: c.danger, marginHorizontal: 16, marginTop: 12 },
+  error: { color: c.danger, marginHorizontal: 16, marginTop: 12, fontSize: 13, lineHeight: 18 },
   catSlider: {
     paddingLeft: CAT_PAD,
     paddingRight: CAT_PAD,

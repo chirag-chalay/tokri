@@ -216,6 +216,10 @@ const CategoryEdit = (props) => {
         <section className="tokri-coupon-card">
           <h4>Category image</h4>
           <p>Square thumbnail used in the home category grid.</p>
+          <div className="tokri-image-suggest" role="note">
+            <strong>Suggested</strong>
+            <span>Best size: 320×320 px (square). Category chips on phone are small — larger files only slow the app. JPG/WebP · aim under 80KB (max 5MB).</span>
+          </div>
           <label className="tokri-upload-drop">
             {displayedImageUrl ? (
               <img src={displayedImageUrl} alt={params.label || 'Category preview'} />
@@ -225,7 +229,7 @@ const CategoryEdit = (props) => {
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={(event) => {
                 const file = event.target.files?.[0]
                 if (file) {
@@ -241,16 +245,20 @@ const CategoryEdit = (props) => {
       <section className="tokri-coupon-card">
         <h4>Category banner</h4>
         <p>Wide image shown at the top of the category page.</p>
+        <div className="tokri-image-suggest" role="note">
+          <strong>Suggested</strong>
+          <span>Best size: 1200×300 px desktop / 720×180 px if mostly mobile traffic (about 4:1). JPG/WebP · aim under 250KB (max 5MB).</span>
+        </div>
         <label className="tokri-upload-drop tokri-upload-drop-wide">
           {displayedBannerUrl ? (
             <img src={displayedBannerUrl} alt={params.label || 'Category banner'} />
           ) : (
-            <span>Click to upload a wide banner (1600×400 recommended)</span>
+            <span>Click to upload a wide banner</span>
           )}
           <input
             ref={bannerFileRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={(event) => {
               const file = event.target.files?.[0]
               if (file) {

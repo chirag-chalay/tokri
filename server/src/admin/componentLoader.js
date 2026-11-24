@@ -24,12 +24,15 @@ export const Components = {
   TaxEdit: componentLoader.add('TaxEdit', './components/tax-edit.jsx'),
   RazorpayPaymentId: componentLoader.add('RazorpayPaymentId', './components/razorpay-payment-id.jsx'),
   OrderListBadge: componentLoader.add('OrderListBadge', './components/order-list-badges.jsx'),
+  HomeBuilder: componentLoader.add('HomeBuilder', './components/home-builder/HomeBuilder.jsx'),
 }
 
 componentLoader.override('Login', './components/login.jsx')
 componentLoader.override('ActionHeader', './components/action-header.jsx')
 componentLoader.override('DefaultRichtextEditProperty', './components/richtext-edit.jsx')
 componentLoader.override('SidebarResourceSection', './components/sidebar-dashboard.jsx')
+componentLoader.override('SidebarPages', './components/sidebar-pages.jsx')
+componentLoader.override('SidebarBranding', './components/sidebar-logo.jsx')
 componentLoader.override('RecordsTable', './components/records-table.jsx')
 componentLoader.override('RecordsTableHeader', './components/records-table-header.jsx')
 

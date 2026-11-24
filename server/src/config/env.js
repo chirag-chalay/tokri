@@ -11,6 +11,8 @@ function stripTrailingSlash(value) {
 }
 
 const port = Number(process.env.PORT) || 5223
+/** Bind address for the API. Default 0.0.0.0 so phones on LAN can reach it (not only localhost). */
+const host = String(process.env.HOST || '0.0.0.0').trim() || '0.0.0.0'
 const adminPath = process.env.ADMIN_PATH || '/tokri-backoffice'
 const clientUrl = stripTrailingSlash(process.env.CLIENT_URL || 'http://localhost:5222')
 const appUrl = stripTrailingSlash(process.env.APP_URL || clientUrl)
@@ -33,6 +35,7 @@ const nextOrigin = stripTrailingSlash(process.env.TOKRIII_NEXT_ORIGIN || '')
 
 export const env = {
   port,
+  host,
   nodeEnv: process.env.NODE_ENV || 'development',
   clientUrl,
   appUrl,

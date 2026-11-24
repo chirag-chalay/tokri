@@ -1,3 +1,5 @@
+import Constants from 'expo-constants'
+
 const LIVE_API = 'https://tokriii.com/api/v1'
 const STAGING_API = 'https://server.tokriii.com/api/v1'
 
@@ -5,8 +7,13 @@ function stripTrailingSlash(value) {
   return String(value || '').replace(/\/+$/, '')
 }
 
-/** Staging server = https://server.tokriii.com (API /api/v1). Live = tokriii.com. */
+/**
+ * Prefer app.config.js `extra.apiBaseUrl` (loaded from .env when Expo starts),
+ * then EXPO_PUBLIC_*, then EAS/live defaults.
+ */
 export const API_BASE_URL = (() => {
+  const fromExtra = stripTrailingSlash(Constants.expoConfig?.extra?.apiBaseUrl)
+  if (fromExtra) return fromExtra
   const fromEnv = stripTrailingSlash(process.env.EXPO_PUBLIC_API_BASE_URL)
   if (fromEnv) return fromEnv
   if (process.env.EAS_BUILD_PROFILE === 'staging') return STAGING_API

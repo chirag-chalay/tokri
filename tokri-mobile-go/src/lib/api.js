@@ -4,6 +4,12 @@ import { appBuild, appPlatform } from './appBuild'
 const ASSET_BASE = API_BASE_URL.replace(/\/api\/v1$/, '')
 /** Live host that actually serves /uploads (staging Node does not). */
 const UPLOADS_HOST = 'https://tokriii.com'
+const FETCH_TIMEOUT_MS = 12000
+
+if (__DEV__) {
+  // Confirms which API Expo actually bundled.
+  console.log('[tokri-api]', API_BASE_URL)
+}
 
 export function resolveAssetUrl(value) {
   if (!value) return null
@@ -28,6 +34,29 @@ async function parseResponse(response) {
   return data
 }
 
+async function request(path, options = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+    })
+    return parseResponse(response)
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`Request timed out. API: ${API_BASE_URL}`)
+    }
+    const message = error?.message || 'Network request failed'
+    if (/failed to connect|Network request failed|ConnectException/i.test(message)) {
+      throw new Error(`${message}\nAPI: ${API_BASE_URL}`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export function authHeaders(token) {
   const headers = {
     'Content-Type': 'application/json',
@@ -39,57 +68,50 @@ export function authHeaders(token) {
 }
 
 export async function fetchJson(path) {
-  const response = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() })
-  return parseResponse(response)
+  return request(path, { headers: authHeaders() })
 }
 
 export async function authGet(path, token) {
-  const response = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders(token) })
-  return parseResponse(response)
+  return request(path, { headers: authHeaders(token) })
 }
 
 export async function authPost(path, token, body) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return request(path, {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify(body),
   })
-  return parseResponse(response)
 }
 
 export async function authPut(path, token, body) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return request(path, {
     method: 'PUT',
     headers: authHeaders(token),
     body: JSON.stringify(body),
   })
-  return parseResponse(response)
 }
 
 export async function authPatch(path, token, body) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return request(path, {
     method: 'PATCH',
     headers: authHeaders(token),
     body: JSON.stringify(body),
   })
-  return parseResponse(response)
 }
 
 export async function authDelete(path, token) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return request(path, {
     method: 'DELETE',
     headers: authHeaders(token),
   })
-  return parseResponse(response)
 }
 
 export async function postJson(path, body) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return request(path, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(body),
   })
-  return parseResponse(response)
 }
 
 export function normalizeProduct(product) {

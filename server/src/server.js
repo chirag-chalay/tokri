@@ -171,11 +171,14 @@ async function start() {
   try {
     await prisma.$connect()
     await startCriticalOutbox()
-    const listener = app.listen(env.port, () => {
-      console.log(`Tokriii server listening on port ${env.port}`)
+    const listener = app.listen(env.port, env.host, () => {
+      console.log(`Tokriii server listening on ${env.host}:${env.port}`)
       console.log(`Public site: ${env.clientUrl}`)
       console.log(`Admin panel: ${env.appUrl}${env.adminPath}`)
       console.log(`API: ${env.apiUrl}/api/v1`)
+      if (env.host === '0.0.0.0' || env.host === '::') {
+        console.log('LAN tip: phones need your PC IP (or adb reverse tcp:5223 tcp:5223 + http://127.0.0.1:5223).')
+      }
       if (useNextStorefront) {
         console.log(`Storefront proxy: ${env.nextOrigin}`)
       } else {
@@ -192,8 +195,20 @@ async function start() {
       setTimeout(recover, 8000)
       setInterval(recover, 5 * 60 * 1000)
     })
+    listener.on('error', (error) => {
+      if (error?.code === 'EADDRINUSE') {
+        console.error(
+          `Tokriii server: port ${env.port} is already in use. Stop the other "npm run dev:server" / node process, then start again.`,
+        )
+      } else {
+        console.error('Tokriii server failed to listen:', error?.message || error)
+      }
+      logError(error, 'server-listen')
+      closeMonitoring().catch(() => {}).finally(() => process.exit(1))
+    })
     installGracefulShutdown(listener, () => prisma.$disconnect())
   } catch (error) {
+    console.error('Tokriii server failed to start:', error?.message || error)
     logError(error, 'server-start')
     await closeMonitoring().catch(() => {})
     process.exit(1)

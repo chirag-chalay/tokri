@@ -193,6 +193,10 @@ const ReviewEdit = (props) => {
       <section className="tokri-coupon-card">
         <h4>Reviewer photo</h4>
         <p>Optional. If empty, the website shows initials instead.</p>
+        <div className="tokri-image-suggest" role="note">
+          <strong>Suggested</strong>
+          <span>Best size: 200×200 px (square face crop). JPG/WebP · aim under 50KB (max 5MB).</span>
+        </div>
         <label className="tokri-coupon-label">
           Photo
           <span className="tokri-upload-drop tokri-upload-drop-round">
@@ -201,9 +205,8 @@ const ReviewEdit = (props) => {
             ) : (
               <span>{uploading ? 'Uploading…' : 'Click to upload a photo'}</span>
             )}
-            <input ref={fileRef} type="file" accept="image/*" onChange={uploadImage} />
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={uploadImage} />
           </span>
-          <span className="tokri-field-hint">JPG, PNG, GIF, or WebP up to 5MB</span>
         </label>
       </section>
 

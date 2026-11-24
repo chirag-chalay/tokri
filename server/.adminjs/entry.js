@@ -41,6 +41,8 @@ import RazorpayPaymentId from '../src/admin/components/razorpay-payment-id'
 AdminJS.UserComponents.RazorpayPaymentId = RazorpayPaymentId
 import OrderListBadge from '../src/admin/components/order-list-badges'
 AdminJS.UserComponents.OrderListBadge = OrderListBadge
+import HomeBuilder from '../src/admin/components/home-builder/HomeBuilder'
+AdminJS.UserComponents.HomeBuilder = HomeBuilder
 import Login from '../src/admin/components/login'
 AdminJS.UserComponents.Login = Login
 import ActionHeader from '../src/admin/components/action-header'
@@ -49,6 +51,10 @@ import DefaultRichtextEditProperty from '../src/admin/components/richtext-edit'
 AdminJS.UserComponents.DefaultRichtextEditProperty = DefaultRichtextEditProperty
 import SidebarResourceSection from '../src/admin/components/sidebar-dashboard'
 AdminJS.UserComponents.SidebarResourceSection = SidebarResourceSection
+import SidebarPages from '../src/admin/components/sidebar-pages'
+AdminJS.UserComponents.SidebarPages = SidebarPages
+import SidebarBranding from '../src/admin/components/sidebar-logo'
+AdminJS.UserComponents.SidebarBranding = SidebarBranding
 import RecordsTable from '../src/admin/components/records-table'
 AdminJS.UserComponents.RecordsTable = RecordsTable
 import RecordsTableHeader from '../src/admin/components/records-table-header'

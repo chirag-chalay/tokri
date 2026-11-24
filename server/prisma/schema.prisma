@@ -583,3 +583,30 @@ model TrackingPurchaseLookup {
   orderId   String   @unique @db.VarChar(191)
   createdAt DateTime @default(now())
 }
+
+// Homepage builder: one JSON document per platform (web | mobile). Additive only.
+model HomeLayout {
+  id            String               @id @default(cuid())
+  platform      String               @unique @db.VarChar(16)
+  draft         Json
+  published     Json?
+  version       Int                  @default(0)
+  publishedAt   DateTime?
+  publishedById String?              @db.VarChar(191)
+  revisions     HomeLayoutRevision[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+}
+
+model HomeLayoutRevision {
+  id            String     @id @default(cuid())
+  layoutId      String
+  layout        HomeLayout @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  version       Int
+  document      Json
+  publishedById String?    @db.VarChar(191)
+  createdAt     DateTime   @default(now())
+
+  @@unique([layoutId, version])
+  @@index([layoutId, createdAt])
+}

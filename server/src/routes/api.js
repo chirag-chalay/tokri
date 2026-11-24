@@ -11,6 +11,7 @@ import checkoutRouter from './checkout.js'
 import appRouter from './app.js'
 import partnerRouter from './partner.js'
 import trackingRouter from './tracking.js'
+import homeRouter from './home.js'
 
 const router = Router()
 router.use('/monitoring', websiteMonitoring)
@@ -39,6 +40,7 @@ router.use('/checkout', checkoutRouter)
 router.use('/app', appRouter)
 router.use('/partner', partnerRouter)
 router.use('/tracking', trackingRouter)
+router.use('/home', homeRouter)
 
 router.get('/geo/reverse', async (req, res, next) => {
   try {

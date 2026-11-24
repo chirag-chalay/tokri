@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { AppState, Platform } from 'react-native'
 import Constants from 'expo-constants'
-import { AppEventsLogger, Settings } from 'react-native-fbsdk-next'
 import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from 'expo-tracking-transparency'
 import { fetchJson } from './api'
 import { buildMetaAppEvent } from './metaTrackingEvents'
 import { recordTrackingOutcome } from './trackingDiagnostics'
+import { canUseNativeTrackingSdks } from './nativeTrackingAvailability'
 
 const CHOICE = 'tokri_marketing_consent_v1'
 const ID = 'tokri_marketing_consent_id_v1'
@@ -14,6 +14,18 @@ let customerId = null
 let serial = Promise.resolve()
 let revision = 0
 let initialized = false
+let metaSdk = undefined
+
+function loadMetaSdk() {
+  if (!canUseNativeTrackingSdks()) return null
+  if (metaSdk !== undefined) return metaSdk
+  try {
+    metaSdk = require('react-native-fbsdk-next')
+  } catch {
+    metaSdk = null
+  }
+  return metaSdk
+}
 
 function apply(choice, persist, prompt) {
   const current = ++revision
@@ -34,6 +46,15 @@ function apply(choice, persist, prompt) {
       allowed = permission.status === 'granted'
     }
     if (current !== revision) return
+
+    const sdk = loadMetaSdk()
+    if (!sdk) {
+      // Expo Go / missing native module: store consent only; no Meta SDK calls.
+      if (allowed && current === revision) effectiveId = marker
+      return
+    }
+
+    const { AppEventsLogger, Settings } = sdk
     // SDK native defaults are OFF. Do not initialize before consent and ATT.
     await Settings.setAdvertiserTrackingEnabled(allowed)
     if (current !== revision) return
@@ -60,10 +81,16 @@ export function getMetaConsentId() { return effectiveId }
 export function readMetaConsentId() { return AsyncStorage.getItem(ID) }
 export function setMetaCustomer(id) {
   customerId = typeof id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(id) ? id : null
-  if (initialized) { try { AppEventsLogger.setUserID(effectiveId ? customerId : null) } catch {} }
+  if (!initialized) return
+  const sdk = loadMetaSdk()
+  if (!sdk) return
+  try { sdk.AppEventsLogger.setUserID(effectiveId ? customerId : null) } catch {}
 }
 export function trackMetaAction(action, input) {
   if (!effectiveId) return false
+  const sdk = loadMetaSdk()
+  if (!sdk) return false
+  const { AppEventsLogger } = sdk
   const event = buildMetaAppEvent(action, input, AppEventsLogger)
   if (!event) return false
   try {
