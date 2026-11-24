@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import websiteMonitoring from '../monitoring/website.js'
 import { prisma } from '../lib/prisma.js'
+import { activeSocialLinks } from '../utils/socialLinks.js'
 import { formatPublicSettings } from '../utils/settings.js'
 import { formatCategory, formatProduct, formatPage, formatBlog, formatBlogSummary, toPublicAssetUrl } from '../utils/formatters.js'
 import { PRODUCT_CATEGORY_INCLUDE, categoryProductWhere } from '../utils/catalog.js'
@@ -100,6 +101,16 @@ router.get('/geo/reverse', async (req, res, next) => {
   try {
     const address = await reverseGeocode(req.query.lat, req.query.lng)
     res.json({ address })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/settings/social-links', async (_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const setting = await prisma.setting.findUnique({ where: { id: 1 }, select: { socialLinks: true } })
+    res.json(activeSocialLinks(setting?.socialLinks))
   } catch (error) {
     next(error)
   }
