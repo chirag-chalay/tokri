@@ -29,7 +29,7 @@ export default function BlogCard({ post, rawUrls = false }) {
         {post.coverImage ? (
           <img
             src={rawUrls ? post.coverImage : resolveAssetUrl(post.coverImage)}
-            alt=""
+            alt={post.title || 'Blog article thumbnail'}
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
         ) : (

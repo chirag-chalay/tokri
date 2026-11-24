@@ -1,6 +1,7 @@
 import AdminJS from 'adminjs'
 import { Router } from 'express'
 import { monitoringHandler } from './monitoring.js'
+import { reportsHandler } from './reports.js'
 import { log } from '../monitoring/index.js'
 import AdminJSExpress from '@adminjs/express'
 import * as AdminJSPrisma from '@adminjs/prisma'
@@ -15,6 +16,7 @@ import {
   serializeAdminUser,
   PERMISSION_KEYS,
 } from './permissions.js'
+import { socialLinksHandler } from './social-links.js'
 import { getSettingResource, ensureSettingsRecord } from './settings.js'
 import { prepareProductPayload, afterProductForm } from './product-handlers.js'
 import { prepareCouponPayload } from './coupon-handlers.js'
@@ -38,6 +40,7 @@ import {
   generateQrAction,
 } from './partner-handlers.js'
 import { prepareCustomerPayload, attachCustomerAddresses, toggleCustomerActiveAction } from './customer-handlers.js'
+import { customerListExtras, viewCustomerCartAction, viewCustomerOrdersAction } from './customer-insights.js'
 import { prepareTeamPayload, afterTeamSave, toggleTeamActiveAction } from './team-handlers.js'
 import { prepareReviewPayload, toggleReviewApprovedAction } from './review-handlers.js'
 import { prepareBlogPayload, toggleBlogPublishedAction } from './blog-handlers.js'
@@ -149,12 +152,9 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         component: Components.HomeBuilder,
         isAccessible: canManage('manageContent'),
       },
-      logs: {
-        label: 'Logs',
-        icon: 'Activity',
-        component: Components.Monitoring,
-        handler: monitoringHandler,
-      },
+      socialMediaLinks: { label: 'Social Media Links', icon: 'Link', component: Components.SocialLinks, handler: socialLinksHandler },
+      reports: { label: 'Reports', icon: 'BarChart2', component: Components.Reports, handler: reportsHandler },
+      logs: { label: 'Logs & Monitoring', icon: 'Activity', component: Components.Monitoring, handler: monitoringHandler },
     },
     dashboard: {
       component: Components.Dashboard,
@@ -1057,11 +1057,23 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
         options: {
           name: 'Customers',
           navigation: { name: 'Customer management', icon: 'User' },
-          listProperties: ['name', 'phone', 'dateOfBirth', 'isActive', 'createdAt'],
+          listProperties: ['name', 'phone', 'cartItemCount', 'cartTotal', 'dateOfBirth', 'isActive', 'createdAt'],
           editProperties: ['name', 'phone', 'dateOfBirth', 'isActive'],
           properties: {
             name: { isTitle: true, label: 'Customer' },
             phone: { isDisabled: true, label: 'Mobile' },
+            cartItemCount: {
+              type: 'number',
+              label: 'Cart items',
+              isSortable: false,
+              isVisible: { list: true, show: false, edit: false, filter: false },
+            },
+            cartTotal: {
+              type: 'string',
+              label: 'Cart value',
+              isSortable: false,
+              isVisible: { list: true, show: false, edit: false, filter: false },
+            },
             dateOfBirth: { type: 'date', label: 'Date of birth' },
             isActive: {
               label: 'Status',
@@ -1080,7 +1092,26 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
           },
           actions: {
             ...resourceActions('manageUsers'),
-            list: cmsListView('manageUsers', ['name', 'phone']),
+            list: cmsListView('manageUsers', ['name', 'phone'], { enrichRows: customerListExtras }),
+            viewOrders: {
+              actionType: 'record',
+              icon: 'ShoppingBag',
+              label: 'View Orders',
+              isVisible: true,
+              isAccessible: ({ currentAdmin }) =>
+                hasPermission(currentAdmin, 'manageUsers') && hasPermission(currentAdmin, 'manageOrders'),
+              component: Components.CustomerOrders,
+              handler: viewCustomerOrdersAction,
+            },
+            viewCart: {
+              actionType: 'record',
+              icon: 'ShoppingCart',
+              label: 'View Cart',
+              isVisible: true,
+              isAccessible: canManage('manageUsers'),
+              component: Components.CustomerCart,
+              handler: viewCustomerCartAction,
+            },
             edit: {
               isAccessible: canManage('manageUsers'),
               isVisible: true,
@@ -1252,7 +1283,7 @@ export async function buildAdminRouter({ watch = env.nodeEnv !== 'production' } 
 
         const valid = await bcrypt.compare(pass, user.password)
         if (!valid) { log('api', 'admin.login', { status: 'failure', failureReason: 'admin_credentials' }); return null }
-        log('api', 'admin.login', { status: 'success', actorId: user.id, ip: req.ip })
+        log('api', 'admin.login', { status: 'success', actorId: user.id, staffName: user.name, ip: req.ip })
 
         return serializeAdminUser(user)
       },

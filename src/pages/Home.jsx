@@ -14,6 +14,7 @@ import { fetchJson } from '../lib/api'
 function LegacyHome({ initialData, home }) {
   return (
     <main>
+      <h1 className="sr-only">Tokriii — Farm-Fresh, Exotic &amp; Imported Fruits Delivered in Delhi NCR</h1>
       <Banner
         image={home.bannerImage}
         mobileImage={home.mobileBannerImage}
@@ -100,6 +101,7 @@ export default function Home({ initialData }) {
   if (Array.isArray(sections) && sections.length) {
     return (
       <main>
+        <h1 className="sr-only">Tokriii — Farm-Fresh, Exotic &amp; Imported Fruits Delivered in Delhi NCR</h1>
         {previewNotice ? (
           <div className="bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-950">
             Draft preview — visitors still see the last published homepage.

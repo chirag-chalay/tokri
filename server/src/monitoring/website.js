@@ -3,13 +3,28 @@ import { Router, json } from 'express'
 import { randomUUID } from 'node:crypto'
 import { env } from '../config/env.js'
 import { prisma } from '../lib/prisma.js'
-import { browserEvents, safePage, safeEndpoint, productReference } from '../../../shared/monitoring.js'
+import { browserEvents, businessBrowserEvents, deliveryPinSources, safePage, safeEndpoint, productReference, validDeliveryPin, validDiagnosticSession, viewportTypes } from '../../../shared/monitoring.js'
 import { log, logContext, websiteDebugState, subscribeWebsiteDebug } from './index.js'
+import { serviceablePincodeSet } from '../services/delivery.js'
+
+import { resolveCustomer } from '../middleware/customerAuth.js'
+import { deliveryLogFacts, visitFacts } from './visit.js'
+
+const browserReasons = {
+  'checkout.guest.blocked': 'AUTH_REQUIRED',
+  'checkout.details.missing': 'VALIDATION_ERROR',
+  'checkout.minimum.blocked': 'MIN_ORDER_NOT_MET',
+  'payment.browser.cancelled': 'PAYMENT_CANCELLED',
+  'payment.browser.failed': 'PAYMENT_FAILED',
+  'checkout.network.failed': 'NETWORK_ERROR',
+}
+const isPinEvent = row => row.event === 'delivery.pin.checked'
+const validPinEvent = row => deliveryPinSources.has(row.pinSource) && (row.deliveryPin === undefined || validDeliveryPin(row.deliveryPin))
 
 export function createWebsiteMonitoringRouter(client = prisma) {
   const router = Router(), buckets = new Map(), seen = new Map(), streams = new Map()
   let pending = 0, streamCount = 0
-  const origins = new Set([env.clientUrl, env.appUrl].map(value => { try { return new URL(value).origin } catch { return '' } }))
+  const origins = new Set([env.clientUrl, env.appUrl, ...env.corsOrigins].map(value => { try { return new URL(value).origin } catch { return '' } }))
   for (const origin of [...origins]) { try { const url = new URL(origin); if (['localhost', '127.0.0.1'].includes(url.hostname)) { url.hostname = url.hostname === 'localhost' ? '127.0.0.1' : 'localhost'; origins.add(url.origin) } } catch { /* invalid configuration does not broaden origin access */ } }
   function allowed(req) {
     const origin = req.get('origin')
@@ -53,16 +68,38 @@ export function createWebsiteMonitoringRouter(client = prisma) {
     pending++
     try {
       const state = websiteDebugState()
+      req.logWebsite = true
+      if (/^Bearer\s+\S+/i.test(req.headers.authorization || '')) { try { await resolveCustomer(req) } catch { /* Anonymous visit. */ } }
+      const hasVisit = Boolean(visitFacts(req).sessionId)
+      const alwaysLog = row => hasVisit && businessBrowserEvents.has(row.event)
       const debug = Boolean(state.debugUntil && state.generation === packet.generation)
-      const candidates = packet.events.filter(row => row && browserEvents.has(row.event) && (row.event === 'website.navigation' || debug) && /^[a-f0-9-]{36}$/i.test(row.id || '') && safePage(row.path))
-      const refs = [...new Set(candidates.map(row => productReference(row.productRef)).filter(Boolean))]
+      const candidates = packet.events.filter(row => row && browserEvents.has(row.event) && (row.event === 'website.navigation' || alwaysLog(row) || debug) && /^[a-f0-9-]{36}$/i.test(row.id || '') && safePage(row.path) && (!isPinEvent(row) || validPinEvent(row)))
+      const pins = candidates.filter(isPinEvent).map(row => row.deliveryPin)
+      let coveredPins
+      let locations = new Map()
+      if (pins.length) {
+        try {
+          coveredPins = await serviceablePincodeSet(pins, client)
+          const rows = await client.serviceablePincode.findMany({ where: { pincode: { in: pins.filter(Boolean) } }, select: { pincode: true, city: true, state: true } })
+          locations = new Map(rows.map(row => [row.pincode, row]))
+        } catch { /* Leave coverage unknown if the lookup failed. */ }
+      }
+      const refs = [...new Set(candidates.flatMap(row => [productReference(row.productRef),
+        safePage(row.path).pagePath === '/product/[product]' ? productReference(row.pageRef) : undefined]).filter(Boolean))]
       let products = []
       if (refs.length) { try { products = await client.product.findMany({ where: { isActive: true, OR: [{ slug: { in: refs } }, { id: { in: refs } }] }, select: { id: true, slug: true, name: true } }) } catch { /* The event remains readable without guessing a product identity. */ } }
       const catalog = new Map(products.flatMap(product => [[product.id, product], [product.slug, product]]))
       const publicPages = new Map()
-      for (const [prefix, model, where] of [['/blog/', 'blogPost', { isPublished: true }], ['/p/', 'page', { isPublished: true }], ['/category/', 'category', { isActive: true }]]) {
-        const slugs = [...new Set(candidates.filter(row => safePage(row.path).pagePath.startsWith(prefix)).map(row => productReference(row.pageRef)).filter(Boolean))]
-        if (slugs.length) { try { const values = await client[model].findMany({ where: { ...where, slug: { in: slugs } }, select: { slug: true } }); for (const value of values) publicPages.set(prefix + value.slug, true) } catch { /* Keep a redacted URL if its public reference cannot be verified. */ } }
+      for (const [path, model, field, where] of [['/blog/[article]', 'blogPost', 'title', { isPublished: true }], ['/p/[page]', 'page', 'title', { isPublished: true }], ['/shop', 'category', 'label', { isActive: true }]]) {
+        const slugs = [...new Set(candidates.filter(row => {
+          const pagePath = safePage(row.path).pagePath
+          return pagePath === path || model === 'category' && pagePath === '/category/[category]'
+        }).map(row => productReference(row.pageRef)).filter(Boolean))]
+        if (!slugs.length) continue
+        try {
+          const values = await client[model].findMany({ where: { ...where, slug: { in: slugs } }, select: { slug: true, [field]: true } })
+          for (const value of values) publicPages.set(`${model}/${value.slug}`, value[field])
+        } catch { /* Keep generic page details when verification is unavailable. */ }
       }
       const now = Date.now()
       for (const [id, until] of seen) if (until <= now) seen.delete(id)
@@ -70,12 +107,27 @@ export function createWebsiteMonitoringRouter(client = prisma) {
       for (const row of candidates) {
         if (seen.has(row.id)) continue
         const current = websiteDebugState()
-        if (row.event !== 'website.navigation' && (!current.debugUntil || current.generation !== packet.generation)) continue
+        if (row.event !== 'website.navigation' && !alwaysLog(row) && (!current.debugUntil || current.generation !== packet.generation)) continue
         const page = safePage(row.path), product = catalog.get(row.productRef)
         const data = { origin: 'browser', clientEventId: row.id, page: page.pageLabel, pagePath: page.pagePath }
-        if (product) { data.product = product.name; if (page.pagePath === '/product/[product]') data.pagePath = `/product/${product.slug}` }
-        const prefix = ['/blog/', '/p/', '/category/'].find(value => page.pagePath.startsWith(value))
-        if (prefix && publicPages.has(prefix + row.pageRef)) data.pagePath = prefix + row.pageRef
+        if (row.event !== 'website.navigation' && validDiagnosticSession(row.diagnosticSessionId)) data.diagnosticSessionId = row.diagnosticSessionId
+        if (isPinEvent(row)) {
+          data.deliveryPin = row.deliveryPin
+          data.pinSource = row.pinSource
+          if (viewportTypes.has(row.viewportType)) data.viewportType = row.viewportType
+          if (coveredPins) data.deliveryCoverage = coveredPins.has(row.deliveryPin) ? 'serviceable' : 'unserviceable'
+        }
+        if (product) { data.product = product.name; data.productRef = product.slug }
+        if (page.pagePath === '/product/[product]') {
+          const opened = catalog.get(row.pageRef) || (!row.pageRef && row.event === 'website.navigation' ? product : undefined)
+          if (opened) { data.page = opened.name; data.pagePath = `/product/${opened.slug}` }
+        }
+        const pageModel = { '/blog/[article]': 'blogPost', '/p/[page]': 'page', '/category/[category]': 'category', '/shop': 'category' }[page.pagePath]
+        const title = publicPages.get(`${pageModel}/${row.pageRef}`)
+        if (title) {
+          data.page = page.pagePath === '/shop' ? `Shop · ${title}` : title
+          if (page.pagePath !== '/shop') data.pagePath = page.pagePath.split('[')[0] + row.pageRef
+        }
         if (Object.hasOwn(failureReasons, row.failureReason)) data.failureReason = row.failureReason
         if (['initial', 'client', 'back_forward'].includes(row.navigationType)) data.navigationType = row.navigationType
         if (Number.isInteger(row.status) && row.status >= 100 && row.status <= 599) data.httpStatus = row.status
@@ -83,14 +135,29 @@ export function createWebsiteMonitoringRouter(client = prisma) {
         if (safeEndpoint(row.endpoint)) data.route = safeEndpoint(row.endpoint)
         if (Number.isFinite(row.durationMs) && row.durationMs >= 0 && row.durationMs <= 300000) data.durationMs = Math.round(row.durationMs)
         if (Number.isInteger(row.quantity) && row.quantity >= 0 && row.quantity <= 10000) data.quantity = row.quantity
+        if (row.event === 'cart.quantity.changed' && Number.isSafeInteger(row.delta) && Math.abs(row.delta) <= 10000) data.delta = row.delta
         if (Number.isInteger(row.count) && row.count >= 0 && row.count <= 1000) data.count = row.count
+        if (row.event === 'cart.snapshot' || row.event === 'cart.restored') {
+          if (Number.isInteger(row.count) && row.count >= 0 && row.count <= 10000) data.cartItemCount = row.count
+          if (Number.isSafeInteger(row.cartSubtotalPaise) && row.cartSubtotalPaise >= 0 && row.cartSubtotalPaise <= 1000000000) data.cartSubtotalPaise = row.cartSubtotalPaise
+        }
         if (['morning', 'express'].includes(row.deliveryOption)) data.deliveryOption = row.deliveryOption
         if (['product image', 'image', 'script', 'stylesheet'].includes(row.resourceKind)) data.resourceKind = row.resourceKind
         if (/^[a-f0-9-]{36}$/i.test(row.relatedRequestId || '')) data.relatedRequestId = row.relatedRequestId
         data.status = row.event.includes('failed') || row.event === 'frontend.error' || (data.httpStatus >= 400) ? 'failure' : row.operationStatus === 'pending' ? 'pending' : row.event === 'website.navigation' && !data.httpStatus ? 'observed' : 'success'
-        // Never persist client IP, customer identity, cookies, form values, error
+        if (isPinEvent(row)) {
+          const coverage = row.deliveryPin && coveredPins ? coveredPins.has(row.deliveryPin) : undefined
+          Object.assign(data, deliveryLogFacts(row.deliveryPin, locations.get(row.deliveryPin), coverage))
+          data.reasonCode = !row.deliveryPin ? 'PINCODE_INVALID' : coverage === false ? 'PINCODE_NOT_SERVICEABLE' : undefined
+          if (coverage === undefined && row.deliveryPin) data.status = 'observed'
+        }
+        if (Object.hasOwn(browserReasons, row.event)) data.reasonCode = browserReasons[row.event]
+        if (data.reasonCode) data.status = 'failure'
+        if (Number.isInteger(row.quantity) && businessBrowserEvents.has(row.event)) data.quantity = row.quantity
+        // Apart from a submitted delivery PIN, omit form values, client IP, customer identity, cookies, error
         // messages, stack traces, URLs with queries, or arbitrary event metadata.
-        logContext.run({ id: randomUUID(), req: {} }, () => log(row.event === 'website.navigation' ? 'website' : 'debug', row.event, data))
+        const recordRequest = hasVisit ? req : { logWebsite: true }
+        logContext.run({ id: randomUUID(), req: recordRequest }, () => log(row.event === 'website.navigation' || alwaysLog(row) ? 'website' : 'debug', row.event, data))
         seen.set(row.id, now + 300000)
         while (seen.size > 5000) seen.delete(seen.keys().next().value)
         accepted++

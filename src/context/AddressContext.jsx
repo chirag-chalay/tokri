@@ -1,7 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { authGet } from '../lib/api'
 import { fetchAddressFromBrowser } from '../lib/geolocation'
+
+import { observeLocationPermission, setVisitLocation, setVisitPincode } from '../lib/logVisit'
 
 const AddressContext = createContext(null)
 
@@ -21,8 +23,10 @@ export function AddressProvider({ children }) {
   const [selectedAddressId, setSelectedAddressId] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [detectedLabel, setDetectedLabel] = useState('')
+  const [detectedLocation, setDetectedLocation] = useState(null)
   const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState('')
+  const locationRequest = useRef(null)
 
   const refreshAddresses = useCallback(async () => {
     if (!isLoggedIn || !user?.phone) {
@@ -66,34 +70,44 @@ export function AddressProvider({ children }) {
     refreshAddresses()
   }, [refreshAddresses])
 
-  // Prompt the browser for location on first load (same idea as the app).
-  useEffect(() => {
-    let ignore = false
-    if (typeof window === 'undefined' || !navigator.geolocation) return undefined
-
+  const detectLocation = useCallback(() => {
+    if (locationRequest.current) return locationRequest.current
     setLocating(true)
-    fetchAddressFromBrowser()
+    setLocationError('')
+    locationRequest.current = fetchAddressFromBrowser()
       .then((found) => {
-        if (ignore) return
+        setVisitLocation(found)
+        observeLocationPermission()
         const label = detectedPlaceLabel(found)
-        if (label) setDetectedLabel(label)
+        const pincode = /^\d{6}$/.test(found.pincode || '') ? String(found.pincode) : ''
+        setDetectedLocation(label || pincode ? { label, pincode } : null)
+        if (!pincode) setLocationError('A delivery PIN could not be detected. Try again.')
+        return pincode
       })
       .catch(() => {
-        // Permission denied or unavailable — keep "Select address".
+        setVisitLocation(null)
+        observeLocationPermission()
+        setLocationError('Location is unavailable. Check your browser permissions and try again.')
       })
       .finally(() => {
-        if (!ignore) setLocating(false)
+        locationRequest.current = null
+        setLocating(false)
       })
-
-    return () => {
-      ignore = true
-    }
+    return locationRequest.current
   }, [])
+
+  useEffect(() => {
+    if (navigator.geolocation) detectLocation()
+  }, [detectLocation])
 
   const selectedAddress = useMemo(
     () => addresses.find((item) => item.id === selectedAddressId) || null,
     [addresses, selectedAddressId],
   )
+
+  useEffect(() => {
+    if (selectedAddress?.pincode) setVisitPincode(selectedAddress.pincode)
+  }, [selectedAddress?.pincode])
 
   const hasDeliveryAddress = Boolean(isLoggedIn && selectedAddress)
 
@@ -124,8 +138,11 @@ export function AddressProvider({ children }) {
       selectedAddress,
       selectedAddressId,
       hasDeliveryAddress,
-      detectedLabel,
+      detectedLabel: detectedLocation?.label || detectedLocation?.pincode || '',
+      detectedLocation,
+      detectLocation,
       locating,
+      locationError,
       loading,
       pickerOpen,
       refreshAddresses,
@@ -138,8 +155,10 @@ export function AddressProvider({ children }) {
       selectedAddress,
       selectedAddressId,
       hasDeliveryAddress,
-      detectedLabel,
+      detectedLocation,
+      detectLocation,
       locating,
+      locationError,
       loading,
       pickerOpen,
       refreshAddresses,

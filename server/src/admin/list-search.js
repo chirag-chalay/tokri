@@ -90,7 +90,7 @@ export function categoryListLabel(row) {
 }
 
 export function createSearchListHandler(searchFields, options = {}) {
-  const { include, populate, extraWhere, defaultSortBy = 'id', sidebarFilters = false, presentRow } = options
+  const { include, populate, extraWhere, defaultSortBy = 'id', sidebarFilters = false, presentRow, enrichRows } = options
 
   return async (request, _response, context) => {
     const query = request.query || {}
@@ -131,9 +131,12 @@ export function createSearchListHandler(searchFields, options = {}) {
       delegate.count({ where }),
     ])
 
+    const extras = enrichRows ? await enrichRows(rows) : null
+
     const records = rows.map((row) => {
       const record = context.resource.build(toAdminParams(row))
       if (presentRow) Object.assign(record.params, presentRow(row) || {})
+      if (extras?.has(row.id)) Object.assign(record.params, extras.get(row.id))
       if (populate) {
         for (const [path, resourceId] of Object.entries(populate)) {
           const related = row[path]

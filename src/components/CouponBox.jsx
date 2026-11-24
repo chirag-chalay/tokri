@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useId, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Info, X } from 'lucide-react'
 import { useCart, pickBestEligibleCoupon } from '../context/CartContext'
 import { useFocusTrap } from '../hooks/useFocusTrap'
@@ -90,11 +90,25 @@ function OfferActionButton({ offer, updating, actionUpdating, onApply, onRemove 
   )
 }
 
-function CouponsPanel({ open, onClose, offers, updating, couponAction, onApply, onRemove, message }) {
+function CouponsPanel({ open, onClose, offers, updating, couponAction, onApply, onRemove, message, allowManualEntry, selectedCode }) {
   const trapRef = useFocusTrap(open, onClose)
+  const inputId = useId()
   const [expanded, setExpanded] = useState(() => new Set())
+  const [code, setCode] = useState('')
+  const [applying, setApplying] = useState(false)
 
   if (!open) return null
+
+  const submitCode = async (event) => {
+    event.preventDefault()
+    if (updating || applying || !code.trim()) return
+    setApplying(true)
+    try {
+      if (await onApply(code)) setCode('')
+    } finally {
+      setApplying(false)
+    }
+  }
 
   const toggleKnowMore = (id) => {
     setExpanded((current) => {
@@ -124,6 +138,53 @@ function CouponsPanel({ open, onClose, offers, updating, couponAction, onApply, 
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+          {allowManualEntry ? (
+            <section className="shrink-0 border-b border-line pb-4">
+              <form onSubmit={submitCode}>
+                <label htmlFor={inputId} className="text-sm font-bold text-white">
+                  Have a coupon code?
+                </label>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    id={inputId}
+                    type="text"
+                    value={code}
+                    onChange={(event) => setCode(event.target.value)}
+                    placeholder="Enter coupon code"
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    readOnly={applying}
+                    className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-canvas px-3 text-base text-white placeholder:text-muted focus-visible:border-brand focus-visible:outline-none sm:text-sm"
+                  />
+                  <button
+                    type="submit"
+                    disabled={updating || applying || !code.trim()}
+                    aria-busy={applying}
+                    className="h-10 min-w-[4.5rem] shrink-0 rounded-xl border border-brand px-3 text-xs font-bold text-mint transition enabled:hover:bg-brand/10 disabled:opacity-60"
+                  >
+                    {applying ? 'Applying…' : 'Apply'}
+                  </button>
+                </div>
+              </form>
+              <div role="status" aria-live="polite">
+                {message ? <p className="mt-2 text-xs text-rose-400">{message}</p> : null}
+                {selectedCode ? (
+                  <p className="mt-2 break-words text-xs text-mint">Coupon {selectedCode} applied.</p>
+                ) : null}
+              </div>
+              {selectedCode && !offers.some((offer) => offer.applied) ? (
+                <button
+                  type="button"
+                  disabled={updating}
+                  onClick={onRemove}
+                  className="mt-2 rounded-xl border border-brand bg-brand px-3 py-1.5 text-xs font-bold text-black disabled:opacity-60"
+                >
+                  Remove coupon
+                </button>
+              ) : null}
+            </section>
+          ) : null}
           <p className="m-0 text-xs font-bold tracking-wide text-muted">FEATURED COUPONS</p>
           {!offers.length ? (
             <p className="rounded-2xl border border-dashed border-line bg-panel-2 px-4 py-8 text-center text-sm text-muted">
@@ -200,7 +261,7 @@ function CouponsPanel({ open, onClose, offers, updating, couponAction, onApply, 
               })}
             </ul>
           )}
-          {message ? (
+          {message && !allowManualEntry ? (
             <p role="status" aria-live="polite" className="mt-3 text-xs text-rose-400">
               {message}
             </p>
@@ -211,7 +272,7 @@ function CouponsPanel({ open, onClose, offers, updating, couponAction, onApply, 
   )
 }
 
-export default function CouponBox({ compact = false }) {
+export default function CouponBox({ compact = false, allowManualEntry = false }) {
   const {
     coupon,
     couponError,
@@ -225,6 +286,7 @@ export default function CouponBox({ compact = false }) {
     refreshDeliveryQuote,
   } = useCart()
   const [panelOpen, setPanelOpen] = useState(false)
+  const closePanel = useCallback(() => setPanelOpen(false), [])
   const [localError, setLocalError] = useState('')
   const updating = couponLoading || quoteLoading
   const offers = quote?.availableCoupons || []
@@ -239,7 +301,7 @@ export default function CouponBox({ compact = false }) {
 
   const handleApply = (code) => {
     setLocalError('')
-    applyCoupon(code).catch((error) => setLocalError(error.message || 'Could not apply coupon'))
+    return applyCoupon(code).catch((error) => setLocalError(error.message || 'Could not apply coupon'))
   }
 
   const handleRemove = () => {
@@ -247,7 +309,18 @@ export default function CouponBox({ compact = false }) {
     removeCoupon()
   }
 
-  if (!offers.length) return null
+  if (!allowManualEntry && !offers.length) return null
+
+  const viewCoupons = (
+    <button
+      type="button"
+      onClick={() => setPanelOpen(true)}
+      className="mt-2 inline-flex items-center gap-0.5 text-xs font-semibold text-mint hover:text-white"
+    >
+      View all coupons
+      <ChevronRight size={14} />
+    </button>
+  )
 
   return (
     <div className={`space-y-2 ${compact ? '' : ''}`} aria-busy={Boolean(updating)}>
@@ -291,14 +364,7 @@ export default function CouponBox({ compact = false }) {
                   >
                     {unlockText(featured)}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setPanelOpen(true)}
-                    className="mt-2 inline-flex items-center gap-0.5 text-xs font-semibold text-mint hover:text-white"
-                  >
-                    View all coupons
-                    <ChevronRight size={14} />
-                  </button>
+                  {viewCoupons}
                 </div>
                 <OfferActionButton
                   offer={featured}
@@ -311,7 +377,7 @@ export default function CouponBox({ compact = false }) {
             </div>
           </div>
         </article>
-      ) : null}
+      ) : viewCoupons}
 
       {message ? (
         <p role="status" aria-live="polite" className="text-xs leading-4 text-rose-400">
@@ -321,13 +387,15 @@ export default function CouponBox({ compact = false }) {
 
       <CouponsPanel
         open={panelOpen}
-        onClose={() => setPanelOpen(false)}
+        onClose={closePanel}
         offers={offers}
         updating={updating}
         couponAction={couponAction}
         onApply={handleApply}
         onRemove={handleRemove}
         message={message}
+        allowManualEntry={allowManualEntry}
+        selectedCode={quote?.couponStatus?.status === 'applied' ? selectedCode : null}
       />
     </div>
   )

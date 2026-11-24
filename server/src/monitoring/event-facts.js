@@ -1,3 +1,4 @@
+import { isLogReason } from '../../../shared/logReasons.js'
 // Fixed translations of actual application failures, never arbitrary messages.
 export const failureReasons = {
   product_name_required: 'A product name was required before this change could continue.',
@@ -53,6 +54,7 @@ const exact = new Map([
   ['Order not found.', 'order_missing'], ['Payment details do not match this order.', 'payment_mismatch'], ['Cash on delivery is not available for this order.', 'cod_unavailable'],
 ])
 export function safeFailureFacts(error) {
+  if (isLogReason(error?.reasonCode)) return { reasonCode: error.reasonCode }
   let failureReason = exact.get(error?.message)
   if (!failureReason && error?.code === 'MINIMUM_SUBTOTAL') failureReason = 'coupon_minimum'
   if (!failureReason && /^Product ".+" is no longer available\.$/.test(error?.message || '')) failureReason = 'product_unavailable'
@@ -63,26 +65,52 @@ export function checkoutFacts(body) {
   const totals = body.totals
   if (!totals || typeof totals !== 'object') return {}
   const facts = {}
-  for (const key of ['itemsTotal', 'discount', 'grandTotal', 'deliveryCharge', 'handlingCharge', 'taxTotal']) {
+  for (const key of ['itemsTotal', 'discount', 'grandTotal', 'deliveryCharge', 'handlingCharge', 'smallCartCharge', 'taxTotal']) {
     if (totals[key] != null && totals[key] !== '' && Number.isFinite(Number(totals[key])) && Number(totals[key]) >= 0) facts[key] = Number(totals[key])
   }
-  if (Array.isArray(totals.lineItems)) facts.productCount = totals.lineItems.length
+  if (Number.isSafeInteger(totals.totalCount) && totals.totalCount >= 0 && totals.totalCount <= 10000) facts.cartItemCount = totals.totalCount
+  if (Array.isArray(totals.lineItems)) {
+    facts.productCount = totals.lineItems.length
+    if (totals.lineItems.every(item => Number.isInteger(item?.quantity) && item.quantity > 0)) {
+      const count = totals.lineItems.reduce((sum, item) => sum + item.quantity, 0)
+      if (count <= 10000) facts.cartItemCount = count
+    }
+  }
   else if (Array.isArray(body.items)) facts.productCount = body.items.length
+  const items = Array.isArray(body.items) ? body.items : body.trackingPurchase?.items
+  if (Array.isArray(items)) {
+    const lines = items.slice(0, 30).flatMap(item => {
+      if (typeof item?.name !== 'string' || !item.name.trim() || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 10000) return []
+      return [{ product: item.name, quantity: item.quantity,
+        ...(typeof item.priceValue === 'number' && Number.isFinite(item.priceValue) && item.priceValue >= 0 ? { priceValue: item.priceValue } : {}) }]
+    })
+    if (lines.length) facts.cartLines = lines
+  }
+  if (Array.isArray(body.unavailableItems) && body.unavailableItems.length) facts.unavailableItemCount = body.unavailableItems.length
   // Only the server-confirmed selected code, never the customer's raw input.
   const code = body.coupon?.code || (body.couponStatus?.status === 'applied' ? body.couponStatus.code : undefined)
   if (typeof code === 'string' && /^[A-Z][A-Z0-9_-]{0,39}$/.test(code) && !/\d{10}/.test(code)) facts.couponCode = code
-  if (['morning', 'express'].includes(body.deliveryType)) facts.deliveryOption = body.deliveryType
+  if (['morning', 'express'].includes(body.deliveryType)) {
+    facts.deliveryOption = body.deliveryType
+    const option = body.options?.[body.deliveryType]
+    if (typeof option?.minimumMet === 'boolean') facts.minimumOrderMet = option.minimumMet
+    if (typeof option?.minimumOrderValue === 'number' && Number.isFinite(option.minimumOrderValue) && option.minimumOrderValue > 0) facts.minOrder = option.minimumOrderValue
+  }
   return facts
 }
 
-export function checkoutPaymentFacts(body) {
-  const paymentStatus = body?.paymentStatus || body?.status || body?.order?.paymentStatus
+export function checkoutPaymentFacts(body, { confirmedCod = false } = {}) {
+  const paymentStatus = body?.paymentStatus || body?.order?.paymentStatus || body?.status
   const facts = {}
   if (['paid', 'captured', 'failed', 'pending', 'refunded'].includes(paymentStatus)) facts.paymentStatus = paymentStatus
-  if (paymentStatus === 'failed') Object.assign(facts, safeFailureFacts(body))
+  if (paymentStatus === 'failed') Object.assign(facts, { reasonCode: 'PAYMENT_FAILED' }, safeFailureFacts(body))
   if (paymentStatus === 'failed' && ['insufficient_funds', 'payment_declined', 'payment_timed_out'].includes(body?.message)) { facts.reason = body.message; facts.failureReason = body.message }
   const orderNo = body?.orderNo || body?.order?.orderNo
   if (typeof orderNo === 'string') facts.orderNo = orderNo
+  if (confirmedCod && body?.ok === true && /^TKR\d{8,20}$/.test(orderNo || '')) {
+    facts.orderConfirmed = true
+    facts.paymentMode = 'cod'
+  }
   const mode = body?.order?.paymentMode || body?.paymentMode
   if (['cod', 'online'].includes(mode)) facts.paymentMode = mode
   const total = body?.order?.grandTotal

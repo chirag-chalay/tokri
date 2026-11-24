@@ -1,4 +1,6 @@
 import { normalizeBrowserAsset } from '../../shared/assets.js'
+import { recordWebsiteDebug } from './websiteMonitoring'
+import { visitHeaders } from './logVisit'
 const FETCH_TIMEOUT_MS = 15000
 
 function stripTrailingSlash(value) {
@@ -31,8 +33,11 @@ async function fetchWithTimeout(url, options = {}) {
   const timer = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    return await fetch(url, { ...options, signal: controller.signal })
+    return await fetch(url, { ...options, headers: visitHeaders(options.headers), signal: controller.signal })
   } catch (error) {
+    if (url.startsWith(API_BASE_URL + '/checkout/') && (error?.name === 'AbortError' || error instanceof TypeError)) {
+      recordWebsiteDebug('checkout.network.failed')
+    }
     if (error?.name === 'AbortError') {
       throw new Error(`Request timed out for ${url}`)
     }

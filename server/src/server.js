@@ -2,8 +2,11 @@ import { processTrackingDeliveries } from './services/trackingPurchase.js'
 
 import websiteMonitoring from './monitoring/website.js'
 import express from 'express'
-import { requestLogging, startCriticalOutbox, closeMonitoring, installProcessErrorLogging, installGracefulShutdown } from './monitoring/index.js'
+import { requestLogging, startCriticalOutbox, closeMonitoring, workerCall, installProcessErrorLogging, installGracefulShutdown } from './monitoring/index.js'
 import { logError } from './monitoring/database.js'
+import { restoreDeliveryContexts } from './monitoring/session-context.js'
+import { ipLocationReady } from './monitoring/ip-location.js'
+import { startFailureSpikeAlerts } from './monitoring/failure-alerts.js'
 import cors from 'cors'
 import fs from 'fs'
 import http from 'http'
@@ -88,14 +91,15 @@ const app = express()
 app.use(requestLogging)
 
 if (env.trustProxy) {
-  app.set('trust proxy', 1)
+  // Use an explicit trusted chain when ingress access and proxy rules have been verified.
+  app.set('trust proxy', process.env.TOKRIII_TRUSTED_PROXIES?.split(',').map(value => value.trim()).filter(Boolean) || 1)
 }
 
 app.use(
   cors({
     origin: env.corsOrigins,
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Phone'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Phone', 'X-Session-Id', 'X-Delivery-Pincode', 'X-Visit-Location', 'X-Location-Permission'],
     exposedHeaders: ['X-Tokri-Request-Id', 'X-Tokri-Failure-Reason', 'X-Tokri-Operation-Status'],
   }),
 )
@@ -171,12 +175,16 @@ async function start() {
   try {
     await prisma.$connect()
     await startCriticalOutbox()
-    const listener = app.listen(env.port, env.host, () => {
-      console.log(`Tokriii server listening on ${env.host}:${env.port}`)
+    await ipLocationReady
+    const recentDelivery = await workerCall('read', { restoreDeliveryContexts: true }).catch(() => [])
+    restoreDeliveryContexts(recentDelivery)
+    const listenHost = process.env.TOKRIII_LISTEN_HOST || env.host || undefined
+    const listener = app.listen({ port: env.port, host: listenHost }, () => {
+      console.log(`Tokriii server listening on ${listenHost || 'default-host'}:${env.port}`)
       console.log(`Public site: ${env.clientUrl}`)
       console.log(`Admin panel: ${env.appUrl}${env.adminPath}`)
       console.log(`API: ${env.apiUrl}/api/v1`)
-      if (env.host === '0.0.0.0' || env.host === '::') {
+      if (listenHost === '0.0.0.0' || listenHost === '::') {
         console.log('LAN tip: phones need your PC IP (or adb reverse tcp:5223 tcp:5223 + http://127.0.0.1:5223).')
       }
       if (useNextStorefront) {
@@ -206,7 +214,11 @@ async function start() {
       logError(error, 'server-listen')
       closeMonitoring().catch(() => {}).finally(() => process.exit(1))
     })
-    installGracefulShutdown(listener, () => prisma.$disconnect())
+    const stopFailureAlerts = startFailureSpikeAlerts()
+    installGracefulShutdown(listener, () => {
+      stopFailureAlerts()
+      return prisma.$disconnect()
+    })
   } catch (error) {
     console.error('Tokriii server failed to start:', error?.message || error)
     logError(error, 'server-start')

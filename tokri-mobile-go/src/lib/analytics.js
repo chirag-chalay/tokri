@@ -78,10 +78,15 @@ function applyChoice(choice, persist = false) {
 export async function loadAnalyticsChoice() {
   const revision = choiceRevision
   try {
-    try { remoteEnabled = (await fetchJson('/checkout/app-tracking-config'))?.enabled === true } catch { remoteEnabled = false; recordTrackingOutcome('configUnavailable') }
+    try { remoteEnabled = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.enabled === true } catch { remoteEnabled = false; recordTrackingOutcome('configUnavailable') }
     const value = await AsyncStorage.getItem(STORAGE_KEY)
-    const choice = value === 'granted' ? true : value === 'denied' ? false : null
-    if (revision !== choiceRevision) return requestedChoice
+    const choice = ['granted', 'default_allowed'].includes(value) ? true : value === 'denied' ? false : null
+    if (revision !== choiceRevision) {
+      // A first-launch decision can arrive before configuration. Apply the
+      // latest choice with the newly resolved gate without overwriting it.
+      await applyChoice(requestedChoice === true)
+      return requestedChoice
+    }
     requestedChoice = choice
     await applyChoice(choice === true)
     return requestedChoice
@@ -164,11 +169,13 @@ export function setAnalyticsCustomer(id) {
 export function readAnalyticsConsentId() { return AsyncStorage.getItem(CONSENT_ID_KEY) }
 
 export async function refreshAnalyticsConfig() {
+  const previouslyEnabled = enabled
   let next = false
-  try { next = (await fetchJson('/checkout/app-tracking-config'))?.enabled === true } catch { recordTrackingOutcome('configUnavailable') }
+  try { next = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.enabled === true } catch { recordTrackingOutcome('configUnavailable') }
   if (next !== remoteEnabled) {
     remoteEnabled = next
-    const stored = (await AsyncStorage.getItem(STORAGE_KEY)) === 'granted'
+    const stored = ['granted', 'default_allowed'].includes(await AsyncStorage.getItem(STORAGE_KEY))
     await applyChoice(requestedChoice === null ? stored : requestedChoice)
   }
+  return !previouslyEnabled && enabled
 }

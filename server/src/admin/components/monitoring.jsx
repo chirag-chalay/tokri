@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { ApiClient } from 'adminjs'
+import { logReasons, validVisitorSession } from '../../../../shared/logReasons.js'
 
 const api = new ApiClient()
 const typeLabels = { website: 'Website visits', api: 'API access', access: 'Earlier access history', error: 'Error logs', audit: 'Admin activity', debug: 'Debug logs', payment: 'Payment logs', account: 'Account creation' }
@@ -52,7 +53,7 @@ function LogRow({ row }) {
   )
 }
 
-export default function Monitoring() {
+function TechnicalMonitoring() {
   const [filters, setFilters] = useState(defaults)
   const [active, setActive] = useState(defaults)
   const [page, setPage] = useState(1)
@@ -201,4 +202,399 @@ export default function Monitoring() {
       </> : null}
     </section>
   )
+}
+
+const reasonText = Object.fromEntries(Object.entries(logReasons).map(([code, [label]]) => [code, label]))
+const sessionColumns = [
+  ['sessionId', 'Session'], ['who', 'Who'], ['where', 'Location'], ['connectionIp', 'IP'], ['device', 'Device'],
+  ['startedAt', 'Started (IST)'], ['timestamp', 'Last activity (IST)'],
+  ['eventCount', 'Events'], ['cartItemCount', 'Cart items'], ['result', 'Outcome'],
+]
+const shortId = id => id ? id.slice(0, 8) : 'No session'
+const columns = [
+  ['timestamp', 'Time (IST)'], ['sessionId', 'Session'], ['who', 'Who'], ['where', 'Where'], ['pincode', 'Pincode'],
+  ['action', 'What happened'], ['result', 'Result'], ['why', 'Why'], ['device', 'Device'], ['source', 'Source'],
+]
+const visitDefaults = { from: '', to: '', status: '', reason: '', pin: '', coverage: '', device: '', source: '', search: '', customerOnly: true, includeBackground: false }
+const istDay = (daysAgo = 0) => new Date(Date.now() + 330 * 60000 - daysAgo * 86400000).toISOString().slice(0, 10)
+const displayDay = iso => iso.split('-').reverse().join('/')
+function parseLogDate(value) {
+  if (value === '') return ''
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim())
+  if (!match) return null
+  const date = match[3] + '-' + match[2] + '-' + match[1]
+  const parsed = new Date(date)
+  return Number.isFinite(+parsed) && parsed.toISOString().slice(0, 10) === date ? date : null
+}
+const makeDateRange = days => ({ from: displayDay(istDay(days - 1)), to: displayDay(istDay()) })
+const initialFilters = tab => ({ ...visitDefaults, ...makeDateRange(1), customerOnly: tab !== 'admin' })
+
+function VisitEvents({ rows, onOpen }) {
+  const entries = []
+  for (const row of rows) {
+    const previous = entries.at(-1)
+    if (row.cartQuote && previous?.row.cartQuote && row.activityDetail === previous.row.activityDetail && row.who === previous.row.who &&
+      row.pincode === previous.row.pincode && row.details['Cart items'] === previous.row.details['Cart items']) {
+      previous.count++
+      previous.lastAt = row.timestamp
+    } else entries.push({ row, count: 1 })
+  }
+  return <ol className="business-journey">{entries.map(({ row, count, lastAt }, i) => <li key={row.eventId || row.timestamp + i}>
+    {ist(row.timestamp)}{' '}
+    {onOpen ? <button type="button" onClick={() => onOpen(row)}>{row.action}</button> : <strong>{row.action}</strong>}{' '}
+    <span className="business-badge" data-result={row.result}>{row.result}</span>
+    {row.activityDetail && <small>{row.activityDetail}</small>}
+    {count > 1 && <small>Same quoted amount {count} times · Last quote {ist(lastAt)}</small>}
+    {row.result === 'Failed' && <small>{row.why}</small>}
+    {row.pincode !== 'Unknown' && row.pincode !== 'Not applicable' && <small>Delivery pincode {row.pincode}</small>}
+  </li>)}</ol>
+}
+const sources = ['Website', 'Android app', 'iPhone app', 'Backoffice', 'Payment provider', 'Server API', 'System']
+const tabs = { website: 'Website', app: 'Mobile App (API)', errors: 'Errors', admin: 'Admin/System' }
+
+async function businessQuery(filters, page, extra = {}) {
+  const { search, from, to, ...rest } = filters
+  const start = parseLogDate(from), end = parseLogDate(to)
+  if (start === null || end === null || start && end && start > end) throw new Error('Enter a valid date range in dd/mm/yyyy format.')
+  const value = search.trim()
+  const lookup = !value ? {} : /^[a-f0-9-]{36}$/i.test(value) ? { visitSession: value.toLowerCase() }
+    : /^[a-f0-9]{8}$/i.test(value) ? { sessionPrefix: value.toLowerCase() } : { phone: value }
+  const result = await api.getPage({ pageName: 'logs', method: 'POST', headers: { 'X-Tokri-Monitoring': '1' }, data: { action: 'business-read', filters: { ...rest, from: start, to: end, ...lookup, page, includeInsights: false, ...extra } } })
+  if (result.data.storageError) throw new Error('Logs unavailable')
+  return result.data
+}
+
+function isDialogBackdrop(event) {
+  if (event.target !== event.currentTarget) return false
+  const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect()
+  return event.clientX < left || event.clientX >= right || event.clientY < top || event.clientY >= bottom
+}
+
+function AttributionFooter() {
+  return <footer className="business-footer">
+    <a href="https://db-ip.com">IP geolocation by DB-IP</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
+  </footer>
+}
+
+function BusinessMonitoring({ tab, onTab, access, onTechnical }) {
+  const grouped = tab === 'website' || tab === 'app'
+  const visibleColumns = grouped ? sessionColumns : columns
+  const [draft, setDraft] = useState(() => {
+    const filters = initialFilters(tab)
+    const params = new URLSearchParams(window.location.search)
+    const visit = params.get('visit')
+    if (validVisitorSession(visit) && (params.get('channel') === 'app' ? tab === 'app' : tab === 'website')) return { ...filters, from: '', to: '', search: visit }
+    return filters
+  })
+  const [active, setActive] = useState(draft)
+  const [data, setData] = useState(null)
+  const [page, setPage] = useState(1)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [selected, setSelected] = useState(null)
+  const [journey, setJourney] = useState(null)
+  const [exporting, setExporting] = useState(false)
+  const dialog = useRef(null)
+  const backdropPress = useRef(false)
+  const [expanded, setExpanded] = useState(null)
+  const [timeline, setTimeline] = useState(null)
+
+  useEffect(() => {
+    let current = true
+    setBusy(true)
+    setError('')
+    setExpanded(null)
+    businessQuery(active, page, { tab, groupSessions: grouped })
+      .then(result => { if (current) setData(result) })
+      .catch(() => { if (current) { setData(null); setError('Could not load the logs. Check the filters and try again.') } })
+      .finally(() => { if (current) setBusy(false) })
+    return () => { current = false }
+  }, [active, page, tab, grouped])
+
+  useEffect(() => {
+    if (JSON.stringify(active) === JSON.stringify(draft)) return
+    const wait = setTimeout(() => {
+      const start = parseLogDate(draft.from), end = parseLogDate(draft.to)
+      if (start === null || end === null || start && end && start > end) {
+        if (draft.from.length === 10 || draft.to.length === 10) setError('Enter a valid date range in dd/mm/yyyy format.')
+        return
+      }
+      const search = draft.search.trim()
+      if (search && !/^(?:[a-f0-9]{8}|[a-f0-9-]{36}|\d{2}X{6}\d{2})$/i.test(search) &&
+        (!access.fullAccess || !/^(?:91)?\d{10}$/.test(search.replace(/[+ ()-]/g, '')))) return
+      if (draft.pin && !/^\d{6}$/.test(draft.pin)) return
+      setPage(1)
+      setActive(draft)
+    }, 325)
+    return () => clearTimeout(wait)
+  }, [active, draft, access.fullAccess])
+
+  useEffect(() => {
+    if (!expanded?.row.sessionGroup) return
+    let current = true
+    setTimeline({ loading: true })
+    businessQuery(visitDefaults, expanded.page, {
+      tab, visitSession: expanded.row.sessionId, journey: '1', perPage: '100', includeBackground: expanded.background,
+    }).then(result => { if (current) setTimeline(result) })
+      .catch(() => { if (current) setTimeline({ error: 'Could not load this timeline.' }) })
+    return () => { current = false }
+  }, [expanded, tab])
+
+  async function showJourney() {
+    const row = selected
+    setJourney({ loading: true })
+    try {
+      const result = await businessQuery(visitDefaults, 1, { tab, visitSession: row.sessionId, journey: '1', perPage: '100', includeBackground: false })
+      setJourney({ rows: result.rows, total: result.total })
+    } catch { setJourney({ error: 'Could not load this visit. Try again.' }) }
+  }
+
+  async function exportCsv(groupSessions = grouped) {
+    setExporting(true)
+    try {
+      const result = await businessQuery(active, 1, { tab, export: 'csv', groupSessions })
+      const url = URL.createObjectURL(new Blob(['\uFEFF', result.csv], { type: 'text/csv;charset=utf-8' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = groupSessions ? 'tokriii-sessions.csv' : 'tokriii-events.csv'
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      if (result.total > result.count) setError('CSV contains the newest 5,000 rows. Choose a shorter date range to export the remaining rows.')
+    } catch { setError('Could not download the logs. Try again.') }
+    finally { setExporting(false) }
+  }
+
+  function openDetails(row) {
+    setSelected(row)
+    setJourney(null)
+    dialog.current.showModal()
+  }
+
+  function applyFilters(filters) {
+    const start = parseLogDate(filters.from), end = parseLogDate(filters.to)
+    if (start === null || end === null || start && end && start > end) {
+      setError('Enter a valid date range in dd/mm/yyyy format.')
+      return
+    }
+    setPage(1)
+    setDraft(filters)
+    setActive({ ...filters })
+  }
+
+  function selectVisit(id) {
+    applyFilters({ ...initialFilters(tab), from: '', to: '', search: id, includeBackground: true })
+  }
+
+  function toggleRow(row, key) {
+    if (!grouped) { openDetails(row); return }
+    if (expanded?.key === key) { setExpanded(null); return }
+    setTimeline(null)
+    setExpanded({ row, key, page: 1, background: false })
+  }
+
+  const period = active.from || active.to ? [active.from || 'Earliest', active.to || 'Today'].join(' – ') + ' · IST' : 'Last 24 hours'
+  const pageCount = Math.max(1, Math.ceil((data?.total || 0) / (data?.perPage || 50)))
+  const first = data?.total ? (page - 1) * data.perPage + 1 : 0
+  const last = Math.min(page * (data?.perPage || 50), data?.total || 0)
+  const fullPhoneSearch = access.fullAccess
+  const activeChips = [
+    active.from || active.to ? { label: [active.from, active.to].filter(Boolean).join(' – '), clear: { from: '', to: '' } } : null,
+    active.status ? { label: active.status, clear: { status: '' } } : null,
+    active.device ? { label: 'Device: ' + active.device, clear: { device: '' } } : null,
+    active.search ? { label: /^[a-f0-9-]{36}$/.test(active.search) ? 'Session ' + shortId(active.search) : 'Search applied', clear: { search: '' } } : null,
+    active.reason ? { label: reasonText[active.reason], clear: { reason: '' } } : null,
+    active.pin ? { label: 'Pincode ' + active.pin, clear: { pin: '' } } : null,
+    active.coverage ? { label: active.coverage === 'true' ? 'Delivers' : 'Outside delivery area', clear: { coverage: '' } } : null,
+    active.source ? { label: active.source, clear: { source: '' } } : null,
+    active.checkoutOnly ? { label: 'Failed checkouts', clear: { checkoutOnly: false } } : null,
+    active.includeBackground ? { label: 'Background calls', clear: { includeBackground: false } } : null,
+    !active.customerOnly && tab !== 'admin' ? { label: 'System activity included', clear: { customerOnly: true } } : null,
+  ].filter(Boolean)
+  const update = event => {
+    const { name, value } = event.target
+    const digits = value.replace(/\D/g, '').slice(0, 8)
+    const date = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean).join('/')
+    setDraft({ ...draft, [name]: name === 'from' || name === 'to' ? date : value })
+  }
+
+  return <section className="business-logs">
+    <style>{`
+      .business-logs{padding:clamp(12px,3vw,32px);color:#16352c;background:#f5f8f6;min-height:100vh}
+      .business-logs h1{font-size:26px;margin:0}.business-logs h2{font-size:16px;margin:0 0 8px}
+      .business-logs p{margin:6px 0}.business-logs button{border:1px solid #b9cfc3;background:#fff;border-radius:6px;padding:8px 12px;cursor:pointer;color:#16352c}
+      .business-logs button:disabled{opacity:.55;cursor:default}.business-logs button:focus-visible,.business-logs input:focus-visible,.business-logs select:focus-visible{outline:2px solid #23704d}
+      .business-top,.business-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+      .business-tabs{justify-content:flex-start;margin-top:12px}.business-tabs button[aria-pressed=true]{background:#174d3b;color:#fff}
+      .business-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(155px,100%),1fr));gap:10px;margin:14px 0}
+      .business-table{background:#fff;border:1px solid #dce5df;border-radius:8px;padding:12px}
+      .business-filters label{display:grid;gap:4px;font-size:13px}
+      .business-filters :is(input,select){width:100%;min-width:0;min-height:36px;border:1px solid #bbcfc5;border-radius:6px;padding:6px;background:#fff;color:#16352c}
+      .business-table{overflow:auto;max-height:62vh;padding:0}.business-table table{border-collapse:separate;border-spacing:0;width:100%;text-align:left;table-layout:fixed}
+      .business-table :is(th,td){padding:8px 10px;border-bottom:1px solid #e7eee9;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .business-table th{position:sticky;top:0;background:#ecf4ef;z-index:1}
+      .business-table tbody tr{cursor:pointer}.business-table tbody tr:hover,.business-table tbody tr:focus-within{background:#f1f6f3}
+      .business-table .business-detail-trigger{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0;border:0;background:transparent;text-decoration:underline;text-underline-offset:3px;text-align:left}
+      .business-table .business-detail-trigger small{white-space:normal;overflow-wrap:anywhere}
+      .business-session-table :is(th,td,.business-detail-trigger){white-space:normal;overflow-wrap:anywhere;overflow:visible;text-overflow:clip}
+      .business-session-table :is(th,td){vertical-align:top}
+      .business-badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700;background:#eef2f0;color:#405b4d}
+      .business-badge[data-result=Failed]{background:#fbe8eb;color:#921d2e}.business-badge[data-result=Successful]{background:#e3f4e8;color:#21603a}
+      .business-quick{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+      .business-toolbar,.business-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+      .business-toolbar :is(select,input){min-height:36px;border:1px solid #bbcfc5;border-radius:6px;padding:5px;color:#16352c;background:white}
+      .business-chips button{padding:4px 8px;border-radius:999px;font-size:12px}
+      .business-more{margin:10px 0}.business-more summary{cursor:pointer;width:max-content;font-weight:600}
+      .business-preset[aria-pressed=true]{background:#e3f4e8;border-color:#72947e}
+      .business-table tbody .business-timeline-row{cursor:auto;background:#f6f9f7}
+      .business-table .business-timeline-cell{white-space:normal;padding:12px;overflow:visible}
+      .business-inline-timeline ol{margin:10px 0;padding-left:22px}.business-inline-timeline li{padding:5px 0;border-bottom:1px solid #e7eee9}
+      .business-inline-timeline li button{margin:0 6px}.business-inline-timeline small{display:block}
+      .business-table .business-session-link{padding:2px 4px;text-decoration:underline;border:0}
+      .business-table td small{display:block;color:#435f52}
+      .business-footer{position:static;margin-top:24px;padding:12px 0;border-top:1px solid #dce5df;font-size:12px}
+      .business-technical-footer{padding:12px 24px}
+      .business-logs dialog{position:fixed;inset:0 0 0 auto;margin:0;height:100dvh;max-height:100dvh;box-sizing:border-box;width:min(calc(100vw - 32px),440px);max-width:100vw;padding:20px;border:1px solid #bcd1c5;background:#fff;color:#16352c}
+      .business-logs dialog::backdrop{background:#15382d59}.business-logs dd{overflow-wrap:anywhere;margin:3px 0 12px}.business-logs dt{font-weight:600}.business-journey li{margin-bottom:12px}.business-journey small{display:block}
+      @media(max-width:950px){
+        .business-table{background:transparent;border:0;max-height:none}
+        .business-table :is(table,tbody){display:block}.business-table thead{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+        .business-table tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 8px;margin-bottom:10px;padding:10px;background:#fff;border:1px solid #dce5df;border-radius:8px}
+        .business-table td,.business-table td:first-child{display:block;width:auto;white-space:normal;overflow-wrap:anywhere;padding:4px;border:0}
+        .business-table td::before{content:attr(data-label);display:block;font-size:11px;font-weight:600;color:#52665c}
+        .business-table td[data-label="What happened"],.business-table td[data-label="Location"],.business-table .business-timeline-cell{grid-column:1/-1}
+        .business-table .business-timeline-cell::before{content:none}.business-table .business-detail-trigger{white-space:normal}
+      }
+    `}</style>
+    <header className="business-top"><div><h1>Customer activity logs</h1><p>{period}</p></div><a href="./reports">Reports</a>{onTechnical && <button type="button" onClick={onTechnical}>Technical logs</button>}</header>
+    <nav className="business-actions business-tabs" aria-label="Log tabs">
+      {Object.entries(tabs).map(([key, label]) =>
+        <button type="button" key={key} aria-pressed={tab === key} onClick={() => onTab(key)}>{label}</button>)}
+    </nav>
+    <p>{tab === 'admin' ? 'Kept for 1 year' : 'Kept for ' + access.activityDays + ' days'}</p>
+    <div className="business-toolbar">
+      {[[1, 'Today'], [7, '7 days'], [30, '30 days']].map(([days, label]) => {
+        const range = makeDateRange(days)
+        return <button type="button" className="business-preset" key={days} aria-pressed={active.from === range.from && active.to === range.to}
+          onClick={() => applyFilters({ ...draft, ...range })}>{label}</button>
+      })}
+      <select aria-label="Result" name="status" value={draft.status} onChange={update}><option value="">All results</option><option>Failed</option><option>Successful</option></select>
+      <select aria-label="Device" name="device" value={draft.device} onChange={update}><option value="">All devices</option><option value="website">Website</option><option value="app">App</option></select>
+      <input aria-label="Search by session or phone" name="search" maxLength={40} value={draft.search} onChange={update}
+        placeholder={fullPhoneSearch ? 'Session ID or phone' : 'Session ID or masked phone'} />
+      <button type="button" onClick={() => applyFilters(initialFilters(tab))}>Reset</button>
+      <button type="button" onClick={() => exportCsv()} disabled={busy || exporting || !data}>{grouped ? 'Export sessions CSV' : 'Export CSV'}</button>
+      {grouped && <button type="button" onClick={() => exportCsv(false)} disabled={busy || exporting || !data}>Export events CSV</button>}
+    </div>
+    {activeChips.length > 0 && <div className="business-chips" aria-label="Active filters">
+      {activeChips.map(chip => <button type="button" key={chip.label} aria-label={'Clear filter: ' + chip.label}
+        onClick={() => applyFilters({ ...active, ...chip.clear })}>{chip.label} ×</button>)}
+    </div>}
+    {tab !== 'admin' && <label><input type="checkbox" checked={active.customerOnly}
+      onChange={event => applyFilters({ ...active, customerOnly: event.target.checked })} /> Customer activity only</label>}
+    <details className="business-more">
+      <summary>More filters</summary>
+      <div className="business-filters">
+        <label>From<input name="from" inputMode="numeric" placeholder="dd/mm/yyyy" maxLength={10} value={draft.from} onChange={update} /></label>
+        <label>To<input name="to" inputMode="numeric" placeholder="dd/mm/yyyy" maxLength={10} value={draft.to} onChange={update} /></label>
+        <label>Reason<select name="reason" value={draft.reason} onChange={update}><option value="">All reasons</option>{Object.entries(reasonText).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+        <label>Pincode<input name="pin" inputMode="numeric" maxLength={6} value={draft.pin} onChange={update} /></label>
+        <label>Delivers<select name="coverage" value={draft.coverage} onChange={update}><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select></label>
+        <label>Source<select name="source" value={draft.source} onChange={update}><option value="">All sources</option>{sources.map(source => <option key={source}>{source}</option>)}</select></label>
+      </div>
+      {tab !== 'admin' && <label><input type="checkbox" checked={active.checkoutOnly} onChange={event => applyFilters({
+        ...active, checkoutOnly: event.target.checked, status: event.target.checked ? 'Failed' : active.status,
+      })} /> Failed checkout requests</label>}
+      {grouped && <label><input type="checkbox" checked={active.includeBackground}
+        onChange={event => applyFilters({ ...active, includeBackground: event.target.checked })} /> Include background-only activity</label>}
+    </details>
+    {error && <p role="alert">{error}</p>}
+    <p aria-live="polite">{busy ? 'Loading activity…' : data?.total ? data.total + (grouped ? ' matching rows' : ' matching events') : 'No matching activity'}</p>
+    <div className={grouped ? 'business-table business-session-table' : 'business-table'}><table><thead><tr>{visibleColumns.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead><tbody>
+      {(data?.rows || []).map((row, index) => {
+        const key = row.sessionGroup ? row.sessionId : row.eventId || row.timestamp + index
+        const open = expanded?.key === key
+        const rows = row.sessionGroup ? timeline?.rows : [row]
+        return <React.Fragment key={key}>
+          <tr onClick={() => toggleRow(row, key)}>
+            {visibleColumns.map(([field, label]) => <td key={field} data-label={label} title={field === 'connectionIp' ? row.connectionIp : undefined}>
+              {field === 'sessionId' ? <>{row.sessionId ? <button type="button" className="business-session-link" title={row.sessionId}
+                aria-label={'Filter to session ' + shortId(row.sessionId)} onClick={event => { event.stopPropagation(); selectVisit(row.sessionId) }}>{shortId(row.sessionId)}</button> : 'No session'}</>
+              : field === 'timestamp' || field === 'startedAt' ? row[field] ? ist(row[field]) : 'Unknown'
+              : field === 'result' ? <span className="business-badge" data-result={row.sessionOutcome && row.sessionOutcome !== 'Order confirmed' && row.result === 'Successful' ? 'Info' : row.result}>{row.sessionOutcome || row.result}</span>
+              : field === 'eventCount' ? <>{row.eventCount}{row.backgroundCount > 0 && <small>{row.backgroundCount} background {row.backgroundCount === 1 ? 'call' : 'calls'}</small>}</>
+              : field === 'cartItemCount' ? <>{row.cartItemCount ?? 'Unknown'}{row.cartTotal && <small>Last quote {row.cartTotal}</small>}</>
+              : field === 'action' || grouped && field === 'who' ? <button type="button" className="business-detail-trigger"
+                aria-expanded={grouped ? open : undefined} aria-label={(grouped ? 'Toggle timeline for ' : 'View details for ') + row[field]}
+                onClick={event => { event.stopPropagation(); toggleRow(row, key) }}>{row[field]}{field === 'action' && row.activityDetail && <small>{row.activityDetail}</small>}</button>
+              : field === 'where' && grouped ? <>{row.where}<small>{row.pincode}</small></>
+              : row[field] ?? 'Unknown'}
+            </td>)}
+          </tr>
+          {grouped && open && <tr className="business-timeline-row"><td className="business-timeline-cell" colSpan={visibleColumns.length}>
+            <section className="business-inline-timeline" aria-label="Event timeline">
+              <h2>{shortId(row.sessionId)} · Event timeline</h2>
+              {row.backgroundCount > 0 && <label><input type="checkbox" checked={expanded.background}
+                onChange={event => setExpanded({ ...expanded, page: 1, background: event.target.checked })} /> Show {row.backgroundCount} background {row.backgroundCount === 1 ? 'call' : 'calls'}</label>}
+              {timeline?.loading && row.sessionGroup && <p>Loading timeline…</p>}
+              {timeline?.error && row.sessionGroup && <p role="alert">{timeline.error}</p>}
+              {rows?.length > 0 && <VisitEvents rows={rows} onOpen={openDetails} />}
+              {rows?.length === 0 && <p>No foreground events.</p>}
+              {row.sessionGroup && timeline?.total > timeline?.perPage && <div className="business-actions" aria-label="Timeline pages">
+                <button type="button" disabled={expanded.page <= 1} onClick={() => setExpanded({ ...expanded, page: expanded.page - 1 })}>Earlier events</button>
+                <button type="button" disabled={expanded.page * timeline.perPage >= timeline.total}
+                  onClick={() => setExpanded({ ...expanded, page: expanded.page + 1 })}>Later events</button>
+              </div>}
+            </section>
+          </td></tr>}
+        </React.Fragment>
+      })}
+    </tbody></table></div>
+    <nav className="business-actions" aria-label="Log pages">
+      <button type="button" disabled={busy || page <= 1} onClick={() => setPage(1)}>First</button>
+      <button type="button" disabled={busy || page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
+      <span>Page {page} of {pageCount} · {first}–{last} of {data?.total || 0}</span>
+      <button type="button" disabled={busy || page >= pageCount} onClick={() => setPage(page + 1)}>Next</button>
+      <button type="button" disabled={busy || page >= pageCount} onClick={() => setPage(pageCount)}>Last</button>
+    </nav>
+    <dialog ref={dialog}
+      onPointerDown={event => { backdropPress.current = isDialogBackdrop(event) }}
+      onPointerCancel={() => { backdropPress.current = false }}
+      onClick={event => {
+        if (backdropPress.current && isDialogBackdrop(event)) event.currentTarget.close()
+        backdropPress.current = false
+      }}
+      onClose={() => { backdropPress.current = false; setSelected(null); setJourney(null) }}>
+      <form method="dialog"><button autoFocus>Close</button></form>
+      {selected && <><h2>{selected.action}</h2>{selected.why !== 'Not applicable' && <p>{selected.why}</p>}{selected.hint && <p>{selected.hint}</p>}
+        <dl>{Object.entries({ Who: selected.who, Where: selected.where, 'Delivery pincode': selected.pincode === 'Unknown' ? 'No pincode recorded' : selected.pincode,
+          Device: selected.device, Source: selected.source, ...selected.details }).filter(([, value]) => value != null && value !== '')
+          .map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
+        {selected.sessionId && <button type="button" onClick={showJourney}>Show visitor journey</button>}
+        {journey?.loading && <p>Loading journey…</p>}{journey?.error && <p role="alert">{journey.error}</p>}
+        {journey?.rows && <><h2>Visitor journey</h2>{journey.total > journey.rows.length && <p>Showing the oldest {journey.rows.length} events.</p>}<VisitEvents rows={journey.rows} /></>}
+      </>}
+    </dialog>
+    {access.ipLocationProvider === 'db-ip' && <AttributionFooter />}
+  </section>
+}
+
+export default function Monitoring() {
+  const [technical, setTechnical] = useState(false)
+  const [access, setAccess] = useState(null)
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('channel') === 'app' ? 'app' : 'website')
+  const [unavailable, setUnavailable] = useState(false)
+  useEffect(() => {
+    let active = true
+    api.getPage({ pageName: 'logs', params: { view: 'access' } }).then(({ data }) => {
+      if (!active) return
+      setAccess(data)
+    }).catch(() => { if (active) setUnavailable(true) })
+    return () => { active = false }
+  }, [])
+  if (!access) return <p role="status">{unavailable ? 'Could not open logs. Refresh to try again.' : 'Loading logs…'}</p>
+  return <>
+    {technical && access.fullAccess ? <><button type="button" onClick={() => setTechnical(false)}>Back to customer activity</button><TechnicalMonitoring />
+      {access.ipLocationProvider === 'db-ip' && <div style={{ padding: '12px 24px', fontSize: 12 }}><AttributionFooter /></div>}</>
+    : <BusinessMonitoring key={tab} tab={tab} onTab={setTab} access={access} onTechnical={access.fullAccess ? () => setTechnical(true) : undefined} />}
+  </>
 }

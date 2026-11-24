@@ -116,7 +116,7 @@ function Tabs() {
 export default function RootNavigator() {
   const { colors, isDark } = useTheme()
   const navigationRef = useRef(null)
-  const { choice } = useAnalyticsSettings()
+  const { choice, analyticsReady, markNavigationReady } = useAnalyticsSettings()
   const screenRef = useRef(null)
   const reportScreen = () => {
     const name = navigationRef.current?.getCurrentRoute()?.name
@@ -127,7 +127,7 @@ export default function RootNavigator() {
   }
   useEffect(() => {
     if (choice) trackScreen(navigationRef.current?.getCurrentRoute()?.name)
-  }, [choice])
+  }, [choice, analyticsReady])
   const navTheme = useMemo(
     () => ({
       ...DefaultTheme,
@@ -145,7 +145,7 @@ export default function RootNavigator() {
   )
 
   return (
-    <NavigationContainer ref={navigationRef} theme={navTheme} onReady={reportScreen} onStateChange={reportScreen}>
+    <NavigationContainer ref={navigationRef} theme={navTheme} onReady={() => { markNavigationReady(); reportScreen() }} onStateChange={reportScreen}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.panel },

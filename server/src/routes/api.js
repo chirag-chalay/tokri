@@ -1,9 +1,16 @@
 import { Router } from 'express'
 import websiteMonitoring from '../monitoring/website.js'
 import { prisma } from '../lib/prisma.js'
+import { activeSocialLinks } from '../utils/socialLinks.js'
 import { formatPublicSettings } from '../utils/settings.js'
 import { formatCategory, formatProduct, formatPage, formatBlog, formatBlogSummary, toPublicAssetUrl } from '../utils/formatters.js'
 import { PRODUCT_CATEGORY_INCLUDE, categoryProductWhere } from '../utils/catalog.js'
+import { optionalCustomer } from '../middleware/customerAuth.js'
+import { searchAddresses } from '../services/addressSearch.js'
+import { addressSearchLimit } from '../middleware/addressSearchLimit.js'
+import { mapplsEnabled } from '../services/mappls.js'
+import { assertPincodeServiceable, deliveryAvailability } from '../services/delivery.js'
+import { pincodeSuggestions } from '../services/pincodeSuggestions.js'
 import { reverseGeocode } from '../services/geocode.js'
 import authRouter from './auth.js'
 import accountRouter from './account.js'
@@ -15,6 +22,11 @@ import homeRouter from './home.js'
 
 const router = Router()
 router.use('/monitoring', websiteMonitoring)
+
+router.use(['/products', '/categories', '/search', '/account/cart', '/app/bootstrap'], (_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  next()
+})
 
 router.get('/health', (_req, res) => {
   res.json({
@@ -42,10 +54,65 @@ router.use('/partner', partnerRouter)
 router.use('/tracking', trackingRouter)
 router.use('/home', homeRouter)
 
+router.post('/geo/pincode', optionalCustomer, async (req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    if (typeof req.body?.pincode !== 'string' || !/^\d{6}$/.test(req.body.pincode)) {
+      return res.status(400).json({ message: 'Enter a valid six-digit pincode.', reasonCode: 'PINCODE_INVALID' })
+    }
+    const row = await assertPincodeServiceable(req.body.pincode)
+    return res.json({ serviceable: true, city: row.city || null, state: row.state?.name || null })
+  } catch (error) { return next(error) }
+})
+
+// POST keeps customer-entered address queries out of URL/access logs.
+router.post('/addresses/search', addressSearchLimit(), async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const result = await searchAddresses(req.body?.query)
+    res.json({ ...result, attributionLogo: mapplsEnabled() ? process.env.MAPPLS_ATTRIBUTION_LOGO_PATH : null })
+  } catch {
+    // No query text or upstream URLs in failure responses.
+    res.status(503).json({ message: 'Address search is unavailable. Please enter your address manually.' })
+  }
+})
+
+router.get('/delivery/availability', addressSearchLimit({ limit: 60 }), async (req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const pincode = typeof req.query.pincode === 'string' ? req.query.pincode : ''
+    if (!/^[1-9][0-9]{5}$/.test(pincode)) return res.status(400).json({ message: 'Enter a valid 6-digit pincode.' })
+    const row = await assertPincodeServiceable(pincode)
+    res.json({ pincode, delivery: deliveryAvailability(row) })
+  } catch (error) {
+    if (error.status === 400) return res.json({ pincode: req.query.pincode, delivery: deliveryAvailability(null) })
+    next(error)
+  }
+})
+
+router.get('/delivery/pincodes', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-store')
+    res.json({ suggestions: await pincodeSuggestions(req.query.q) })
+  } catch (error) {
+    next(error)
+  }
+})
+
 router.get('/geo/reverse', async (req, res, next) => {
   try {
     const address = await reverseGeocode(req.query.lat, req.query.lng)
     res.json({ address })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/settings/social-links', async (_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const setting = await prisma.setting.findUnique({ where: { id: 1 }, select: { socialLinks: true } })
+    res.json(activeSocialLinks(setting?.socialLinks))
   } catch (error) {
     next(error)
   }
@@ -81,7 +148,7 @@ router.get('/categories/:slug', async (req, res, next) => {
     })
 
     if (!category) {
-      return res.status(404).json({ message: 'Category not found' })
+      return res.status(404).json({ message: 'Category not found', reasonCode: 'RESOURCE_NOT_FOUND' })
     }
 
     const products = await prisma.product.findMany({
@@ -232,7 +299,7 @@ router.get('/products/:slug', async (req, res, next) => {
     })
 
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' })
+      return res.status(404).json({ message: 'Product not found', reasonCode: 'RESOURCE_NOT_FOUND' })
     }
 
     res.json(formatProduct(product))
@@ -285,7 +352,7 @@ router.get('/blogs/:slug', async (req, res, next) => {
         isPublished: true,
       },
     })
-    if (!post) return res.status(404).json({ message: 'Blog post not found' })
+    if (!post) return res.status(404).json({ message: 'Blog post not found', reasonCode: 'RESOURCE_NOT_FOUND' })
     res.json(formatBlog(post))
   } catch (error) {
     next(error)
@@ -302,7 +369,7 @@ router.get('/pages/:slug', async (req, res, next) => {
     })
 
     if (!page) {
-      return res.status(404).json({ message: 'Page not found' })
+      return res.status(404).json({ message: 'Page not found', reasonCode: 'RESOURCE_NOT_FOUND' })
     }
 
     res.json(formatPage(page))

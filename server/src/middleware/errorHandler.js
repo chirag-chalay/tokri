@@ -8,6 +8,7 @@ export function errorHandler(err, _req, res, _next) {
 
   res.status(status).json({
     message,
+    ...(err.reasonCode ? { reasonCode: err.reasonCode } : {}),
     ...(err.code ? { code: err.code } : {}),
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   })

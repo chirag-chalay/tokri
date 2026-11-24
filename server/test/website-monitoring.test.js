@@ -12,14 +12,34 @@ process.env.LOG_DIRECTORY = directory
 process.env.LOG_OUTBOX_ENABLED = 'false'
 const { requestLogging, log, setDebug, websiteDebugState, subscribeWebsiteDebug, closeWebsiteStreams, workerCall, closeMonitoring } = await import('../src/monitoring/index.js')
 const { createWebsiteMonitoringRouter } = await import('../src/monitoring/website.js')
+const { default: trackingRouter } = await import('../src/routes/tracking.js')
 const { logError } = await import('../src/monitoring/database.js')
-const client = { product: { findMany: async () => [{ id: 'apple-id', slug: 'apple', name: 'Apple Royal Gala' }] } }
+const { commerceLogDetails, presentLog } = await import('../src/admin/monitoring-presentation.js')
+const client = {
+  product: { findMany: async () => [
+    { id: 'apple-id', slug: 'apple', name: 'Apple Royal Gala' },
+    { id: 'pear-id', slug: 'pear', name: 'Pear' },
+  ] },
+  category: { findMany: async () => [{ slug: 'exotic', label: 'Exotic Fruits' }] },
+  serviceablePincode: {
+    count: async () => 1,
+    findMany: async () => [{ pincode: '110001', morningEnabled: true, expressEnabled: false }],
+  },
+}
 const app = express()
 app.use(requestLogging)
 app.use((req, _res, next) => { req.customer = { id: 'PRIVATE_CUSTOMER_ID' }; next() })
 app.use('/api/v1/monitoring', createWebsiteMonitoringRouter(client))
+app.use(express.json())
+app.use('/api/v1/tracking', trackingRouter)
 app.get('/api/v1/products', (_req, res) => res.json([]))
 app.get('/api/v1/checkout/quote', (_req, res) => { logError(Object.assign(new Error('password=PRIVATE_PASSWORD'), { code: 'P2002', status: 400 }), 'api'); res.status(400).json({ message: 'Invalid request.' }) })
+app.post('/api/v1/checkout/quote', (_req, res) => res.json({
+  items: [{ slug: 'apple', name: 'Apple Royal Gala', quantity: 2, priceValue: 125, phone: 'PRIVATE_PHONE' }],
+  totals: { itemsTotal: 250, deliveryCharge: 25, handlingCharge: 2, grandTotal: 277, totalCount: 2 },
+}))
+app.post('/api/v1/checkout/create-order', (_req, res) => res.status(201).json({ order: { orderNo: 'TKR12345678901', paymentStatus: 'pending' } }))
+app.post('/api/v1/checkout/confirm-cod', (_req, res) => res.json({ ok: true, orderNo: 'TKR12345678901', status: 'pending', paymentStatus: 'pending' }))
 app.get('/api/v1/auth/verify-otp', (_req, res) => { log('api', 'customer.login', { status: 'success' }); res.json({ ok: true }) })
 app.post('/tokri-backoffice/api/resources/Product/records/unit-product/edit', (req, res) => {
   req.session = { adminUser: { id: 'unit-admin' } }
@@ -74,6 +94,42 @@ test('optional events reject OFF, stale generations and expired deadlines; criti
   log('audit', 'test.critical.audit', { status: 'success' })
   assert.equal((await rows({ category: 'audit', search: 'test.critical.audit' })).total, 1)
 })
+test('PIN diagnostics are opt-in, validate and report coverage, and correlate without private fields', async () => {
+  const diagnosticSessionId = '99999999-9999-4999-9999-999999999999'
+  const pin = (extra = {}) => event('delivery.pin.checked', { deliveryPin: '110001', pinSource: 'location', diagnosticSessionId, ...extra })
+  assert.equal((await send([pin()])).data.accepted, 0)
+  setDebug(true, 1)
+  const response = await fetch(`${origin}/api/v1/products`)
+  const relatedRequestId = response.headers.get('x-tokri-request-id')
+  assert.equal((await send([
+    pin({ viewportType: 'mobile', address: 'PRIVATE_ADDRESS', longitude: 1, phone: 'PRIVATE_PHONE', userAgent: 'PRIVATE_UA', actorId: 'PRIVATE_ACTOR' }),
+    pin({ deliveryPin: '999999', pinSource: 'address_form' }),
+    pin({ deliveryPin: '11000x' }),
+    pin({ diagnosticSessionId: 'not-a-session' }),
+    event('website.navigation', { deliveryPin: '110001', diagnosticSessionId }),
+    event('frontend.api.completed', { diagnosticSessionId, relatedRequestId, endpoint: '/api/v1/products', deliveryPin: '110001' }),
+  ])).data.accepted, 4)
+  const logged = await rows({ category: 'debug', search: diagnosticSessionId })
+  const pins = logged.rows.filter(row => row.event === 'delivery.pin.checked')
+  assert.equal(pins.length, 2)
+  assert.equal(pins.find(row => row.deliveryPin === '110001').deliveryCoverage, 'serviceable')
+  assert.equal(pins.find(row => row.deliveryPin === '110001').viewportType, 'mobile')
+  assert.equal(pins.find(row => row.deliveryPin === '999999').deliveryCoverage, 'unserviceable')
+  assert.deepEqual(
+    presentLog(pins.find(row => row.deliveryPin === '999999')).details.find(detail => detail.label === 'Delivery coverage'),
+    { label: 'Delivery coverage', value: 'Outside delivery area' },
+  )
+  const api = logged.rows.find(row => row.event === 'frontend.api.completed')
+  assert.equal(api.relatedRequestId, relatedRequestId)
+  assert.equal(api.deliveryPin, undefined)
+  assert.equal((await rows({ category: 'website', search: diagnosticSessionId })).total, 0)
+  for (const row of pins) {
+    assert.equal(row.ip, undefined)
+    assert.equal(row.actorId, undefined)
+    assert.ok(!JSON.stringify(row).includes('PRIVATE_'))
+    assert.ok(!Object.hasOwn(row, 'longitude'))
+  }
+})
 test('debug subscribers see backend changes and are released without affecting controls', () => {
   const values = []; let closed = false
   const unsubscribe = subscribeWebsiteDebug(value => values.push(value), () => { closed = true })
@@ -117,6 +173,70 @@ test('monitoring endpoints and HTML requests do not duplicate visits or log them
   assert.ok(stream.headers.get('cache-control').includes('no-transform'))
   const reader = stream.body.getReader(); const frame = new TextDecoder().decode((await reader.read()).value)
   assert.ok(frame.includes('debugUntil')); await reader.cancel()
+})
+test('commerce journey shows verified pages and item names, cart values, and confirmed orders', async () => {
+  const sessionId = randomUUID()
+  const headers = { 'content-type': 'application/json', origin, cookie: `tokri_visit=${sessionId}`, 'x-session-id': sessionId }
+  const post = (route, body = {}) => fetch(`${origin}/api/v1/${route}`, { method: 'POST', headers, body: JSON.stringify(body) })
+  const tracked = await post('monitoring/events', { events: [
+    event('website.navigation', { path: '/shop?email=PRIVATE_EMAIL', pageRef: 'exotic' }),
+    event('website.navigation', { path: '/product/apple', pageRef: 'apple', productRef: 'apple' }),
+    event('cart.added', { path: '/product/apple', pageRef: 'apple', productRef: 'pear', quantity: 1 }),
+    event('cart.snapshot', { path: '/cart', count: 2, cartSubtotalPaise: 25000, grandTotal: 1 }),
+    event('website.navigation', { path: '/checkout' }),
+    event('checkout.minimum.blocked'),
+    event('checkout.minimum.blocked'),
+  ] })
+  assert.equal((await tracked.json()).accepted, 7)
+  await post('checkout/quote')
+  await post('checkout/create-order')
+  const query = { business: true, tab: 'website', visitSession: sessionId }
+  const before = await rows(query)
+  assert.equal(before.summary.sales.confirmed, 0)
+  assert.deepEqual(before.summary.sales.topBlockers, [['MIN_ORDER_NOT_MET', 1]])
+  assert.match(commerceLogDetails(before.rows.find(row => row.event === 'cart.added')).activityDetail, /Pear × 1 · Apple Royal Gala/)
+  assert.equal(before.rows.find(row => row.event === 'cart.added').pagePath, '/product/apple')
+  assert.equal(before.rows.find(row => row.pagePath === '/shop').page, 'Shop · Exotic Fruits')
+  const snapshot = commerceLogDetails(before.rows.find(row => row.event === 'cart.snapshot'))
+  assert.equal(snapshot.subtotal, '₹250')
+  assert.equal(snapshot.total, null)
+  const quote = commerceLogDetails(before.rows.find(row => row.route === '/api/v1/checkout/quote'))
+  assert.equal(quote.details['Cart items'], 'Apple Royal Gala × 2 (₹125 each)')
+  assert.equal(quote.details['Server-calculated total'], '₹277')
+  assert.doesNotMatch(JSON.stringify(before.rows), /PRIVATE_EMAIL|PRIVATE_PHONE/)
+  await post('checkout/confirm-cod')
+  await post('checkout/confirm-cod')
+  const after = await rows(query)
+  assert.equal(after.summary.sales.confirmed, 1)
+  assert.equal(after.summary.sales.confirmedAfterCheckout, 1)
+  assert.equal(after.summary.sales.checkout, 1)
+  assert.equal(after.summary.sales.viewed, 1)
+  assert.equal(after.summary.sales.added, 1)
+  assert.deepEqual(after.summary.sales.topBlockers, [])
+  assert.ok(after.rows.some(row => row.orderConfirmed && row.paymentMode === 'cod' && row.paymentStatus === 'pending'))
+})
+test('ad measurement refusal and automatic quotes stay outside the customer journey', async (t) => {
+  const config = { TRACKING_ENABLED: 'true', TRACKING_META_PIXEL_ENABLED: 'true', META_CAPI_ENABLED: 'true',
+    TRACKING_META_PIXEL_ID: '1234567890', META_CAPI_API_VERSION: 'v25.0', META_CAPI_ACCESS_TOKEN: 'unused-test-value' }
+  const previous = Object.fromEntries(Object.keys(config).map(key => [key, process.env[key]]))
+  Object.assign(process.env, config)
+  t.after(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value } })
+  const sessionId = randomUUID()
+  const headers = { 'content-type': 'application/json', origin, cookie: `tokri_visit=${sessionId}`, 'x-session-id': sessionId }
+  const post = (route, body) => fetch(`${origin}/api/v1/${route}`, { method: 'POST', headers, body: JSON.stringify(body) })
+  await post('monitoring/events', { events: [event('website.navigation', { path: '/' })] })
+  assert.equal((await post('tracking/events', {})).status, 403)
+  assert.equal((await post('checkout/quote', { backgroundRefresh: true })).status, 200)
+  const query = { business: true, visitSession: sessionId, journey: true, customerJourney: true }
+  const details = await rows({ ...query, includeBackground: true })
+  const refusal = details.rows.find(row => row.route === '/api/v1/tracking/events')
+  assert.equal(refusal.trackingRejection, 'no_permission')
+  assert.equal(presentLog(refusal).action, 'Ad measurement request skipped')
+  assert.equal(details.rows.find(row => row.route === '/api/v1/checkout/quote').quoteRefresh, true)
+  const compact = await rows({ ...query, includeBackground: false })
+  assert.deepEqual(compact.rows.map(row => row.event), ['website.navigation'])
+  const grouped = await rows({ business: true, visitSession: sessionId, tab: 'website', groupSessions: true })
+  assert.equal(grouped.rows[0].status, 'success')
 })
 test('public ingestion cannot forge critical records, leak extra fields, exceed limits or accept foreign origins', async () => {
   setDebug(true, 1)

@@ -3,6 +3,7 @@ import ProductView from '../../../_components/ProductView'
 import { publicGet } from '../../../../lib/server/public-api'
 import { getProduct, cleanHtml, plainText, assetUrl, detailMetadata, jsonLd } from '../../../../lib/server/content'
 import { canonicalOrigin } from '../../../../lib/server/indexing'
+import { generateProductSeo, toAbsoluteUrl } from '../../../../lib/server/seo-defaults'
 
 export async function generateMetadata({ params }) {
   const { productId } = await params
@@ -27,13 +28,37 @@ export default async function ProductPage({ params }) {
   }
   const product = { ...item, id: item.slug || item.id, image: assetUrl(item.image), description: cleanHtml(item.description) }
   const url = `${canonicalOrigin}/product/${encodeURIComponent(item.slug)}`
+  const productImg = toAbsoluteUrl(item.image)
+  const isAvailable = (item.stock > 0 || item.stock === undefined) && item.isActive !== false
+
+  const seo = generateProductSeo(item)
+  const productDescription = seo.description || (item.description ? plainText(item.description) : null)
+
   const json = {
-    '@context': 'https://schema.org', '@type': 'Product', name: item.name,
-    ...(item.description ? { description: plainText(item.description) } : {}),
-    ...(item.image && /^https?:\/\//i.test(item.image) ? { image: item.image } : {}),
-    ...(item.sku ? { sku: item.sku } : {}),
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: item.name,
+    ...(productDescription ? { description: productDescription } : {}),
+    ...(productImg ? { image: productImg } : {}),
+    sku: item.slug || item.id,
+    brand: {
+      '@type': 'Brand',
+      name: item.isImported ? 'Tokriii Imported' : 'Tokriii',
+    },
     ...(item.currency && Number.isFinite(Number(item.priceValue)) ? {
-      offers: { '@type': 'Offer', url, priceCurrency: item.currency, price: item.priceValue },
+      offers: {
+        '@type': 'Offer',
+        url,
+        priceCurrency: item.currency,
+        price: item.priceValue,
+        priceValidUntil: '2027-12-31',
+        itemCondition: 'https://schema.org/NewCondition',
+        availability: isAvailable ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        seller: {
+          '@type': 'Organization',
+          name: 'Tokriii',
+        },
+      },
     } : {}),
   }
   const breadcrumbItems = [{ name: 'Home', item: `${canonicalOrigin}/` }]

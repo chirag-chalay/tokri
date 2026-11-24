@@ -1,7 +1,13 @@
-import { browserEvents, safePage, safeEndpoint, productReference } from '../../shared/monitoring.js'
+import { visitHeaders, currentVisitId, setVisitPincode } from './logVisit'
+import { browserEvents, businessBrowserEvents, deliveryPinSources, safePage, safeEndpoint, productReference, validDeliveryPin } from '../../shared/monitoring.js'
 
 let reconnectTimer, backoff = 1000
 let owners = 0, base = '', nativeFetch, stream, until = 0, generation = '', expiryTimer, flushTimer
+let diagnosticSessionId, visitToken
+export function setMonitoringCustomerToken(value) {
+  if (visitToken !== value) queue = queue.filter(row => row.event === 'website.navigation')
+  visitToken = value
+}
 let queue = [], lastKey, currentPage, currentProduct, currentPageRef, popTarget, disconnectDebug = () => {}, disconnectBase = () => {}
 const uuid = () => {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
@@ -13,46 +19,69 @@ const enabled = () => until > Date.now()
 // The key is used only in memory to deduplicate router commits, never sent or persisted.
 function keyOf(value) {
   // Query/filter cleanup is not a new page visit. Keep only a transient hash.
-  const path = new URL(String(value), window.location.origin).pathname
+  const url = new URL(String(value), window.location.origin)
+  const category = url.pathname === '/shop' && productReference(url.searchParams.get('category'))
+  const path = category ? `${url.pathname}?category=${category}` : url.pathname
   let a = 2166136261, b = 5381
   for (const char of path) { a = Math.imul(a ^ char.charCodeAt(0), 16777619); b = Math.imul(b, 33) ^ char.charCodeAt(0) }
   return `${a}:${b}`
 }
 function stopDebug() {
   until = 0; generation = ''; clearTimeout(expiryTimer)
+  diagnosticSessionId = undefined
   disconnectDebug(); disconnectDebug = () => {}
-  queue = queue.filter(row => row.event === 'website.navigation')
+  queue = queue.filter(row => row.event === 'website.navigation' || businessBrowserEvents.has(row.event))
 }
 function flush() {
   clearTimeout(flushTimer); flushTimer = undefined
   if (!nativeFetch || !base || !queue.length) return
-  const events = queue.splice(0, 25).filter(row => row.event === 'website.navigation' || enabled())
+  const session = currentVisitId()
+  const events = queue.splice(0, 25)
+    .filter(row => row.visitId === session && (row.event === 'website.navigation' || businessBrowserEvents.has(row.event) || enabled()))
+    .map(({ visitId, ...event }) => event)
   if (events.length) {
     // Bounded, best effort and independent of checkout promises. No retries/loops.
-    nativeFetch(`${base}/monitoring/events`, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ generation, events }), keepalive: true }).then(response => { response.body?.cancel().catch(() => {}) }).catch(() => {})
+    nativeFetch(`${base}/monitoring/events`, { method: 'POST', credentials: 'same-origin', headers: visitHeaders({
+      'Content-Type': 'application/json',
+      ...(visitToken && new URL(base).origin === window.location.origin ? { Authorization: 'Bearer ' + visitToken } : {}),
+    }), body: JSON.stringify({ generation, events }), keepalive: true }).then(response => { response.body?.cancel().catch(() => {}) }).catch(() => {})
   }
   if (queue.length) flushTimer = setTimeout(flush, 1000)
 }
 function enqueue(row) {
   if (queue.length >= 100) return
-  queue.push(row)
+  queue.push({ ...row, visitId: currentVisitId() })
   if (!flushTimer) flushTimer = setTimeout(flush, 1000)
+}
+export function endWebsiteVisit() {
+  recordWebsiteDebug('customer.session.ended')
+  flush()
+  currentVisitId({ activity: true, rotate: true })
 }
 export function recordWebsiteDebug(event, details = {}) {
   try {
-    if (!enabled() || !browserEvents.has(event) || event === 'website.navigation' || !currentPage) return
-    const row = { id: uuid(), event, path: currentPage.pagePath }
+    if ((!enabled() && !businessBrowserEvents.has(event)) || !browserEvents.has(event) || event === 'website.navigation' || !currentPage) return
+    const row = { id: uuid(), event, path: currentPage.pagePath, diagnosticSessionId }
+    if (event === 'delivery.pin.checked') {
+      if (!deliveryPinSources.has(details.pinSource)) return
+      setVisitPincode(details.deliveryPin)
+      if (validDeliveryPin(details.deliveryPin)) row.deliveryPin = details.deliveryPin
+      row.pinSource = details.pinSource
+      row.viewportType = window.innerWidth < 768 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop'
+    }
     if (['failure', 'pending'].includes(details.operationStatus)) row.operationStatus = details.operationStatus
     if (/^[a-z_]{1,50}$/.test(details.failureReason || '')) row.failureReason = details.failureReason
     if (Number.isInteger(details.status) && details.status >= 100 && details.status <= 599) row.status = details.status
     if (Number.isFinite(details.durationMs) && details.durationMs >= 0 && details.durationMs <= 300000) row.durationMs = Math.round(details.durationMs)
     for (const key of ['quantity', 'count']) if (Number.isInteger(details[key]) && details[key] >= 0 && details[key] <= 10000) row[key] = details[key]
+    if ((event === 'cart.snapshot' || event === 'cart.restored') && Number.isSafeInteger(details.cartSubtotalPaise)) row.cartSubtotalPaise = details.cartSubtotalPaise
+    if (event === 'cart.quantity.changed' && Number.isSafeInteger(details.delta)) row.delta = details.delta
     if (['morning', 'express'].includes(details.deliveryOption)) row.deliveryOption = details.deliveryOption
     if (['product image', 'image', 'script', 'stylesheet'].includes(details.resourceKind)) row.resourceKind = details.resourceKind
     if (['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(details.method)) row.method = details.method
     if (/^[a-f0-9-]{36}$/i.test(details.relatedRequestId || '')) row.relatedRequestId = details.relatedRequestId
     if (safeEndpoint(details.endpoint)) row.endpoint = safeEndpoint(details.endpoint)
-    let product = productReference(details.productRef) || currentProduct
+    let product = event.startsWith('cart.') ? productReference(details.productRef) : productReference(details.productRef) || currentProduct
     if (details.path) { const page = safePage(details.path); if (page) { row.path = page.pagePath; product = details.path.startsWith('/product/') ? productReference(decodeURIComponent(details.path.split(/[?#]/)[0].slice(9))) : undefined } }
     if (product) row.productRef = product
     if (!details.path && currentPageRef) row.pageRef = currentPageRef
@@ -61,6 +90,7 @@ export function recordWebsiteDebug(event, details = {}) {
 }
 export function recordWebsiteNavigation(pathname, locationKey, restored = false) {
   try {
+    currentVisitId({ activity: true })
     const key = keyOf(locationKey)
     if (key === lastKey && !restored) return // React StrictMode, duplicate shell and route-state updates.
     const page = safePage(pathname)
@@ -68,7 +98,8 @@ export function recordWebsiteNavigation(pathname, locationKey, restored = false)
     const initial = lastKey === undefined
     lastKey = key; currentPage = page
     currentProduct = pathname.startsWith('/product/') ? productReference(decodeURIComponent(pathname.slice(9))) : undefined
-    currentPageRef = /^\/(?:blog|p|category)\//.test(pathname) ? productReference(decodeURIComponent(pathname.split('/')[2] || '')) : undefined
+    currentPageRef = currentProduct || (/^\/(?:blog|p|category)\//.test(pathname) ? productReference(decodeURIComponent(pathname.split('/')[2] || '')) : undefined)
+    if (page.pagePath === '/shop') currentPageRef = productReference(new URL(locationKey, window.location.origin).searchParams.get('category'))
     const navigation = performance.getEntriesByType('navigation')[0]
     const navigationType = restored || popTarget === key || initial && navigation?.type === 'back_forward' ? 'back_forward' : initial ? 'initial' : 'client'
     popTarget = undefined
@@ -130,6 +161,7 @@ function connect() {
       stopDebug()
       if (typeof state.generation !== 'string' || !state.debugUntil || Date.parse(state.debugUntil) <= Date.now()) return
       until = Date.parse(state.debugUntil); generation = state.generation
+      diagnosticSessionId = uuid()
       disconnectDebug = attachDebug()
       expiryTimer = setTimeout(stopDebug, Math.max(1, until - Date.now()))
       recordWebsiteDebug('website.page.ready')
@@ -156,13 +188,23 @@ export function installWebsiteMonitoring(apiBase) {
       const traversal = event => { if (event.navigationType === 'traverse') popTarget = keyOf(event.destination.url) }
       const navigation = window.navigation
       const leave = () => flush()
+      let lastActivity = 0
+      const keepVisitActive = event => {
+        if (!event.isTrusted || document.hidden || Date.now() - lastActivity < 10000) return
+        lastActivity = Date.now()
+        currentVisitId({ activity: true })
+      }
+      const activityEvents = ['pointerdown', 'keydown', 'scroll']
+      for (const name of activityEvents) window.addEventListener(name, keepVisitActive, { capture: true, passive: true })
       const shown = event => { if (event.persisted) recordWebsiteNavigation(location.pathname, location.pathname + '?' + location.search.slice(1), true); connect() }
       const visibility = () => { if (document.hidden) { clearTimeout(reconnectTimer); stream?.close(); stream = undefined; stopDebug(); flush() } else connect() }
       // Run before router bubble handlers can commit the new page synchronously.
       if (navigation) navigation.addEventListener('navigate', traversal)
       else window.addEventListener('popstate', pop, true)
       window.addEventListener('pagehide', leave); window.addEventListener('pageshow', shown); document.addEventListener('visibilitychange', visibility)
-      disconnectBase = () => { navigation?.removeEventListener('navigate', traversal); window.removeEventListener('popstate', pop, true); window.removeEventListener('pagehide', leave); window.removeEventListener('pageshow', shown); document.removeEventListener('visibilitychange', visibility) }
+      disconnectBase = () => {
+        for (const name of activityEvents) window.removeEventListener(name, keepVisitActive, true)
+        navigation?.removeEventListener('navigate', traversal); window.removeEventListener('popstate', pop, true); window.removeEventListener('pagehide', leave); window.removeEventListener('pageshow', shown); document.removeEventListener('visibilitychange', visibility) }
     }
     let released = false
     return () => { if (released) return; released = true; if (--owners === 0) { clearTimeout(reconnectTimer); disconnectBase(); stream?.close(); stream = undefined; stopDebug(); flush() } }

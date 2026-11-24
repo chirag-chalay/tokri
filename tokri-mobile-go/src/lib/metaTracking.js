@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { AppState, Platform } from 'react-native'
 import Constants from 'expo-constants'
+import { requireOptionalNativeModule } from 'expo'
+import { AppEventsLogger, Settings } from 'react-native-fbsdk-next'
 import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from 'expo-tracking-transparency'
 import { fetchJson } from './api'
 import { buildMetaAppEvent } from './metaTrackingEvents'
 import { recordTrackingOutcome } from './trackingDiagnostics'
-import { canUseNativeTrackingSdks } from './nativeTrackingAvailability'
 
 const CHOICE = 'tokri_marketing_consent_v1'
 const ID = 'tokri_marketing_consent_id_v1'
@@ -14,22 +15,19 @@ let customerId = null
 let serial = Promise.resolve()
 let revision = 0
 let initialized = false
-let metaSdk = undefined
-
-function loadMetaSdk() {
-  if (!canUseNativeTrackingSdks()) return null
-  if (metaSdk !== undefined) return metaSdk
-  try {
-    metaSdk = require('react-native-fbsdk-next')
-  } catch {
-    metaSdk = null
-  }
-  return metaSdk
-}
+let installActivationStarted = false
 
 function apply(choice, persist, prompt) {
   const current = ++revision
   effectiveId = null
+  if (!choice) {
+    // Stop native automatic events immediately, even if an older config fetch
+    // or a storage write is still pending. Never wait for network to withdraw.
+    Settings.setAutoLogAppEventsEnabled(false)
+    Settings.setAdvertiserIDCollectionEnabled(false)
+    Promise.resolve(Settings.setAdvertiserTrackingEnabled(false)).catch(() => {})
+    if (initialized) AppEventsLogger.setUserID(null)
+  }
   serial = serial.catch(() => {}).then(async () => {
     let marker = await AsyncStorage.getItem(ID)
     if (persist) {
@@ -38,32 +36,40 @@ function apply(choice, persist, prompt) {
       else await AsyncStorage.removeItem(ID)
       await AsyncStorage.setItem(CHOICE, choice ? 'granted' : 'denied')
     }
+    // Defaults are stored separately from explicit agreement, but both need a
+    // stable event eligibility marker before ATT/SDK activation can proceed.
+    if (choice && !marker && current === revision) {
+      marker = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
+      await AsyncStorage.setItem(ID, marker)
+    }
     let remote = false
-    try { remote = (await fetchJson('/checkout/app-tracking-config'))?.metaEnabled === true } catch {}
+    if (choice) {
+      try { remote = (await fetchJson('/checkout/app-tracking-config', { timeoutMs: 5000 }))?.metaEnabled === true } catch {}
+    }
     let allowed = Boolean(choice && marker && remote && Constants.expoConfig?.extra?.metaEnabled)
+    if (current !== revision) return
     if (allowed && Platform.OS === 'ios') {
       const permission = prompt && AppState.currentState === 'active' ? await requestTrackingPermissionsAsync() : await getTrackingPermissionsAsync()
       allowed = permission.status === 'granted'
     }
     if (current !== revision) return
-
-    const sdk = loadMetaSdk()
-    if (!sdk) {
-      // Expo Go / missing native module: store consent only; no Meta SDK calls.
-      if (allowed && current === revision) effectiveId = marker
-      return
-    }
-
-    const { AppEventsLogger, Settings } = sdk
     // SDK native defaults are OFF. Do not initialize before consent and ATT.
     await Settings.setAdvertiserTrackingEnabled(allowed)
     if (current !== revision) return
-    Settings.setAutoLogAppEventsEnabled(allowed)
     Settings.setAdvertiserIDCollectionEnabled(allowed)
+    Settings.setAutoLogAppEventsEnabled(allowed)
     if (allowed) {
       if (!initialized) { Settings.initializeSDK(); initialized = true }
       AppEventsLogger.setUserID(customerId)
       effectiveId = marker
+      // Delayed SDK initialization can miss the native application-launch
+      // callback. Ask the SDK to activate once permissions and flags are ready.
+      if (!installActivationStarted && AppState.currentState === 'active') {
+        try {
+          const native = requireOptionalNativeModule('TokriMetaInstall')
+          if (native) installActivationStarted = await native.activate()
+        } catch { recordTrackingOutcome('sdkRejected') }
+      }
     } else if (initialized) AppEventsLogger.setUserID(null)
   })
   return serial
@@ -72,25 +78,25 @@ function apply(choice, persist, prompt) {
 export async function loadMetaChoice() {
   const current = revision
   const value = await AsyncStorage.getItem(CHOICE)
-  const choice = value === 'granted' ? true : value === 'denied' ? false : null
+  const choice = ['granted', 'default_allowed'].includes(value) ? true : value === 'denied' ? false : null
   if (current === revision) await apply(choice === true, false, false)
   return choice
+}
+export async function requestMetaTrackingPermission() {
+  const current = revision
+  const value = await AsyncStorage.getItem(CHOICE)
+  if (current !== revision) return
+  if (['granted', 'default_allowed'].includes(value)) return apply(true, false, true)
 }
 export function saveMetaChoice(choice) { return apply(choice === true, true, choice === true) }
 export function getMetaConsentId() { return effectiveId }
 export function readMetaConsentId() { return AsyncStorage.getItem(ID) }
 export function setMetaCustomer(id) {
   customerId = typeof id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(id) ? id : null
-  if (!initialized) return
-  const sdk = loadMetaSdk()
-  if (!sdk) return
-  try { sdk.AppEventsLogger.setUserID(effectiveId ? customerId : null) } catch {}
+  if (initialized) { try { AppEventsLogger.setUserID(effectiveId ? customerId : null) } catch {} }
 }
 export function trackMetaAction(action, input) {
   if (!effectiveId) return false
-  const sdk = loadMetaSdk()
-  if (!sdk) return false
-  const { AppEventsLogger } = sdk
   const event = buildMetaAppEvent(action, input, AppEventsLogger)
   if (!event) return false
   try {

@@ -51,7 +51,7 @@ export default function Banner({ image, mobileImage, rawUrls = false, isDiwaliAc
                 <source media="(min-width: 768px)" srcSet={desktopSrc} />
                 <img
                   src={mobileSrc}
-                  alt="Home banner"
+                  alt="Tokriii Fresh and Exotic Fruits Delivery in Delhi NCR"
                   className="block w-full object-cover transition duration-300 group-hover:scale-[1.015] group-hover:brightness-95"
                   decoding="async"
                 />
@@ -59,7 +59,7 @@ export default function Banner({ image, mobileImage, rawUrls = false, isDiwaliAc
             ) : (
               <img
                 src={src}
-                alt="Home banner"
+                alt="Tokriii Fresh and Exotic Fruits Delivery in Delhi NCR"
                 className="block w-full object-cover transition duration-300 group-hover:scale-[1.015] group-hover:brightness-95"
                 decoding="async"
               />

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Swal from 'sweetalert2'
 import { useAuth } from '../context/AuthContext'
 import { postJson } from '../lib/api'
+import { trackRegistration } from '../lib/telemetry'
 
 export function useLoginFlow({ onSuccess }) {
   const { login } = useAuth()
@@ -66,6 +67,7 @@ export function useLoginFlow({ onSuccess }) {
         ...(result.user || { phone: mobileNumber }),
         token: result.token || result.user?.token,
       })
+      if (result.isNewCustomer === true) trackRegistration()
       Swal.fire({
         icon: 'success',
         title: 'Login Successful',

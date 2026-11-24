@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetchJson } from '../lib/api'
 import { appBuild, appPlatform, storeUrl } from '../lib/appBuild'
 import { useTheme } from '../context/ThemeContext'
+import { useAnalyticsSettings } from '../context/AnalyticsContext'
 
 const CACHE_KEY = 'tokri-app-release'
 const CACHE_MAX_AGE = 6 * 60 * 60 * 1000
@@ -39,6 +40,9 @@ export default function AppUpdateGate({ children }) {
   const { colors } = useTheme()
   const [decision, setDecision] = useState(null)
   const [open, setOpen] = useState(false)
+  const [checked, setChecked] = useState(false)
+  const { setStartupBlocked } = useAnalyticsSettings()
+  useEffect(() => { setStartupBlocked(!checked || open) }, [checked, open, setStartupBlocked])
 
   const applyDecision = useCallback(async (next) => {
     if (!next || next.action === 'none') {
@@ -60,7 +64,7 @@ export default function AppUpdateGate({ children }) {
 
   const check = useCallback(async () => {
     try {
-      const next = await fetchJson(`/app/release?platform=${appPlatform()}&build=${appBuild()}`)
+      const next = await fetchJson(`/app/release?platform=${appPlatform()}&build=${appBuild()}`, { timeoutMs: 5000 })
       await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), decision: next }))
       await applyDecision(next)
     } catch {
@@ -70,7 +74,7 @@ export default function AppUpdateGate({ children }) {
         return
       }
       setOpen(false)
-    }
+    } finally { setChecked(true) }
   }, [applyDecision])
 
   useEffect(() => {

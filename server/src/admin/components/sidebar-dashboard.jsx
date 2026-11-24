@@ -17,8 +17,8 @@ const CHILD_ORDER = {
   'Sales & orders': ['Orders', 'Coupons'],
   'Customer management': ['Customers', 'Users', 'Team'],
   'Delivery management': ['Delivery Partners', 'Serviceable Pincodes'],
-  'Website & content': ['Home Builder', 'Page', 'Blog Post'],
-  Configuration: ['Settings', 'App Release Policy', 'Logs'],
+  'Website & content': ['Home Builder', 'Page', 'Blog Post', 'Social Media Links'],
+  Configuration: ['Settings', 'App Release Policy', 'Reports', 'Logs'],
 }
 
 const RESOURCE_LABELS = {
@@ -30,6 +30,8 @@ const RESOURCE_LABELS = {
 
 const PAGE_PLACEMENTS = {
   homeBuilder: { group: 'Website & content', label: 'Home Builder', icon: 'Home' },
+  socialMediaLinks: { group: 'Website & content', label: 'Social Media Links', icon: 'Link' },
+  reports: { group: 'Configuration', label: 'Reports', icon: 'BarChart2' },
   logs: { group: 'Configuration', label: 'Logs', icon: 'Activity' },
 }
 

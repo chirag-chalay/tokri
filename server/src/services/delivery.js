@@ -3,6 +3,9 @@ import { prisma } from '../lib/prisma.js'
 const IST = 'Asia/Kolkata'
 const EXPRESS_CUTOFF_HOUR = 18
 
+import { logContext } from '../monitoring/index.js'
+import { deliveryLogFacts } from '../monitoring/visit.js'
+
 export function normalizePincode(value) {
   return String(value || '').replace(/\D/g, '').slice(0, 6)
 }
@@ -81,19 +84,25 @@ export async function findServiceablePincode(pincode) {
 export async function assertPincodeServiceable(pincode) {
   const code = normalizePincode(pincode)
   if (code.length !== 6) {
-    throw Object.assign(new Error('Enter a valid 6-digit pincode.'), { status: 400 })
+    throw Object.assign(new Error('Enter a valid 6-digit pincode.'), { status: 400, reasonCode: 'PINCODE_INVALID' })
   }
 
   const total = await prisma.serviceablePincode.count()
-  if (total === 0) return emptyNetworkRow(code)
+  if (total === 0) {
+    const context = logContext.getStore()
+    if (context) context.deliveryFacts = deliveryLogFacts(code, null, true)
+    return emptyNetworkRow(code)
+  }
 
   const row = await prisma.serviceablePincode.findUnique({
     where: { pincode: code },
-    include: { partner: true },
+    include: { partner: true, state: { select: { name: true } } },
   })
   const availability = deliveryAvailability(row)
+  const context = logContext.getStore()
+  if (context) context.deliveryFacts = deliveryLogFacts(code, row, availability.serviceable)
   if (!availability.serviceable) {
-    throw Object.assign(new Error("We don't deliver to this pincode yet."), { status: 400 })
+    throw Object.assign(new Error("We don't deliver to this pincode yet."), { status: 400, reasonCode: 'PINCODE_NOT_SERVICEABLE' })
   }
   return row
 }
@@ -105,7 +114,9 @@ export async function assertDeliveryOptionEnabled(pincode, option) {
   const chosen =
     requested === 'express' || requested === 'morning' ? requested : availability.defaultOption
   if (!chosen || !availability[chosen]?.enabled) {
-    throw Object.assign(new Error('This delivery option is not available for your pincode yet.'), { status: 400 })
+    const context = logContext.getStore()
+    if (context?.deliveryFacts && chosen) context.deliveryFacts.deliveryOption = chosen
+    throw Object.assign(new Error('This delivery option is not available for your pincode yet.'), { status: 400, reasonCode: 'DELIVERY_OPTION_UNAVAILABLE' })
   }
   return { row, option: chosen, availability }
 }
@@ -120,12 +131,12 @@ export function partnerSnapshot(partner) {
   }
 }
 
-export async function serviceablePincodeSet(pincodes) {
+export async function serviceablePincodeSet(pincodes, client = prisma) {
   const codes = [...new Set((pincodes || []).map(normalizePincode).filter((code) => code.length === 6))]
   if (!codes.length) return new Set()
-  const total = await prisma.serviceablePincode.count()
+  const total = await client.serviceablePincode.count()
   if (total === 0) return new Set(codes)
-  const rows = await prisma.serviceablePincode.findMany({
+  const rows = await client.serviceablePincode.findMany({
     where: { pincode: { in: codes }, isActive: true },
     select: { pincode: true, morningEnabled: true, expressEnabled: true },
   })

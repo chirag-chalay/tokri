@@ -1,5 +1,5 @@
 import { failureReasons } from '../monitoring/event-facts.js'
-import { readableStatus } from '../../../shared/monitoring.js'
+import { isOptionalTelemetryRoute, readableStatus, safePage, validDeliveryPin, validDiagnosticSession } from '../../../shared/monitoring.js'
 import { isIP } from 'node:net'
 import { sanitize } from '../monitoring/sanitize.js'
 
@@ -18,6 +18,17 @@ const success = new Set(['success', 'successful', 'paid', 'captured', 'refunded'
 const failures = new Set(['failed', 'failure', 'error', 'cancelled', 'canceled'])
 const pending = new Set(['pending', 'attempt', 'created', 'authorized', 'processing'])
 export function resultFor(row) { return readableStatus(row) }
+
+export function measurementReason(value) {
+  const labels = {
+    disabled: 'Server-side ad measurement was unavailable.',
+    no_permission: 'Advertising measurement permission was absent when the server received the request.',
+    expired_session: 'The ad measurement session was missing or had expired.',
+    session_limit: 'The ad measurement session reached its event limit.',
+    invalid_session: 'The ad measurement request did not match the active measurement session.',
+  }
+  return Object.hasOwn(labels, value) ? labels[value] : ''
+}
 
 const models = { Product: 'product', Order: 'order', Coupon: 'coupon', Setting: 'store settings', User: 'administrator account', Customer: 'customer account', DeliveryPartner: 'delivery partner', Category: 'category', Page: 'page', Blog: 'blog post', Review: 'review', Media: 'media file', AppRelease: 'app settings', Pincode: 'delivery area' }
 Object.assign(models, { BlogPost: 'blog post', AppReleasePolicy: 'app update settings', ServiceablePincode: 'delivery area', ProductTax: 'product tax settings', AdminPermission: 'team permissions', CouponRedemption: 'coupon use', ProductCategory: 'product category assignment', Cart: 'shopping cart', CartItem: 'cart item', DeviceToken: 'notification registration', PartnerDeviceToken: 'delivery partner notification registration', PasswordResetToken: 'password reset request', PartnerPasswordToken: 'delivery partner password reset request' })
@@ -55,6 +66,15 @@ function requestExplanation(row, result) {
   const task = Object.hasOwn(actions, row.operation) ? actions[row.operation] : null
   if (object && task) return { action: `${object[0].toUpperCase() + object.slice(1)} ${task}`, description: result === 'Failed' ? `An administrator could not complete the ${object} ${task}. This entry does not confirm whether any changes were saved.` : result === 'Successful' ? `An administrator completed the ${object} ${task} successfully.` : `An administrator requested the ${object} ${task}. Completion is not confirmed.` }
   const route = typeof row.route === 'string' ? row.route : ''
+  if (route === '/api/v1/frontend-errors') return { action: 'Browser diagnostic report', description: 'The browser sent a diagnostic report to the store.' }
+  if (isOptionalTelemetryRoute(route)) {
+    const skipped = Number(row.httpStatus ?? row.status) === 403
+    return { action: skipped ? 'Ad measurement request skipped' : 'Ad measurement', description: measurementReason(row.trackingRejection) ||
+      (result === 'Failed' ? 'A background advertising measurement request was unsuccessful.' : 'A background advertising measurement request was recorded.') }
+  }
+  if (route === '/api/v1/[other]') {
+    return { action: Number(row.httpStatus ?? row.status) === 403 ? 'Request refused' : 'Unidentified request', description: 'Request type unavailable in this earlier log entry.' }
+  }
   const writing = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(row.method)
   const features = [
     ['/checkout/quote', 'Cart total calculation', "Customer's shopping cart total was calculated successfully.", 'The shopping cart total could not be calculated.'],
@@ -89,6 +109,35 @@ function factsFor(row) {
     if (source) facts[key] = source[key]
   }
   return facts
+}
+
+export function commerceLogDetails(row) {
+  const facts = factsFor(row)
+  const page = displayText(row.page) || safePage(row.pagePath)?.pageLabel || ''
+  const product = displayText(row.product)
+  const quantity = product && numeric(row.quantity) ? ` × ${Number(row.quantity)}` : ''
+  const subtotal = Number.isSafeInteger(row.cartSubtotalPaise) && row.cartSubtotalPaise >= 0 ? money(row.cartSubtotalPaise / 100) : null
+  const total = money(facts.grandTotal)
+  const cartCount = (subtotal || total) && Number.isSafeInteger(row.cartItemCount) ? `${row.cartItemCount} ${row.cartItemCount === 1 ? 'item' : 'items'}` : ''
+  const totalLabel = row.sessionGroup ? 'Last quoted total' : 'Server-calculated total'
+  const cartLines = Array.isArray(row.cartLines) ? row.cartLines.slice(0, 30).flatMap(line => {
+    const name = displayText(line?.product)
+    if (!name || !Number.isSafeInteger(line.quantity) || line.quantity < 1) return []
+    const unit = money(line.priceValue)
+    return [`${name} × ${line.quantity}${unit ? ` (${unit} each)` : ''}`]
+  }) : []
+  return {
+    page, product, total, subtotal,
+    activityDetail: [product && product + quantity, page && page !== product && page, cartCount, subtotal && `Cart subtotal ${subtotal}`, total && `${totalLabel} ${total}`].filter(Boolean).join(' · '),
+    details: Object.fromEntries([
+      ['Page', page], ['Product', product], ['Quantity', quantity && String(row.quantity)], ['Cart items', cartLines.join(' · ')],
+      ['Cart subtotal before fees and discounts (browser)', subtotal], [totalLabel, total],
+      ['Items subtotal', money(facts.itemsTotal)], ['Delivery charge', money(facts.deliveryCharge)], ['Handling charge', money(facts.handlingCharge)],
+      ['Discount', money(facts.discount)], ['Tax', money(facts.taxTotal)], ['Coupon', displayText(facts.couponCode)],
+      ['Unavailable product lines', row.unavailableItemCount > 0 ? String(row.unavailableItemCount) : ''],
+      ['Minimum order', row.minimumOrderMet === false ? (money(row.minOrder) ? `Below ${money(row.minOrder)}` : 'Below minimum') : ''],
+    ].filter(([, value]) => value)),
+  }
 }
 
 // Presentation only: facts come from the stored entry. No current prices, balances,
@@ -127,12 +176,16 @@ export function presentLog(row, names = {}) {
     action = 'Cart quantity changed'; description = product && numeric(row.quantity) ? `Customer changed the quantity of ${product} to ${row.quantity}.` : 'A quantity in the website cart changed.'
   } else if (event === 'cart.cleared') {
     action = 'Cart cleared'; description = 'The website cart was cleared.'
+  } else if (event === 'cart.restored') {
+    action = 'Saved account cart loaded'; description = 'The website loaded the saved cart after sign-in.'
   } else if (event === 'coupon.applied' || event === 'coupon.removed' || event === 'coupon.invalidated') {
     action = 'Coupon selection changed'; description = event === 'coupon.applied' ? 'Customer selected a coupon for their cart.' : event === 'coupon.invalidated' ? 'The website cleared a coupon that no longer applied to the cart.' : 'Customer removed a coupon from their cart.'
   } else if (event === 'customer.session.started' || event === 'customer.session.ended') {
     action = 'Website sign-in session'; description = event.endsWith('started') ? 'A customer sign-in session started on the website.' : 'A customer sign-in session ended on the website.'
   } else if (event === 'delivery.selected') {
     action = 'Delivery selected'; description = ['morning', 'express'].includes(row.deliveryOption) ? `Customer selected the ${row.deliveryOption} delivery option.` : 'The website delivery selection changed.'
+  } else if (event === 'delivery.pin.checked') {
+    action = 'Delivery PIN checked'; description = 'The storefront reported a PIN from a delivery location action.'
   } else if (event === 'frontend.api.completed' || event === 'frontend.api.failed') {
     ;({ action, description } = requestExplanation(row, result))
   } else if (event === 'frontend.page.failed' || event === 'website.response.failed') {
@@ -275,6 +328,20 @@ function readableDetails(row, names, view) {
   for (const [key, label] of [['itemsTotal', 'Subtotal'], ['discount', 'Discount'], ['deliveryCharge', 'Delivery charge'], ['handlingCharge', 'Handling charge'], ['taxTotal', 'Tax'], ['grandTotal', 'Final amount']]) if (numeric(facts[key])) add(label, money(facts[key]))
   if (typeof facts.couponCode === 'string' && /^[A-Z][A-Z0-9_-]{0,39}$/.test(facts.couponCode) && displayText(facts.couponCode)) add('Coupon', displayText(facts.couponCode))
   if (['morning', 'express'].includes(facts.deliveryOption)) add('Delivery', facts.deliveryOption === 'morning' ? 'Morning delivery' : 'Express delivery')
+
+  if (row.event === 'delivery.pin.checked') {
+    if (validDeliveryPin(row.deliveryPin)) add('Delivery PIN', row.deliveryPin)
+    if (row.deliveryCoverage === 'serviceable') add('Delivery coverage', 'Available')
+    else if (row.deliveryCoverage === 'unserviceable') add('Delivery coverage', 'Outside delivery area')
+    else add('Delivery coverage', 'Unavailable to verify')
+    const sources = { location: 'Browser location', address_form: 'Address form', saved_address: 'Saved address' }
+    const viewports = { mobile: 'Mobile', tablet: 'Tablet', desktop: 'Desktop' }
+    if (Object.hasOwn(sources, row.pinSource)) add('Location method', sources[row.pinSource])
+    if (Object.hasOwn(viewports, row.viewportType)) add('Viewport type', viewports[row.viewportType])
+  }
+  if (validDiagnosticSession(row.diagnosticSessionId)) add('Diagnostic session', row.diagnosticSessionId)
+  const apiRequestId = row.relatedRequestId || (row.category === 'api' ? row.requestId : undefined)
+  if (validDiagnosticSession(apiRequestId)) add('API request ID', apiRequestId)
 
   if (displayText(row.page)) add('Website page', displayText(row.page))
   if (row.navigationType) add('Navigation', { initial: 'Opened a website page', client: 'Moved to another page without reloading the website', back_forward: 'Used the browser Back or Forward button' }[row.navigationType])

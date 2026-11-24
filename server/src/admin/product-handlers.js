@@ -71,6 +71,7 @@ export async function prepareProductPayload(request) {
   if (request.method !== 'post') return request
 
   const payload = request.payload || {}
+  validateProductFields(payload)
   const currentId = request.params?.recordId
   const source = String(payload.slug ?? '').trim() || String(payload.name ?? '').trim()
 
@@ -102,6 +103,38 @@ export async function prepareProductPayload(request) {
   return request
 }
 
+export function validateProductFields(fields) {
+  if (fields.name !== undefined && (typeof fields.name !== 'string' || !fields.name.trim())) {
+    throw new Error('Product name is required.')
+  }
+  if (fields.priceValue !== undefined && (
+    fields.priceValue == null || !/^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(String(fields.priceValue)) ||
+    Number(fields.priceValue) >= 100000000
+  )) {
+    throw new Error('Enter a non-negative product price with up to two decimal places.')
+  }
+}
+
+export async function syncProductTax(productId, db = prisma) {
+  const product = await db.product.findUnique({
+    where: { id: productId },
+    include: { category: true },
+  })
+  if (!product) return
+  const data = {
+    productName: product.name,
+    categoryName: product.category?.label || 'General',
+    hsnCode: product.hsnCode || '0808',
+    gstRate: product.gstRate || 0,
+    isTaxable: Boolean(product.isTaxable),
+  }
+  await db.productTax.upsert({
+    where: { productId },
+    create: { productId, ...data },
+    update: data,
+  })
+}
+
 export async function afterProductForm(response, request) {
   const record = response?.record
   if (!record) return response
@@ -119,31 +152,7 @@ export async function afterProductForm(response, request) {
         })
       }
 
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-        include: { category: true },
-      })
-      if (product) {
-        const catName = product.category?.label || 'General'
-        await prisma.productTax.upsert({
-          where: { productId },
-          create: {
-            productId,
-            productName: product.name,
-            categoryName: catName,
-            hsnCode: product.hsnCode || '0808',
-            gstRate: product.gstRate || 0,
-            isTaxable: Boolean(product.isTaxable),
-          },
-          update: {
-            productName: product.name,
-            categoryName: catName,
-            hsnCode: product.hsnCode || '0808',
-            gstRate: product.gstRate || 0,
-            isTaxable: Boolean(product.isTaxable),
-          },
-        }).catch((err) => logError(err, 'background'))
-      }
+      await syncProductTax(productId).catch((err) => logError(err, 'background'))
     }
 
     if (productId && prisma.productCategory) {

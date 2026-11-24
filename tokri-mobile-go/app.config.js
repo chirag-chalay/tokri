@@ -42,7 +42,7 @@ module.exports = {
   expo: {
     name: isStaging ? 'Tokriii Staging' : 'Tokriii',
     slug: 'tokriii',
-    version: '1.0.6',
+    version: '1.1.1',
     orientation: 'portrait',
     // App icon: website favicon mark (fruit "o") on brand green — used by iOS + Android legacy.
     icon: './assets/icon.png',
@@ -51,7 +51,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       ...(iosFirebase ? { googleServicesFile: iosFirebase } : {}),
-      buildNumber: '11',
+      buildNumber: '14',
       bundleIdentifier: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -73,7 +73,7 @@ module.exports = {
     android: {
       package: isStaging ? 'com.tokriii.app.staging' : 'com.tokriii.app',
       ...(androidFirebase ? { googleServicesFile: androidFirebase } : {}),
-      versionCode: 12,
+      versionCode: 49,
       ...(metaEnabled ? { permissions: ['com.google.android.gms.permission.AD_ID'] } : {}),
       usesCleartextTraffic: true,
       // Adaptive icon: transparent foreground mark + solid brand background (no stretch of favicon).
@@ -88,6 +88,7 @@ module.exports = {
     extra: {
       apiBaseUrl,
       metaEnabled,
+      trackingDefaultMode: !isStaging && process.env.TRACKING_DEFAULT_MODE !== 'opt_in' ? 'opt_out' : 'opt_in',
       metaAppId: metaEnabled ? process.env.META_APP_ID : null,
       eas: {
         projectId: '691345d1-b096-4f13-b978-0750f6e66762',
@@ -109,6 +110,7 @@ module.exports = {
       '@react-native-firebase/analytics',
       ['expo-build-properties', { android: { minSdkVersion: 24, kotlinVersion: '2.4.0' }, ios: { useFrameworks: 'dynamic' } }],
       './plugins/withUpiApps',
+      './plugins/withOptionalPortraitFeature',
       'expo-sharing',
       [
         'expo-splash-screen',

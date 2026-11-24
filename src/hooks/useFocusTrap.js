@@ -21,6 +21,9 @@ export function useFocusTrap(isOpen, onClose) {
     }
 
     const handleKeyDown = (event) => {
+      const activeDialog = document.activeElement?.closest('[aria-modal="true"]')
+      if (activeDialog && activeDialog !== container && container.contains(activeDialog)) return
+
       if (event.key === 'Escape') {
         event.preventDefault()
         onClose?.()

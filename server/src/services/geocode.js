@@ -44,10 +44,10 @@ export async function reverseGeocode(lat, lng) {
   const latitude = Number(lat)
   const longitude = Number(lng)
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-    throw Object.assign(new Error('Invalid latitude.'), { status: 400 })
+    throw Object.assign(new Error('Invalid latitude.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
   }
   if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-    throw Object.assign(new Error('Invalid longitude.'), { status: 400 })
+    throw Object.assign(new Error('Invalid longitude.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
   }
 
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
@@ -64,7 +64,7 @@ export async function reverseGeocode(lat, lng) {
   }).catch(() => null)
 
   if (!response?.ok) {
-    throw Object.assign(new Error('Could not read an address from this location.'), { status: 502 })
+    throw Object.assign(new Error('Could not read an address from this location.'), { status: 502, reasonCode: 'SERVICE_UNAVAILABLE' })
   }
 
   const data = await response.json()
@@ -75,6 +75,7 @@ export async function reverseGeocode(lat, lng) {
 
   return {
     ...address,
+    country: String(data.address?.country || '').slice(0, 40),
     latitude,
     longitude,
   }

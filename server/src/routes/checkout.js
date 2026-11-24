@@ -1,8 +1,9 @@
 import { changeAppDispatch, revokeAppTracking } from '../services/appTrackingDelivery.js'
 import { prisma } from '../lib/prisma.js'
 import { Router } from 'express'
-import { log, logDurable } from '../monitoring/index.js'
+import { log, logDurable, logContext } from '../monitoring/index.js'
 import { logError } from '../monitoring/database.js'
+import { deliveryLogFacts } from '../monitoring/visit.js'
 import { optionalCustomer, requireCustomer } from '../middleware/customerAuth.js'
 import {
   partitionCartItems,
@@ -38,7 +39,7 @@ router.use((req, res, next) => {
     }
     res.once('finish', () => log('payment', 'checkout.request', {
       route: req.route?.path, status: res.statusCode < 400 ? outcome || 'success' : 'failure',
-      httpStatus: res.statusCode, orderNo: orderNo || req.body?.orderNo,
+      httpStatus: res.statusCode, reasonCode: outcome === 'failed' ? 'PAYMENT_FAILED' : undefined, orderNo: orderNo || req.body?.orderNo,
     }))
   }
   next()
@@ -100,7 +101,9 @@ async function quoteIsInterState(req) {
     const address = req.body.addressId === 'current'
       ? await snapshotCurrentAddress(req.customer, req.body.address)
       : (await listAddresses(req.customer.id)).find((row) => row.id === req.body.addressId)
-    if (!address) throw Object.assign(new Error('Please select a valid delivery address.'), { status: 400 })
+    if (!address) throw Object.assign(new Error('Please select a valid delivery address.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
+    const context = logContext.getStore()
+    if (context) context.deliveryFacts = deliveryLogFacts(address.pincode, address, address.serviceable)
     return !isStoreIntraState(address.state)
   }
   return false
@@ -119,7 +122,7 @@ router.post('/quote', optionalCustomer, async (req, res, next) => {
   try {
     const { items, unavailableItems } = await resolvePreviewPartition(req.body?.items)
     if (!items.length && !unavailableItems.length) {
-      throw Object.assign(new Error('Your cart is empty.'), { status: 400 })
+      throw Object.assign(new Error('Your cart is empty.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
     }
     const option = req.body?.deliveryOption === 'express' ? 'express' : 'morning'
     const quote = items.length
@@ -148,7 +151,7 @@ router.post('/preview-coupon', optionalCustomer, async (req, res, next) => {
             ? 'Those products are no longer available.'
             : 'Your cart is empty.',
         ),
-        { status: 400, unavailableItems },
+        { status: 400, unavailableItems, reasonCode: unavailableItems.length ? 'OUT_OF_STOCK' : 'VALIDATION_ERROR' },
       )
     }
     const result = await previewCoupon({

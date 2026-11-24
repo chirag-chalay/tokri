@@ -1,7 +1,16 @@
 import 'server-only'
 
-// These are existing named frontend routes, not a hardcoded content catalog.
+// These are published named frontend routes, representing core static & policy pages.
 export const publicCmsSlugs = [
-  'about', 'careers', 'privacy-policy', 'terms-and-conditions',
-  'help-faqs', 'returns-policy', 'support-center',
+  'about',
+  'careers',
+  'privacy-policy',
+  'terms-and-conditions',
+  'help-faqs',
+  'returns-policy',
+  'support-center',
+  'shipping-and-delivery-policy',
+  'cancellation-policy',
+  'cookie-policy',
+  'freshness-guarantee',
 ]

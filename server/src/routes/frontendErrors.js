@@ -1,7 +1,9 @@
 import express from 'express'
+import { log } from '../monitoring/index.js'
+import { safePage } from '../../../shared/monitoring.js'
 import { createFrontendErrorWriter, sanitizeEvent } from '../services/frontendErrors.js'
 
-export function createFrontendErrorsRouter({ allowedOrigins, write = createFrontendErrorWriter(), perMinute = 60 } = {}) {
+export function createFrontendErrorsRouter({ allowedOrigins, write = createFrontendErrorWriter({ cleanupInterval: 3600000 }), perMinute = 60 } = {}) {
   const router = express.Router()
   const origins = new Set(allowedOrigins)
   const clients = new Map()
@@ -23,7 +25,13 @@ export function createFrontendErrorsRouter({ allowedOrigins, write = createFront
     const events = input.map(sanitizeEvent)
     if (events.some((event) => !event)) return res.sendStatus(400)
     try {
-      await write(events)
+      await write(events.map(event => ({ ...event, activityLogged: true })))
+      for (const event of events) {
+        let page
+        try { page = safePage(new URL(event.page).pathname) } catch {}
+        const reasonCode = { resource: 'RESOURCE_LOAD_FAILED', network: 'NETWORK_ERROR', http: 'UNKNOWN' }[event.kind] || 'BROWSER_ERROR'
+        log('website', 'frontend.error', { reasonCode, httpStatus: event.status, source: 'website', origin: 'browser', status: 'failure', page: page?.pageLabel, pagePath: page?.pagePath })
+      }
       return res.sendStatus(204)
     } catch {
       if (Date.now() - lastWriteWarning > 60000) {

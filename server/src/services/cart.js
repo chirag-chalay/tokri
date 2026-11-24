@@ -60,8 +60,7 @@ async function getOrCreateCartId(customerId) {
   }
 }
 
-async function loadCartRecord(customerId) {
-  const cartId = await getOrCreateCartId(customerId)
+async function loadCartItems(cartId, customerId) {
   const itemRows = await prisma.$queryRaw`
     SELECT id, productId, quantity FROM CartItem WHERE cartId = ${cartId} ORDER BY id ASC
   `
@@ -86,6 +85,11 @@ async function loadCartRecord(customerId) {
       }))
       .filter((item) => item.product),
   }
+}
+
+async function loadCartRecord(customerId) {
+  const cartId = await getOrCreateCartId(customerId)
+  return loadCartItems(cartId, customerId)
 }
 
 function formatCartItem(item) {
@@ -167,6 +171,31 @@ export async function getCart(customerId) {
   return formatCart(cart)
 }
 
+export async function getCartReadOnly(customerId) {
+  if (!customerId) throw httpError('Customer is required.', 400)
+
+  const existing = await prisma.$queryRaw`
+    SELECT id, updatedAt FROM Cart WHERE customerId = ${customerId} LIMIT 1
+  `
+  const row = existing[0]
+  if (!row?.id) {
+    const empty = await formatCart({ customerId, items: [] })
+    return {
+      ...empty,
+      updatedAt: null,
+      exists: false,
+    }
+  }
+
+  const record = await loadCartItems(row.id, customerId)
+  const formatted = await formatCart(record)
+  return {
+    ...formatted,
+    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    exists: true,
+  }
+}
+
 export async function getCartCheckoutItems(customerId) {
   const cart = await getCart(customerId)
   if (!cart.items.length) throw httpError('Your cart is empty.')
@@ -220,6 +249,8 @@ export async function replaceCart(customerId, rawItems) {
       VALUES (${newId()}, ${cartId}, ${product.id}, ${entry.quantity})
     `
   }
+
+  await prisma.$executeRaw`UPDATE Cart SET updatedAt = NOW() WHERE id = ${cartId}`
 
   const cart = await getCart(customerId)
   if (!skippedUnavailable.length) return cart
@@ -299,6 +330,7 @@ export async function removeCartItem(customerId, slug) {
   )
   if (!deleted) throw httpError('Item is not in your cart.', 404)
 
+  await prisma.$executeRaw`UPDATE Cart SET updatedAt = NOW() WHERE id = ${cartId}`
   return getCart(customerId)
 }
 
@@ -309,6 +341,7 @@ export async function clearCart(customerId) {
   const cartId = cartRows[0]?.id
   if (cartId) {
     await prisma.$executeRaw`DELETE FROM CartItem WHERE cartId = ${cartId}`
+    await prisma.$executeRaw`UPDATE Cart SET updatedAt = NOW() WHERE id = ${cartId}`
   }
   return getCart(customerId)
 }

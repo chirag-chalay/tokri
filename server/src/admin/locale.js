@@ -90,7 +90,11 @@ export const adminLocale = {
         DeliveryPartner: { labels: { 'Delivery partners': 'Delivery partners' } },
         ServiceablePincode: { labels: { 'Serviceable pincodes': 'Serviceable pincodes' } },
         IndiaState: { labels: { 'Indian states': 'Indian states' } },
-        Customer: { labels: { Customers: 'Customers' } },
+        Customer: {
+          labels: { Customers: 'Customers' },
+          actions: { viewOrders: 'View Orders', viewCart: 'View Cart' },
+          properties: { cartItemCount: 'Cart items', cartTotal: 'Cart value' },
+        },
         User: { labels: { Team: 'Team' } },
         ProductTax: {
           labels: { Tax: 'Tax', 'Tax Management': 'Tax Management' },

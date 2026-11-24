@@ -1,66 +1,34 @@
 import { useEffect, useState } from 'react'
 import { Link } from '../lib/navigation'
 import { CookieSettings } from './MarketingConsent'
-import { Truck, ShieldCheck, Clock, Leaf, Mail, Phone, MapPin } from 'lucide-react'
+import { Truck, ShieldCheck, Clock, Leaf, Mail, Phone, MapPin, Globe } from 'lucide-react'
 import tokriLogo from '../assets/tokri-logo.png'
 import playStoreIcon from '../assets/play-store.svg'
+import instagramIcon from '../assets/instagram.png'
+import facebookIcon from '../assets/facebook.png'
 import { fetchJson } from '../lib/api'
 
-const socialNetworks = [
-  {
-    key: 'facebook',
-    label: 'Facebook',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-      </svg>
-    ),
-  },
-  {
-    key: 'instagram',
-    label: 'Instagram',
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="h-5 w-5"
-        fill="currentColor"
-        fillRule="evenodd"
-        clipRule="evenodd"
-        aria-hidden="true"
-        data-icon="instagram"
-      >
-        <path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6C20 5.61 18.39 4 16.4 4zm9.65 1.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10m0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6" />
-      </svg>
-    ),
-  },
-  {
-    key: 'threads',
-    label: 'Threads',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-        <path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798c-.31-.71-.873-1.3-1.634-1.75c-.192 1.352-.622 2.446-1.284 3.272c-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964c-.065-1.19.408-2.285 1.33-3.082c.88-.76 2.119-1.207 3.583-1.291a14 14 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757c-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32l-1.757-1.18c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388q.163.07.321.142c1.49.7 2.58 1.761 3.154 3.07c.797 1.82.871 4.79-1.548 7.158c-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69q-.362 0-.739.021c-1.836.103-2.98.946-2.916 2.143c.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221" />
-      </svg>
-    ),
-  },
-  {
-    key: 'x',
-    label: 'X',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-      </svg>
-    ),
-  },
-  {
-    key: 'linkedin',
-    label: 'LinkedIn',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-        <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.23 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.73V1.73C24 .77 23.21 0 22.23 0z" />
-      </svg>
-    ),
-  },
-]
+const socialIcons = {
+  instagram: <img src={instagramIcon} alt="" className="h-6 w-6 shrink-0 rounded-md" />,
+  facebook: <img src={facebookIcon} alt="" className="h-6 w-6 shrink-0 rounded-md" />,
+  threads: (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+      <path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798c-.31-.71-.873-1.3-1.634-1.75c-.192 1.352-.622 2.446-1.284 3.272c-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964c-.065-1.19.408-2.285 1.33-3.082c.88-.76 2.119-1.207 3.583-1.291a14 14 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757c-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32l-1.757-1.18c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388q.163.07.321.142c1.49.7 2.58 1.761 3.154 3.07c.797 1.82.871 4.79-1.548 7.158c-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69q-.362 0-.739.021c-1.836.103-2.98.946-2.916 2.143c.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221" />
+    </svg>
+  ),
+  x: (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  ),
+  linkedin: (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+      <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.23 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.73V1.73C24 .77 23.21 0 22.23 0z" />
+    </svg>
+  ),
+}
+
+const downloadButton = 'flex h-11 w-[70%] max-w-[200px] items-center gap-2 rounded-lg border-2 bg-white px-3 text-left text-slate-900 shadow-sm transition hover:bg-slate-50'
 
 const AppStoreIcon = () => (
   <svg viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-slate-900" aria-hidden="true">
@@ -69,23 +37,21 @@ const AppStoreIcon = () => (
 )
 
 const Footer = () => {
-  const [socialLinks, setSocialLinks] = useState({})
+  const [socialLinks, setSocialLinks] = useState([])
 
   useEffect(() => {
     let ignore = false
-    fetchJson('/settings/public')
+    fetchJson('/settings/social-links')
       .then((data) => {
-        if (!ignore) setSocialLinks(data?.social && typeof data.social === 'object' ? data.social : {})
+        if (!ignore) setSocialLinks(Array.isArray(data) ? data : [])
       })
       .catch(() => {
-        if (!ignore) setSocialLinks({})
+        if (!ignore) setSocialLinks([])
       })
     return () => {
       ignore = true
     }
   }, [])
-
-  const visibleSocials = socialNetworks.filter((social) => socialLinks[social.key])
 
   return (
     <footer className="bg-gradient-to-b from-canvas via-panel to-canvas text-white">
@@ -169,23 +135,6 @@ const Footer = () => {
                 </a>
               </li>
             </ul>
-
-            {visibleSocials.length > 0 ? (
-              <div className="mt-6 flex flex-wrap gap-3">
-                {visibleSocials.map((social) => (
-                  <a
-                    key={social.key}
-                    href={socialLinks[social.key]}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={social.label}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-panel-2 text-white shadow-sm transition hover:bg-brand hover:text-black hover:shadow-brand/20"
-                  >
-                    {social.icon}
-                  </a>
-                ))}
-              </div>
-            ) : null}
           </div>
 
           {/* Our Range */}
@@ -233,7 +182,7 @@ const Footer = () => {
                 href="https://play.google.com/store/apps/details?id=com.tokriii.app&hl=en_IN"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex w-[70%] max-w-[200px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-slate-900 shadow-sm transition hover:bg-slate-50"
+                className={`${downloadButton} border-slate-200`}
               >
                 <img src={playStoreIcon} alt="" className="h-6 w-6 shrink-0 object-contain" aria-hidden="true" />
                 <span className="text-xs font-medium leading-tight">Get it on play store</span>
@@ -242,11 +191,28 @@ const Footer = () => {
                 href="https://apps.apple.com/in/app/tokriii/id6822043083"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex w-[70%] max-w-[200px] items-center gap-2 rounded-lg border-2 border-slate-900 bg-white px-3 py-2 text-left text-slate-900 shadow-sm transition hover:bg-slate-50"
+                className={`${downloadButton} border-slate-900`}
               >
                 <AppStoreIcon />
                 <span className="text-xs font-medium leading-tight">Get it on app store</span>
               </a>
+              {socialLinks.map(({ platform, displayText, url }) => {
+                const key = platform.toLowerCase()
+                const icon = Object.hasOwn(socialIcons, key) ? socialIcons[key] : <Globe className="h-6 w-6 shrink-0" aria-hidden="true" />
+                return (
+                  <a
+                    key={key}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${downloadButton} border-slate-200`}
+                    title={displayText}
+                  >
+                    {icon}
+                    <span className="truncate text-xs font-medium leading-tight">{displayText}</span>
+                  </a>
+                )
+              })}
             </div>
           </div>
         </div>

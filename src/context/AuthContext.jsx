@@ -1,4 +1,4 @@
-import { recordWebsiteDebug } from '../lib/websiteMonitoring'
+import { endWebsiteVisit, recordWebsiteDebug, setMonitoringCustomerToken } from '../lib/websiteMonitoring'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { authGet, authPatch } from '../lib/api'
 
@@ -28,6 +28,7 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser)
+  useEffect(() => { setMonitoringCustomerToken(user?.token) }, [user?.token])
 
   const persist = useCallback((nextUser) => {
     if (nextUser) {
@@ -45,7 +46,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     persist(null)
-    recordWebsiteDebug('customer.session.ended')
+    endWebsiteVisit()
   }, [persist])
 
   const updateProfile = useCallback(

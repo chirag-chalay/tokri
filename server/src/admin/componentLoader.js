@@ -3,6 +3,7 @@ import { ComponentLoader } from 'adminjs'
 const componentLoader = new ComponentLoader()
 
 export const Components = {
+  Reports: componentLoader.add('Reports', './components/reports.jsx'),
   Monitoring: componentLoader.add('Monitoring', './components/monitoring.jsx'),
   Dashboard: componentLoader.add('Dashboard', './components/dashboard.jsx'),
   ProductEdit: componentLoader.add('ProductEdit', './components/product-edit.jsx'),
@@ -10,6 +11,7 @@ export const Components = {
   CmsList: componentLoader.add('CmsList', './components/cms-list.jsx'),
   ReviewEdit: componentLoader.add('ReviewEdit', './components/review-edit.jsx'),
   BlogEdit: componentLoader.add('BlogEdit', './components/blog-edit.jsx'),
+  SocialLinks: componentLoader.add('SocialLinks', './components/social-links.jsx'),
   SettingsEdit: componentLoader.add('SettingsEdit', './components/settings-edit.jsx'),
   AppReleaseEdit: componentLoader.add('AppReleaseEdit', './components/app-release-edit.jsx'),
   CouponEdit: componentLoader.add('CouponEdit', './components/coupon-edit.jsx'),
@@ -19,6 +21,8 @@ export const Components = {
   PincodeEdit: componentLoader.add('PincodeEdit', './components/pincode-edit.jsx'),
   StatusToggle: componentLoader.add('StatusToggle', './components/status-toggle.jsx'),
   CustomerEdit: componentLoader.add('CustomerEdit', './components/customer-edit.jsx'),
+  CustomerOrders: componentLoader.add('CustomerOrders', './components/customer-orders.jsx'),
+  CustomerCart: componentLoader.add('CustomerCart', './components/customer-cart.jsx'),
   TeamEdit: componentLoader.add('TeamEdit', './components/team-edit.jsx'),
   MediaLibrary: componentLoader.add('MediaLibrary', './components/media-library.jsx'),
   TaxEdit: componentLoader.add('TaxEdit', './components/tax-edit.jsx'),

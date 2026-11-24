@@ -1,4 +1,4 @@
-/* First-party website diagnostics. No cookies, storage, user data or request bodies. */
+/* First-party website diagnostics. Sends the existing first-party visit ID with sanitized errors. */
 ;(function () {
   'use strict'
   if (window.__tokriFrontendErrors || /^\/(?:tokri-backoffice|admin|partner)(?:\/|$)/.test(location.pathname)) return
@@ -27,6 +27,13 @@
     if (value instanceof Error) return value.name + ': ' + value.message
     return typeof value === 'string' ? value : '[' + typeof value + ']'
   }
+  function alreadyReported(url, status, requestId) {
+    try {
+      var address = new URL(url, location.origin)
+      return address.origin === location.origin && (address.pathname.startsWith('/api/v1/tracking/') ||
+        address.pathname.startsWith('/api/v1/') && status >= 400 && status < 500 && Boolean(requestId))
+    } catch { return false }
+  }
   function capture(kind, message, detail) {
     try {
       if (Date.now() - start > 60000) { start = Date.now(); count = 0; seen.clear() }
@@ -48,9 +55,12 @@
     sending = true
     var controller = new AbortController()
     var timeout = setTimeout(function () { controller.abort() }, 5000)
+    var headers = { 'Content-Type': 'application/json' }
+    var session = document.cookie.match(/(?:^|;\s*)tokri_visit=([a-f0-9-]{36})(?:;|$)/)
+    if (session) headers['X-Session-Id'] = session[1]
     originalFetch(endpoint, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      credentials: 'omit', keepalive: true, signal: controller.signal,
+      method: 'POST', headers: headers,
+      credentials: 'same-origin', keepalive: true, signal: controller.signal,
       body: JSON.stringify({ events: batch }),
     }).catch(function () { /* No recursive reporting or retries. */ }).finally(function () {
       clearTimeout(timeout); sending = false
@@ -81,10 +91,12 @@
     var url = typeof input === 'string' || input instanceof URL ? input : input.url
     if (safeUrl(url) === safeUrl(endpoint)) return originalFetch(input, options)
     return originalFetch(input, options).then(function (response) {
-      if (!response.ok) capture('http', 'Fetch HTTP ' + response.status, { source: url, status: response.status })
+      if (!response.ok && !alreadyReported(url, response.status, response.headers.get('X-Tokri-Request-Id'))) {
+        capture('http', 'Fetch HTTP ' + response.status, { source: url, status: response.status })
+      }
       return response
     }, function (error) {
-      capture('network', describe(error), { source: url })
+      if (!alreadyReported(url, 0)) capture('network', describe(error), { source: url })
       throw error
     })
   }
@@ -98,7 +110,8 @@
   XMLHttpRequest.prototype.send = function () {
     this.addEventListener('loadend', function () {
       var url = xhrUrls.get(this)
-      if (safeUrl(url) !== safeUrl(endpoint) && (this.status === 0 || this.status >= 400)) {
+      if (safeUrl(url) !== safeUrl(endpoint) && (this.status === 0 || this.status >= 400) &&
+        !alreadyReported(url, this.status, this.getResponseHeader('X-Tokri-Request-Id'))) {
         capture(this.status ? 'http' : 'network', 'XHR HTTP ' + this.status, { source: url, status: this.status })
       }
     }, { once: true })
