@@ -271,7 +271,7 @@ export function isConfirmedCheckoutOrder(order) {
   if (!order) return false
   if (String(order.status || '').toLowerCase() === 'cancelled') return false
   const mode = String(order.paymentMode || 'cod').toLowerCase()
-  if (mode === 'cod') return true
+  if (mode === 'cod') return Boolean(order.codConfirmedAt || !order.inventoryReservedAt)
   return mode === 'online' && String(order.paymentStatus || '').toLowerCase() === 'paid'
 }
 

@@ -60,24 +60,16 @@ export async function handleRazorpayWebhook(req, res, next) {
     const razorpayOrderId = extractRazorpayOrderId(payload)
 
     let matchedOrder = null
-    if (event === 'payment.captured' || event === 'payment.authorized' || event === 'order.paid') {
-      let marked = null
-      if (event === 'payment.captured') {
-        marked = await markOnlineOrderPaidFromWebhook({ orderNo, razorpayOrderId, paymentId, capturedPayment: payload?.payload?.payment?.entity })
+    if (event === 'payment.captured') {
+      matchedOrder = await markOnlineOrderPaidFromWebhook({ orderNo, razorpayOrderId, capturedPayment: payload?.payload?.payment?.entity })
+    } else if (event === 'payment_link.paid') {
+      matchedOrder = await markOrderPaidByQr({ paymentLink: payload?.payload?.payment_link?.entity, paymentId })
+    } else if (razorpayOrderId) {
+      const order = await prisma.order.findFirst({ where: { razorpayOrderId, paymentMode: 'online' } })
+      if (order && (!orderNo || orderNo === order.orderNo)) {
+        const result = await reconcileOnlineOrderFromRazorpay(order)
+        matchedOrder = result.status === 'paid' ? result.order : null
       }
-      if (!marked && razorpayOrderId) {
-        const order = await prisma.order.findFirst({ where: { razorpayOrderId } })
-        if (order) {
-          const result = await reconcileOnlineOrderFromRazorpay(order)
-          marked = result.status === 'paid' ? result.order : null
-        }
-      }
-      if (!marked && orderNo && event === 'payment.captured') {
-        marked = await markOrderPaidByQr({ orderNo, paymentId })
-      }
-      matchedOrder = marked
-    } else {
-      matchedOrder = await markOrderPaidByQr({ orderNo, paymentId })
     }
 
     await logDurable('payment', 'webhook.completed', { status: 'success', outcome: matchedOrder ? 'matched' : 'unmatched', providerEventId, orderNo, razorpayPaymentId: paymentId })

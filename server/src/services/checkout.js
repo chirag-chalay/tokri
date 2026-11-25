@@ -1,3 +1,4 @@
+import { createHash, randomInt } from 'node:crypto'
 import { createAppTrackingContext, appPurchasePayload, isCapturedAppPayment } from './appTrackingPurchase.js'
 import { captureTrackingContext, enqueuePurchase, purchaseSummary, purchaseIdentity } from './trackingPurchase.js'
 import { logError } from '../monitoring/database.js'
@@ -16,7 +17,8 @@ import {
 } from './razorpay.js'
 import { listAddresses, snapshotCurrentAddress } from './addresses.js'
 import { publicDeliveryConfig } from '../config/charges.js'
-import { clearCart, getCartCheckoutItems } from './cart.js'
+import { checkoutCartLines, consumeCheckoutCart, getCartCheckoutItems, normalizeQuantity } from './cart.js'
+import { reserveCheckoutStock } from './checkoutInventory.js'
 import { redeemCoupon } from './coupons.js'
 import { PRODUCT_CATEGORY_INCLUDE, productCategoryList } from '../utils/catalog.js'
 import { formatProduct, toPublicAssetUrl } from '../utils/formatters.js'
@@ -44,17 +46,24 @@ function parseAddresses(raw) {
 }
 
 function buildOrderNo() {
-  const stamp = Date.now().toString().slice(-8)
-  const rand = Math.floor(Math.random() * 900 + 100)
-  return `TKR${stamp}${rand}`
+  const suffix = String(randomInt(1000000)).padStart(6, '0')
+  return `TKR${Date.now()}${suffix}`
 }
 
 function normalizeCartItem(raw) {
   const slug = String(raw?.id || raw?.slug || '').trim()
-  const quantity = Number(raw?.quantity ?? 1)
-  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 10000) throw Object.assign(new Error('Invalid product quantity.'), { status: 400 })
+  const quantity = normalizeQuantity(raw?.quantity ?? 1)
   if (!slug) throw Object.assign(new Error('Invalid cart item.'), { status: 400 })
   return { slug, quantity }
+}
+
+function normalizeCheckoutItems(rawItems) {
+  const items = new Map()
+  for (const raw of rawItems) {
+    const { slug, quantity } = normalizeCartItem(raw)
+    items.set(slug, normalizeQuantity((items.get(slug) || 0) + quantity))
+  }
+  return [...items].map(([slug, quantity]) => ({ slug, quantity })).sort((a, b) => a.slug.localeCompare(b.slug))
 }
 
 function formatUnavailableCartItem(entry, product) {
@@ -78,6 +87,7 @@ function formatUnavailableCartItem(entry, product) {
     image: toPublicAssetUrl(product.image),
     weight: product.weight || null,
     quantity: entry.quantity,
+    availableQuantity: product.isActive ? product.stock : 0,
     categoryId: primary?.slug || null,
   }
 }
@@ -96,13 +106,13 @@ function toResolvedCartItem(product, quantity) {
   }
 }
 
-/** Split cart lines into active (billable) vs inactive/missing (not billed). */
+/** Split cart lines into quantities we can fulfill and unavailable lines. */
 export async function partitionCartItems(rawItems) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return { items: [], unavailableItems: [] }
   }
 
-  const normalized = rawItems.map(normalizeCartItem)
+  const normalized = normalizeCheckoutItems(rawItems)
   const slugs = normalized.map((item) => item.slug)
   const products = await prisma.product.findMany({
     where: { slug: { in: slugs } },
@@ -114,7 +124,7 @@ export async function partitionCartItems(rawItems) {
   const unavailableItems = []
   for (const entry of normalized) {
     const product = productMap.get(entry.slug)
-    if (!product || !product.isActive) {
+    if (!product || !product.isActive || product.stock < entry.quantity) {
       unavailableItems.push(formatUnavailableCartItem(entry, product))
       continue
     }
@@ -144,6 +154,7 @@ export async function suggestionsForUnavailable(unavailableItems, excludeSlugs =
   const products = await prisma.product.findMany({
     where: {
       isActive: true,
+      stock: { gt: 0 },
       slug: blocked.size ? { notIn: [...blocked] } : undefined,
       OR: [
         { categoryId: { in: categoryIds } },
@@ -207,17 +218,53 @@ export async function getCheckoutConfig(customer) {
   }
 }
 
-export async function createCheckoutOrder(user, { items: rawItems, addressId, address: addressSnapshot, paymentMode = 'online', couponCode, upiApp, deliveryOption, expectedGrandTotal, tracking }, meta = {}) {
+export async function createCheckoutOrder(user, { items: rawItems, addressId, address: addressSnapshot, paymentMode = 'online', couponCode, upiApp, deliveryOption, expectedGrandTotal, tracking, checkoutAttemptId }, meta = {}) {
+  if (checkoutAttemptId != null && (typeof checkoutAttemptId !== 'string' || !/^[a-z0-9_-]{12,80}$/i.test(checkoutAttemptId))) {
+    throw Object.assign(new Error('Invalid checkout attempt.'), { status: 400 })
+  }
   const sourceItems =
     Array.isArray(rawItems) && rawItems.length > 0
       ? rawItems
       : await getCartCheckoutItems(user.id)
-  // Soft-skip inactive lines so remaining in-stock items can still check out.
-  const cartItems = await resolveCartItems(sourceItems, { allowPartial: true })
+  const requestedMode = String(paymentMode || '').toLowerCase() === 'cod' ? 'cod' : 'online'
+  const fingerprint = createHash('sha256').update(JSON.stringify([
+    normalizeCheckoutItems(sourceItems), addressId, addressSnapshot, requestedMode, couponCode || null,
+    deliveryOption, expectedGrandTotal ?? null, meta.supportsSmallCartCharge === true,
+  ])).digest('hex')
+  const reuseWhere = checkoutAttemptId
+    ? { checkoutAttemptId }
+    : { checkoutAttemptId: null, checkoutFingerprint: fingerprint, status: { not: 'cancelled' }, createdAt: { gte: new Date(Date.now() - 2 * 60 * 1000) } }
+  const orderInclude = { items: { include: { product: { select: { slug: true } } } } }
+  const findAttempt = (db) => db.order.findFirst({
+    where: { customerId: user.id, ...reuseWhere },
+    include: orderInclude,
+    orderBy: { createdAt: 'desc' },
+  })
+  const resume = async (order) => {
+    if (order.checkoutFingerprint !== fingerprint) {
+      throw Object.assign(new Error('Your checkout changed. Please try again.'), { status: 409, code: 'CHECKOUT_ATTEMPT_CHANGED' })
+    }
+    if (order.status === 'cancelled') {
+      throw Object.assign(new Error('This checkout expired or was cancelled. Please start again.'), { status: 409, code: 'CHECKOUT_EXPIRED' })
+    }
+    return checkoutResponse(order, user, await getPublicPaymentConfig(), upiApp, meta)
+  }
+  const existing = await findAttempt(prisma)
+  if (existing) return resume(existing)
+
+  let cartItems
+  try {
+    cartItems = await resolveCartItems(sourceItems)
+  } catch (error) {
+    if (error.reasonCode !== 'OUT_OF_STOCK') throw error
+    const concurrentAttempt = await findAttempt(prisma)
+    if (concurrentAttempt) return resume(concurrentAttempt)
+    throw error
+  }
   const address = await resolveAddress(user, addressId, addressSnapshot)
   const { option } = await assertDeliveryOptionEnabled(address.pincode, deliveryOption || address.delivery?.defaultOption)
   const itemsTotal = subtotal(cartItems)
-  const decision = await getDeliveryDecision(user.id, option, itemsTotal)
+  const decision = await getDeliveryDecision(user.id, option, itemsTotal, meta.supportsSmallCartCharge)
   if (!decision.minimumMet) {
     throw Object.assign(new Error(decision.minimumMessage), { status: 400, reasonCode: 'MIN_ORDER_NOT_MET' })
   }
@@ -229,11 +276,11 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     customerId: user.id, couponCode, isInterState,
   })
 
-  if (expectedGrandTotal != null && Number(expectedGrandTotal) !== totals.grandTotal) {
+  // Any fee-bearing checkout must confirm the server total shown by its latest quote.
+  if ((expectedGrandTotal != null || totals.smallCartCharge > 0) && Number(expectedGrandTotal) !== totals.grandTotal) {
     throw Object.assign(new Error('Your order total changed. Please review the updated total before paying.'), { status: 409, code: 'QUOTE_CHANGED', totals })
   }
   const paymentConfig = await getPublicPaymentConfig()
-  const requestedMode = String(paymentMode || '').toLowerCase() === 'cod' ? 'cod' : 'online'
   const razorpayOn = Boolean(paymentConfig.razorpay?.enabled)
   const codOn = paymentConfig.codEnabled !== false
 
@@ -252,19 +299,10 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
     })
   }
 
-  const useRazorpay = requestedMode === 'online'
   const delivery = await assignmentForPincode(address.pincode)
-
   const orderNo = buildOrderNo()
-  let razorpayOrderId = null
-
-  if (useRazorpay) {
-    const razorpayOrder = await createRazorpayOrder({
-      amountInr: totals.grandTotal,
-      receipt: orderNo,
-      notes: { orderNo, customerId: user.id },
-    })
-    razorpayOrderId = razorpayOrder.id
+  if (requestedMode === 'online' && Math.round(totals.grandTotal * 100) < 100) {
+    throw Object.assign(new Error('Order total must be at least ₹1.'), { status: 400 })
   }
 
   const orderItemsData = cartItems.map((entry, index) => {
@@ -293,14 +331,23 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
   const { deliveryPartnerId, ...deliveryFields } = delivery
 
   const order = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM Customer WHERE id = ${user.id} FOR UPDATE`
+    const existingAttempt = await findAttempt(tx)
+    if (existingAttempt) return existingAttempt
     if (appliedCoupon) {
       await tx.$queryRaw`SELECT id FROM Coupon WHERE id = ${appliedCoupon.id} FOR UPDATE`
       const fresh = await calculateCheckoutPricing(cartItems, rates, { customerId: user.id, couponCode: appliedCoupon.code, isInterState, db: tx })
       if (fresh.totals.grandTotal !== totals.grandTotal || JSON.stringify(fresh.totals.lineItems) !== JSON.stringify(totals.lineItems)) throw Object.assign(new Error('Your order total changed. Please review it before paying.'), { status: 409, code: 'QUOTE_CHANGED' })
     }
+    await reserveCheckoutStock(tx, orderItemsData)
+    const cartLines = await checkoutCartLines(tx, user.id, orderItemsData)
     const created = await tx.order.create({
       data: {
         orderNo,
+        checkoutAttemptId,
+        checkoutFingerprint: fingerprint,
+        checkoutSnapshot: { totals, cartLines },
+        inventoryReservedAt: new Date(),
         ...(trackingContext ? { trackingContext } : {}),
         customer: { connect: { id: user.id } },
         status: 'pending',
@@ -322,26 +369,34 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
         freeDeliveryApplied: isFreeDelivery,
         grandTotal: totals.grandTotal,
         address,
-        razorpayOrderId,
         ...deliveryFields,
         ...(deliveryPartnerId ? { deliveryPartner: { connect: { id: deliveryPartnerId } } } : {}),
         items: {
           create: orderItemsData,
         },
       },
-      include: { items: true },
+      include: orderInclude,
     })
     if (appliedCoupon) await redeemCoupon({ coupon: appliedCoupon, customerId: user.id, orderId: created.id }, tx)
     return created
-  })
+  }, { isolationLevel: 'ReadCommitted' })
 
   if (order.trackingContext?.source === 'app') {
     prisma.trackingPurchaseLookup?.upsert({ where: { id: purchaseIdentity(order.id) }, create: { id: purchaseIdentity(order.id), orderId: order.id }, update: {} }).catch(() => console.error('Tracking lookup index unavailable'))
   }
 
+  return resume(order)
+}
+
+async function checkoutResponse(order, user, paymentConfig, upiApp, meta) {
+  const { address, orderNo, paymentMode, checkoutSnapshot } = order
+  const totals = checkoutSnapshot.totals
+  const useRazorpay = paymentMode === 'online'
+  const alreadyConfirmed = useRazorpay ? order.paymentStatus === 'paid' : Boolean(order.codConfirmedAt)
+  const razorpayOrderId = useRazorpay && !alreadyConfirmed ? await ensureRazorpayOrder(order) : order.razorpayOrderId
   let intent = null
   let intentError = null
-  const directUpi = useRazorpay && ['gpay', 'phonepe', 'paytm', 'cred', 'amazon', 'bhim', 'upi'].includes(upiApp)
+  const directUpi = useRazorpay && !alreadyConfirmed && ['gpay', 'phonepe', 'paytm', 'cred', 'amazon', 'bhim', 'upi'].includes(upiApp)
   if (directUpi) {
     const contact = paymentPhone(user, address)
     if (contact.length !== 10) {
@@ -367,12 +422,13 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
 
   return {
     totals,
-    ...(order.trackingContext?.source === 'web' ? { trackingPurchase: purchaseSummary({ ...order, items: order.items.map((item) => ({ ...item, product: { slug: cartItems.find((entry) => entry.product.id === item.productId)?.slug } })) }) } : {}),
+    ...(order.trackingContext?.source === 'web' ? { trackingPurchase: purchaseSummary(order) } : {}),
     order: {
       id: order.id,
       orderNo: order.orderNo,
       grandTotal: Number(order.grandTotal),
-      paymentMode: requestedMode,
+      paymentMode,
+      confirmed: alreadyConfirmed,
       expectedDeliveryDate: order.expectedDeliveryDate,
     },
     razorpay: useRazorpay
@@ -395,103 +451,111 @@ export async function createCheckoutOrder(user, { items: rawItems, addressId, ad
   }
 }
 
+async function ensureRazorpayOrder(order) {
+  if (order.razorpayOrderId) return order.razorpayOrderId
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${order.id} FOR UPDATE`
+    const current = await tx.order.findUniqueOrThrow({ where: { id: order.id } })
+    if (current.razorpayOrderId) return current.razorpayOrderId
+    if (current.status === 'cancelled') {
+      throw Object.assign(new Error('This checkout is no longer available.'), { status: 409, code: 'CHECKOUT_EXPIRED' })
+    }
+    const remote = (await listRazorpayOrdersByReceipt(order.orderNo)).find((candidate) =>
+      candidate.receipt === order.orderNo && Number(candidate.amount) === expectedAmountPaise(order) && candidate.currency === 'INR')
+    const gatewayOrder = remote || await createRazorpayOrder({
+      amountInr: order.grandTotal,
+      receipt: order.orderNo,
+      notes: { orderNo: order.orderNo, customerId: order.customerId },
+    })
+    await tx.order.update({ where: { id: order.id }, data: { razorpayOrderId: gatewayOrder.id } })
+    return gatewayOrder.id
+  }, { timeout: 25000 })
+}
+
 function paymentPhone(user, address) {
   const raw = address?.phone || user?.phone || ''
   return String(raw).replace(/\D/g, '').slice(-10)
-}
-
-async function markOnlineOrderPaid(user, order, razorpayPaymentId) {
-  if (order.paymentStatus === 'paid' && order.razorpayPaymentId) return order
-
-  const result = await prisma.order.updateMany({
-    where: { id: order.id, paymentStatus: { not: 'paid' } },
-    data: {
-      paymentStatus: 'paid',
-      status: order.status === 'pending' ? 'paid' : order.status,
-      paymentCollectedAs: 'online',
-      razorpayPaymentId,
-    },
-  })
-
-  const updated = await prisma.order.findUnique({ where: { id: order.id } })
-  if (result.count === 0) return updated
-  enqueuePurchase(updated.id).catch(() => console.error('Tracking purchase enqueue failed'))
-
-  await clearCart(user.id).catch((error) => logError(error, 'background'))
-  notifyOrderStatus(updated, 'paid').catch((error) => logError(error, 'background'))
-  notifyConfirmedOrder(updated, { phone: user.phone, name: user.name })
-
-  return updated
 }
 
 function expectedAmountPaise(order) {
   return Math.round(Number(order.grandTotal) * 100)
 }
 
-function pickSuccessfulPayment(payments, expectedPaise) {
-  const list = Array.isArray(payments) ? payments : []
-  const matching = list.filter((payment) => Number(payment.amount) === expectedPaise)
-  return (
-    matching.find((payment) => payment.status === 'captured') ||
-    matching.find((payment) => payment.status === 'authorized') ||
-    null
-  )
+export function matchesCheckoutPayment(order, payment) {
+  return order?.paymentMode === 'online' && Boolean(order.razorpayOrderId && payment?.id) &&
+    payment.order_id === order.razorpayOrderId && Number(payment.amount) === expectedAmountPaise(order) &&
+    payment.currency === 'INR'
+}
+
+async function markOnlineOrderPaid(user, order, payment) {
+  if (!matchesCheckoutPayment(order, payment) || payment.status !== 'captured') return order
+  const { updated, changed } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${order.id} FOR UPDATE`
+    const current = await tx.order.findUniqueOrThrow({ where: { id: order.id } })
+    if (!matchesCheckoutPayment(current, payment) || ['paid', 'refunded'].includes(current.paymentStatus)) {
+      return { updated: current, changed: false }
+    }
+    const updated = await tx.order.update({
+      where: { id: current.id },
+      data: {
+        paymentStatus: 'paid',
+        status: current.status === 'pending' ? 'paid' : current.status,
+        paymentCollectedAs: 'online',
+        razorpayPaymentId: payment.id,
+      },
+    })
+    if (updated.status !== 'cancelled') await consumeCheckoutCart(tx, current)
+    return { updated, changed: true }
+  })
+  if (!changed) return updated
+  if (updated.status === 'cancelled') {
+    logError(new Error(`A captured payment arrived for cancelled order ${updated.orderNo}. Review the payment and refund from Razorpay.`), 'checkout-late-capture')
+    return updated
+  }
+  recordCapturedAppPurchase(updated, payment)
+  enqueuePurchase(updated.id).catch(() => console.error('Tracking purchase enqueue failed'))
+  notifyOrderStatus(updated, 'paid').catch((error) => logError(error, 'background'))
+  notifyConfirmedOrder(updated, { phone: user?.phone, name: user?.name })
+  return updated
 }
 
 async function captureIfNeeded(payment, expectedPaise) {
-  if (!payment) return payment
-  if (payment.status === 'captured') return payment
   if (payment.status !== 'authorized') return payment
   try {
-    return await captureRazorpayPayment(payment.id, expectedPaise, payment.currency || 'INR')
+    return await captureRazorpayPayment(payment.id, expectedPaise, 'INR')
   } catch (error) {
     const latest = await fetchRazorpayPayment(payment.id)
     if (latest.status === 'captured') return latest
-    throw error
+    logError(error, 'checkout-payment-capture')
+    return latest
   }
+}
+
+function paymentState(order) {
+  return order.status === 'cancelled' ? 'cancelled' : order.paymentStatus || 'pending'
+}
+
+async function applyCheckoutPayment(order, payment, user) {
+  if (!matchesCheckoutPayment(order, payment)) {
+    throw Object.assign(new Error('Payment details do not match this order.'), { status: 400 })
+  }
+  // Never manually capture an authorization for a cancelled checkout.
+  const verified = order.status === 'cancelled' ? payment : await captureIfNeeded(payment, expectedAmountPaise(order))
+  if (verified.status !== 'captured') return order
+  const customer = user || (order.customerId ? await prisma.customer.findUnique({ where: { id: order.customerId } }) : null)
+  return markOnlineOrderPaid(customer, order, verified)
 }
 
 export async function reconcileOnlineOrderFromRazorpay(order) {
   if (!order) return { status: 'missing', order: null }
-  if (order.paymentStatus === 'paid') return { status: 'paid', order }
-  if (order.paymentMode !== 'online') {
-    return { status: order.paymentStatus || 'pending', order }
+  if (order.paymentMode !== 'online' || ['paid', 'refunded'].includes(order.paymentStatus) || !order.razorpayOrderId) {
+    return { status: paymentState(order), order }
   }
 
-  let razorpayOrderId = String(order.razorpayOrderId || '').trim()
-  if (!razorpayOrderId) {
-    const remoteOrders = await listRazorpayOrdersByReceipt(order.orderNo)
-    razorpayOrderId = remoteOrders[0]?.id || ''
-    if (razorpayOrderId) {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { razorpayOrderId },
-      })
-      order = { ...order, razorpayOrderId }
-    }
-  }
-  if (!razorpayOrderId) return { status: order.paymentStatus || 'pending', order }
-
-  const expected = expectedAmountPaise(order)
-  const payments = await listRazorpayOrderPayments(razorpayOrderId)
-  let payment = pickSuccessfulPayment(payments, expected)
-  if (!payment) return { status: 'pending', order }
-
-  payment = await captureIfNeeded(payment, expected)
-  if (payment.status !== 'captured' && payment.status !== 'authorized') {
-    return { status: 'pending', order }
-  }
-
-  const customer = order.customerId
-    ? await prisma.customer.findUnique({ where: { id: order.customerId } })
-    : null
-  const updated = await markOnlineOrderPaid(
-    { id: order.customerId, phone: customer?.phone || '', name: customer?.name || '' },
-    order,
-    payment.id,
-  )
-  recordCapturedAppPurchase(updated, payment)
-  return { status: 'paid', order: updated }
+  const payments = (await listRazorpayOrderPayments(order.razorpayOrderId)).filter((payment) => matchesCheckoutPayment(order, payment))
+  const payment = payments.find((entry) => entry.status === 'captured') || payments.find((entry) => entry.status === 'authorized')
+  const updated = payment ? await applyCheckoutPayment(order, payment) : order
+  return { status: paymentState(updated), order: updated }
 }
 
 export async function syncOnlineOrderPayment(user, { orderNo }) {
@@ -518,21 +582,21 @@ export async function getCheckoutOrderStatus(user, { orderNo }) {
     paymentMode: order.paymentMode,
     paymentStatus: order.paymentStatus,
     status: order.status,
+    confirmed: order.status !== 'cancelled' && (order.paymentMode === 'online'
+      ? order.paymentStatus === 'paid'
+      : Boolean(order.codConfirmedAt || !order.inventoryReservedAt)),
     grandTotal: order.grandTotal,
     expectedDeliveryDate: order.expectedDeliveryDate,
   }
 }
 
 export async function completeRazorpayCallback({ razorpayOrderId, razorpayPaymentId, razorpaySignature, orderNo }) {
-  if (razorpayOrderId && razorpayPaymentId && razorpaySignature) {
-    await verifyRazorpayPayment({ razorpayOrderId, razorpayPaymentId, razorpaySignature })
+  await verifyRazorpayPayment({ razorpayOrderId, razorpayPaymentId, razorpaySignature })
+  const order = await prisma.order.findFirst({ where: { razorpayOrderId, paymentMode: 'online' } })
+  if (!order || (orderNo && order.orderNo !== orderNo)) {
+    throw Object.assign(new Error('Payment details do not match this order.'), { status: 400 })
   }
-  const marked = await markOnlineOrderPaidFromWebhook({
-    orderNo,
-    razorpayOrderId,
-    paymentId: razorpayPaymentId,
-  })
-  return marked
+  return applyCheckoutPayment(order, await fetchRazorpayPayment(razorpayPaymentId))
 }
 
 export async function recoverPendingOnlinePayments({ lookbackHours = 24, limit = 20 } = {}) {
@@ -559,47 +623,32 @@ export async function recoverPendingOnlinePayments({ lookbackHours = 24, limit =
   return recovered
 }
 
-export async function markOnlineOrderPaidFromWebhook({ orderNo, razorpayOrderId, paymentId, capturedPayment }) {
-  let order = null
-  if (orderNo) order = await prisma.order.findUnique({ where: { orderNo } })
-  if (!order && razorpayOrderId) {
-    order = await prisma.order.findFirst({ where: { razorpayOrderId } })
-  }
-  if (!order || order.paymentMode !== 'online') return null
+export async function markOnlineOrderPaidFromWebhook({ orderNo, razorpayOrderId, capturedPayment }) {
+  if (!razorpayOrderId || capturedPayment?.status !== 'captured') return null
+  const order = await prisma.order.findFirst({ where: { razorpayOrderId, paymentMode: 'online' } })
+  if (!order || (orderNo && orderNo !== order.orderNo) || !matchesCheckoutPayment(order, capturedPayment)) return null
   if (order.paymentStatus === 'paid') {
     recordCapturedAppPurchase(order, capturedPayment)
     return order
   }
-
-  const customer = order.customerId
-    ? await prisma.customer.findUnique({ where: { id: order.customerId } })
-    : null
-
-  const updated = await markOnlineOrderPaid(
-    { id: order.customerId, phone: customer?.phone || '', name: customer?.name || '' },
-    order,
-    paymentId,
-  )
-  recordCapturedAppPurchase(updated, capturedPayment)
-  return updated
+  return applyCheckoutPayment(order, capturedPayment)
 }
 
 export async function confirmCheckoutPayment(user, { orderNo, razorpayOrderId, razorpayPaymentId, razorpaySignature }) {
-  const order = await prisma.order.findFirst({
-    where: { orderNo, customerId: user.id },
-  })
-
+  const order = await prisma.order.findFirst({ where: { orderNo, customerId: user.id } })
   if (!order) throw Object.assign(new Error('Order not found.'), { status: 404 })
-  if (order.paymentStatus === 'paid') {
-    return { orderNo: order.orderNo, paymentStatus: order.paymentStatus }
-  }
-
-  if (order.razorpayOrderId !== razorpayOrderId) {
+  if (order.paymentMode !== 'online' || !razorpayOrderId || order.razorpayOrderId !== razorpayOrderId) {
     throw Object.assign(new Error('Payment details do not match this order.'), { status: 400 })
   }
-
   await verifyRazorpayPayment({ razorpayOrderId, razorpayPaymentId, razorpaySignature })
-  const updated = await markOnlineOrderPaid(user, order, razorpayPaymentId)
+  const updated = order.paymentStatus === 'paid' ? order : await applyCheckoutPayment(order, await fetchRazorpayPayment(razorpayPaymentId), user)
+  const status = paymentState(updated)
+  if (status !== 'paid') {
+    throw Object.assign(new Error(status === 'cancelled' ? 'This order was cancelled. Contact support if you were charged.' : 'Payment confirmation is still pending. Check your order before trying again.'), {
+      status: 409,
+      code: status === 'cancelled' ? 'CHECKOUT_EXPIRED' : 'PAYMENT_PENDING',
+    })
+  }
   return { orderNo: updated.orderNo, paymentStatus: updated.paymentStatus }
 }
 
@@ -611,7 +660,7 @@ export async function startUpiIntent(user, { orderNo }, meta = {}) {
   if (order.paymentStatus === 'paid') {
     throw Object.assign(new Error('This order is already paid.'), { status: 400 })
   }
-  if (order.paymentMode !== 'online' || !order.razorpayOrderId) {
+  if (order.status === 'cancelled' || order.paymentMode !== 'online' || !order.razorpayOrderId) {
     throw Object.assign(new Error('This order is not waiting for an online payment.'), { status: 400 })
   }
 
@@ -636,61 +685,51 @@ export async function startUpiIntent(user, { orderNo }, meta = {}) {
 }
 
 export async function syncIntentPayment(user, { orderNo, razorpayPaymentId }) {
-  const order = await prisma.order.findFirst({
-    where: { orderNo, customerId: user.id },
-  })
+  const order = await prisma.order.findFirst({ where: { orderNo, customerId: user.id } })
   if (!order) throw Object.assign(new Error('Order not found.'), { status: 404 })
-  if (order.paymentStatus === 'paid') return { status: 'paid', orderNo: order.orderNo }
-  if (!razorpayPaymentId) {
+  if (order.paymentStatus === 'paid' || order.status === 'cancelled') return { status: paymentState(order), orderNo: order.orderNo }
+  if (!razorpayPaymentId || order.paymentMode !== 'online') {
     throw Object.assign(new Error('Payment details do not match this order.'), { status: 400 })
   }
 
-  let payment = await fetchRazorpayPayment(razorpayPaymentId)
-  const expected = expectedAmountPaise(order)
-  if (payment.order_id !== order.razorpayOrderId || Number(payment.amount) !== expected) {
-    throw Object.assign(new Error('Payment details do not match this order.'), { status: 400 })
-  }
-
-  if (payment.status === 'authorized') {
-    payment = await captureIfNeeded(payment, expected)
-  }
-
-  if (payment.status === 'captured') {
-    const updated = await markOnlineOrderPaid(user, order, payment.id)
-    recordCapturedAppPurchase(updated, payment)
-    return { status: 'paid', orderNo: order.orderNo }
-  }
-
+  const payment = await fetchRazorpayPayment(razorpayPaymentId)
+  const updated = await applyCheckoutPayment(order, payment, user)
   if (payment.status === 'failed') {
     return {
       status: 'failed',
       message: payment.error_description || payment.error_reason || 'Payment failed. Please try again.',
     }
   }
-
-  return { status: 'pending', orderNo: order.orderNo }
+  return { status: paymentState(updated), orderNo: order.orderNo }
 }
 
 export async function confirmCodOrder(user, { orderNo }) {
-  const order = await prisma.order.findFirst({
-    where: { orderNo, customerId: user.id },
+  const { order, changed } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM \`Order\` WHERE orderNo = ${orderNo} AND customerId = ${user.id} FOR UPDATE`
+    const order = await tx.order.findFirst({ where: { orderNo, customerId: user.id } })
+    if (!order) throw Object.assign(new Error('Order not found.'), { status: 404 })
+    if (order.paymentMode !== 'cod') throw Object.assign(new Error('This order is not cash on delivery.'), { status: 400 })
+    if (order.status === 'cancelled') throw Object.assign(new Error('This order was cancelled.'), { status: 409, code: 'CHECKOUT_EXPIRED' })
+    if (order.codConfirmedAt || order.trackingContext?.codConfirmed || (order.status !== 'pending' && !order.inventoryReservedAt)) {
+      return { order, changed: false }
+    }
+    const now = new Date()
+    const updated = await tx.order.update({
+      where: { id: order.id },
+      data: {
+        codConfirmedAt: now,
+        ...(order.trackingContext ? { trackingContext: { ...order.trackingContext, codConfirmed: true, confirmedAt: now.getTime() } } : {}),
+      },
+    })
+    await consumeCheckoutCart(tx, order)
+    return { order: updated, changed: true }
   })
 
-  if (!order) throw Object.assign(new Error('Order not found.'), { status: 404 })
-
-  if (order.paymentMode !== 'cod') throw Object.assign(new Error('This order is not cash on delivery.'), { status: 400 })
-  if (order.trackingContext?.source === 'app') {
-    await recordAppConfirmation(order.id, 'cod').catch(() => console.error('App purchase confirmation recording failed'))
-  } else if (order.trackingContext && !order.trackingContext.codConfirmed) {
-    await prisma.order.update({ where: { id: order.id }, data: { trackingContext: { ...order.trackingContext, codConfirmed: true, confirmedAt: Date.now() } } })
+  if (changed) {
+    enqueuePurchase(order.id).catch(() => console.error('Tracking purchase enqueue failed'))
+    notifyOrderStatus(order, order.status || 'pending').catch((error) => logError(error, 'background'))
+    notifyConfirmedOrder(order, { phone: user.phone, name: user.name })
   }
-  enqueuePurchase(order.id).catch(() => console.error('Tracking purchase enqueue failed'))
-  await clearCart(user.id).catch((error) => logError(error, 'background'))
-  notifyOrderStatus(order, order.status || 'pending').catch((error) =>
-    logError(error, 'background'),
-  )
-  notifyConfirmedOrder(order, { phone: user.phone, name: user.name })
-
   return { orderNo: order.orderNo, paymentStatus: order.paymentStatus, status: order.status }
 }
 

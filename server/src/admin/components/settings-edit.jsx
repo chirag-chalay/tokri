@@ -39,6 +39,12 @@ const TABS = [
       'expressShippingFee',
       'expressFreeAbove',
       'expressMinimumOrderValue',
+      'morningSmallCartEnabled',
+      'morningSmallCartBelow',
+      'morningSmallCartFee',
+      'expressSmallCartEnabled',
+      'expressSmallCartBelow',
+      'expressSmallCartFee',
       'firstThreeMorningEnabled',
       'handlingFee',
     ],
@@ -80,6 +86,43 @@ const TABS = [
     ],
   },
 ]
+
+function SmallCartFields({ option, params, onChange }) {
+  const enabled = option + 'SmallCartEnabled'
+  const threshold = option + 'SmallCartBelow'
+  const fee = option + 'SmallCartFee'
+  const isEnabled = isFlagOn(params?.[enabled])
+  const minimum = option === 'express' ? Number(params?.expressMinimumOrderValue ?? 1251) : 0
+  const canApply = Number(params?.[threshold]) > minimum && Number(params?.[fee]) > 0
+  return (
+    <fieldset className="tokri-coupon-two">
+      <legend>Small Cart Charge</legend>
+      <label className="tokri-coupon-label">
+        <input type="checkbox" checked={isEnabled} onChange={(event) => onChange(enabled, event.target.checked)} />
+        Enable Small Cart Charge
+      </label>
+      <div>
+        <div className="tokri-coupon-two">
+          <label className="tokri-coupon-label">
+            Apply below item subtotal (₹)
+            <input className="tokri-coupon-input" type="number" min="0" step="0.01" max="99999999.99"
+              value={params?.[threshold] ?? ''} onChange={(event) => onChange(threshold, event.target.value)} />
+          </label>
+          <label className="tokri-coupon-label">
+            Charge amount (₹)
+            <input className="tokri-coupon-input" type="number" min="0" step="0.01" max="99999999.99"
+              value={params?.[fee] ?? ''} onChange={(event) => onChange(fee, event.target.value)} />
+          </label>
+        </div>
+        {isEnabled && (
+          <p className="tokri-field-hint">{canApply
+            ? `₹${params[fee]} on eligible orders below ₹${params[threshold]} before coupons.`
+            : 'Enter a positive fee and a threshold above the delivery minimum.'}</p>
+        )}
+      </div>
+    </fieldset>
+  )
+}
 
 const withoutTrailingSlash = (value) => String(value || '').replace(/\/+$/, '')
 
@@ -617,6 +660,7 @@ const SettingsEdit = (props) => {
                         <span className="tokri-field-hint">0 means no free delivery</span>
                       </label>
                     </div>
+                    <SmallCartFields option="morning" params={record?.params} onChange={handleChange} />
                   </section>
                   <section className="tokri-coupon-card">
                     <h4>Express delivery</h4>
@@ -677,6 +721,7 @@ const SettingsEdit = (props) => {
                         onChange={(event) => handleChange('expressMinimumOrderValue', event.target.value)}
                       />
                     </label>
+                    <SmallCartFields option="express" params={record?.params} onChange={handleChange} />
                   </section>
                   <label className="tokri-coupon-label">
                     <input

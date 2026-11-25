@@ -245,8 +245,17 @@ model Order {
   items                  OrderItem[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
+  checkoutAttemptId      String?          @db.VarChar(80)
+  checkoutFingerprint    String?          @db.Char(64)
+  checkoutSnapshot       Json?
+  codConfirmedAt         DateTime?
+  inventoryReservedAt    DateTime?
+  inventoryReleasedAt    DateTime?
 
   @@index([customerId])
+  @@unique([customerId, checkoutAttemptId])
+  @@index([customerId, checkoutFingerprint, createdAt])
+  @@index([inventoryReleasedAt, inventoryReservedAt])
   @@index([status])
   @@index([deliveryPartnerId])
   @@index([deliveryPincode])
@@ -334,6 +343,12 @@ model Setting {
   expressShippingFee        Decimal  @default(99) @db.Decimal(10, 2)
   expressFreeAbove          Decimal  @default(0) @db.Decimal(10, 2)
   expressMinimumOrderValue  Decimal  @default(1251) @db.Decimal(10, 2)
+  morningSmallCartEnabled   Boolean  @default(false)
+  morningSmallCartBelow     Decimal  @default(0) @db.Decimal(10, 2)
+  morningSmallCartFee       Decimal  @default(0) @db.Decimal(10, 2)
+  expressSmallCartEnabled   Boolean  @default(false)
+  expressSmallCartBelow     Decimal  @default(0) @db.Decimal(10, 2)
+  expressSmallCartFee       Decimal  @default(0) @db.Decimal(10, 2)
   firstThreeMorningEnabled  Boolean  @default(true)
   homeBannerImage           String?  @db.Text
   homeMobileBannerImage     String?  @db.Text
@@ -413,6 +428,7 @@ model Cart {
   items      CartItem[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+  revision   Int        @default(0)
 }
 
 model CartItem {

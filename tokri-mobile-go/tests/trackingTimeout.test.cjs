@@ -8,7 +8,7 @@ test('bounded config requests abort stalled response bodies and allow later retr
   let hanging = true, aborted = false
   const scope = {
     API_BASE_URL: 'https://example.test/api/v1', appBuild: () => 1, appPlatform: () => 'android',
-    AbortController, setTimeout, clearTimeout, module: { exports: {} },
+    __DEV__: false, AbortController, setTimeout, clearTimeout, module: { exports: {} },
     fetch: async (_url, options) => {
       options.signal?.addEventListener('abort', () => { aborted = true })
       return { ok: true, json: () => hanging ? new Promise(() => {}) : Promise.resolve({ enabled: true }) }

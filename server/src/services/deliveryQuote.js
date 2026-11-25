@@ -1,5 +1,5 @@
 import { checkoutCouponOffers } from './coupons.js'
-import { subtotal } from '../utils/money.js'
+import { money, subtotal } from '../utils/money.js'
 import { calculateCheckoutPricing } from './pricing.js'
 import { prisma } from '../lib/prisma.js'
 import { deliveryChargeFor, ratesFromSettings } from '../config/charges.js'
@@ -8,8 +8,8 @@ import {
   getCustomerFreeDeliveryStatus,
 } from './freeDelivery.js'
 
-export function deliveryDecision(settings, freeDelivery, option, itemsTotal) {
-  const configuredRates = ratesFromSettings(settings, option)
+export function deliveryDecision(settings, freeDelivery, option, itemsTotal, supportsSmallCartCharge) {
+  const configuredRates = ratesFromSettings(settings, option, supportsSmallCartCharge)
   const freeDeliveryApplied =
     option === 'morning' &&
     configuredRates.firstThreeMorningEnabled &&
@@ -40,12 +40,12 @@ export function deliveryDecision(settings, freeDelivery, option, itemsTotal) {
   }
 }
 
-export async function getDeliveryDecision(customerId, option, itemsTotal) {
+export async function getDeliveryDecision(customerId, option, itemsTotal, supportsSmallCartCharge) {
   const [settings, freeDelivery] = await Promise.all([
     prisma.setting.findUnique({ where: { id: 1 } }),
     customerId ? getCustomerFreeDeliveryStatus(customerId) : null,
   ])
-  return deliveryDecision(settings, freeDelivery, option, itemsTotal)
+  return deliveryDecision(settings, freeDelivery, option, itemsTotal, supportsSmallCartCharge)
 }
 
 export async function quoteCheckoutDelivery(
@@ -67,6 +67,7 @@ export async function quoteCheckoutDelivery(
       freeDelivery,
       option,
       itemsTotal,
+      pricingOptions?.supportsSmallCartCharge,
     )
     const pricing = await calculateCheckoutPricing(items, decision.rates, {
       ...(typeof pricingOptions === 'object' ? pricingOptions : {}),
@@ -82,6 +83,10 @@ export async function quoteCheckoutDelivery(
       title: decision.rates[option].title,
       subtitle: decision.rates[option].subtitle,
       deliveryFee: totals.deliveryCharge,
+      ...(pricingOptions?.supportsSmallCartCharge ? {
+        smallCartCharge: totals.smallCartCharge,
+        smallCartRemaining: totals.smallCartCharge > 0 ? money(decision.rates.smallCartRule.below - itemsTotal) : 0,
+      } : {}),
       deliverySavings: Math.max(
         0,
         decision.rates[option].fee - totals.deliveryCharge,

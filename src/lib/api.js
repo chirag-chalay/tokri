@@ -62,7 +62,7 @@ export async function postJson(path, body) {
   const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: checkoutPostBody(path, body),
   })
 
   const data = await response.json().catch(() => ({}))
@@ -90,14 +90,20 @@ export async function authGet(path, user) {
   return data
 }
 
+function checkoutPostBody(path, body) {
+  return JSON.stringify(['/checkout/quote', '/checkout/preview-coupon', '/checkout/create-order'].includes(path)
+    ? { ...body, smallCartPricing: 1 }
+    : body)
+}
+
 export async function authPost(path, user, body) {
   const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: authHeaders(user),
-    body: JSON.stringify(body),
+    body: checkoutPostBody(path, body),
   })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw Object.assign(new Error(data.message || `Request failed (${response.status})`), { status: response.status })
+  if (!response.ok) throw Object.assign(new Error(data.message || `Request failed (${response.status})`), { status: response.status, code: data.code })
   return data
 }
 
@@ -108,7 +114,7 @@ export async function authPut(path, user, body) {
     body: JSON.stringify(body),
   })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.message || `Request failed (${response.status})`)
+  if (!response.ok) throw Object.assign(new Error(data.message || `Request failed (${response.status})`), { status: response.status, code: data.code })
   return data
 }
 

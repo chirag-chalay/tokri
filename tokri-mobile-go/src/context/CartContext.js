@@ -98,6 +98,12 @@ export function CartProvider({ children }) {
   const [hydrated, setHydrated] = useState(false)
   const [unavailablePanel, setUnavailablePanel] = useState(null)
   const itemsRef = useRef([])
+  const [syncError, setSyncError] = useState(false)
+  const [syncRetry, setSyncRetry] = useState(0)
+  const retryCartSync = useCallback(() => {
+    setSyncError(false)
+    setSyncRetry((current) => current + 1)
+  }, [])
   const sessionRef = useRef(null)
   itemsRef.current = cart.items
 
@@ -185,7 +191,9 @@ export function CartProvider({ children }) {
         }
         setQuoteError('')
       }).catch((error) => {
-        if (!ignore) setQuoteError(error.message || 'Could not calculate delivery charges.')
+        if (!ignore && quoteKeyRef.current === keyAtSchedule && quoteId === quoteRequest.current) {
+          setQuoteError(error.message || 'Could not calculate delivery charges.')
+        }
       })
     }, 350)
     return () => {
@@ -306,79 +314,30 @@ export function CartProvider({ children }) {
 
     let ignore = false
     const justLoggedIn = sessionRef.current === 'guest'
-    sessionRef.current = token
+    const mutation = cartSyncRef.current
 
     async function syncCart() {
-      const localItems = itemsRef.current || []
-      let serverCart = null
-      let serverItems = []
       try {
-        const data = await authGet('/account/cart', token)
-        serverCart = data.cart || null
-        serverItems = data.cart?.items || []
-      } catch {
-        serverItems = []
-      }
-      if (ignore) return
-
-      if (!justLoggedIn) {
-        const next = stampItems(serverItems)
+        const items = itemsRef.current || []
+        const { cart: saved } = justLoggedIn && items.length
+          ? await authPut('/account/cart', token, { merge: true, items: items.map(({ slug, quantity }) => ({ slug, quantity })) })
+          : await authGet('/account/cart', token)
+        if (ignore || mutation !== cartSyncRef.current) return
+        if (!saved) throw new Error('Saved cart could not be loaded.')
+        sessionRef.current = token
+        const next = stampItems(saved.items || [])
         setCart(next)
         await persist(next)
-        if (serverCart?.unavailableItems?.length) {
-          applyUnavailablePayload({ unavailableItems: serverCart.unavailableItems, suggestions: [] })
-        }
-        return
-      }
-
-      if (!localItems.length) {
-        if (serverItems.length) {
-          const next = stampItems(serverItems)
-          setCart(next)
-          await persist(next)
-        }
-        if (serverCart?.unavailableItems?.length) {
-          applyUnavailablePayload({ unavailableItems: serverCart.unavailableItems, suggestions: [] })
-        }
-        return
-      }
-
-      const merged = new Map()
-      for (const item of serverItems) merged.set(item.slug, { ...item })
-      for (const item of localItems) {
-        const existing = merged.get(item.slug)
-        if (existing) {
-          existing.quantity = Math.min(99, Number(existing.quantity || 0) + Number(item.quantity || 0))
-        } else {
-          merged.set(item.slug, item)
-        }
-      }
-      const items = [...merged.values()]
-      try {
-        const data = await authPut('/account/cart', token, {
-          items: items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
-        })
-        if (ignore) return
-        const next = stampItems(data.cart?.items || items)
-        setCart(next)
-        await persist(next)
-        if (data.cart?.unavailableItems?.length) {
-          applyUnavailablePayload({ unavailableItems: data.cart.unavailableItems, suggestions: data.cart.suggestions || [] })
-        }
+        applyUnavailablePayload(saved)
+        setSyncError(false)
       } catch {
-        if (!ignore) {
-          const next = stampItems(items)
-          setCart(next)
-          await persist(next)
-        }
+        if (!ignore) setSyncError(true)
       }
     }
 
     syncCart()
-    return () => {
-      ignore = true
-    }
-  }, [applyUnavailablePayload, hydrated, booting, isLoggedIn, token, stampItems, persist])
+    return () => { ignore = true }
+  }, [applyUnavailablePayload, hydrated, booting, isLoggedIn, token, stampItems, persist, syncRetry])
 
   useEffect(() => {
     if (!hydrated) return undefined
@@ -627,10 +586,12 @@ export function CartProvider({ children }) {
       quote,
       quoteLoading,
       quoteError,
+      syncError,
+      retryCartSync,
       unavailablePanel,
       dismissUnavailable,
       refreshDeliveryQuote,
-      smallCartCharge: cart.smallCartCharge,
+      smallCartCharge: quoteSynced?.totals?.smallCartCharge ?? quote?.totals?.smallCartCharge ?? 0,
       discount: quoteSynced?.totals?.discount ?? quote?.totals?.discount ?? 0,
       taxTotal: quoteSynced?.totals?.taxTotal ?? quote?.totals?.taxTotal ?? 0,
       deliveryOption: rates.option || deliveryOption,
@@ -674,6 +635,8 @@ export function CartProvider({ children }) {
       quoteSynced,
       quoteLoading,
       quoteError,
+      syncError,
+      retryCartSync,
       unavailablePanel,
       dismissUnavailable,
       refreshDeliveryQuote,

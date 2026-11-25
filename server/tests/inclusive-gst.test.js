@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { calcCartTotals, calcItemTax } from '../src/config/charges.js'
+import { calcCartTotals, calcItemTax, ratesFromSettings } from '../src/config/charges.js'
 import { orderPricesIncludeGst } from '../src/utils/tax.js'
 
 const noExtraCharges = {
@@ -9,6 +9,30 @@ const noExtraCharges = {
   handlingCharge: 0,
   morning: { fee: 0, freeAbove: 0 },
 }
+
+test('small cart fee uses the option, pre-coupon subtotal, minimum, and exact threshold', () => {
+  const settings = {
+    morningSmallCartEnabled: true, morningSmallCartBelow: 299, morningSmallCartFee: 20,
+    expressSmallCartEnabled: true, expressSmallCartBelow: 599, expressSmallCartFee: 30,
+    expressMinimumOrderValue: 399, expressFreeAbove: 500,
+  }
+  const item = (priceValue) => [{ priceValue, quantity: 1, isTaxable: true, gstRate: 5 }]
+  const morning = ratesFromSettings(settings, 'morning', true)
+  const express = ratesFromSettings(settings, 'express', true)
+  assert.equal(calcCartTotals([], morning).smallCartCharge, 0)
+  assert.equal(calcCartTotals(item(298.99), morning).smallCartCharge, 20)
+  assert.equal(calcCartTotals(item(299), morning, 30).smallCartCharge, 0)
+  assert.equal(calcCartTotals(item(299.01), morning).smallCartCharge, 0)
+  assert.equal(calcCartTotals(item(398.99), express).smallCartCharge, 0)
+  assert.equal(calcCartTotals(item(399), express).smallCartCharge, 30)
+  assert.equal(calcCartTotals(item(599), express).smallCartCharge, 0)
+  const current = calcCartTotals(item(500), express)
+  const legacy = calcCartTotals(item(500), ratesFromSettings(settings, 'express'))
+  assert.equal(current.deliveryCharge, 0)
+  assert.equal(current.smallCartCharge, 30)
+  assert.equal(current.taxTotal, legacy.taxTotal)
+  assert.equal(current.grandTotal - legacy.grandTotal, 30)
+})
 
 test('extracts GST from an inclusive product price without increasing invoice total', () => {
   const item = { priceValue: 300, quantity: 1, isTaxable: true, gstRate: 5 }

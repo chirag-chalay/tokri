@@ -94,6 +94,9 @@ function assertCodCollectable(order) {
   if (order.paymentMode !== 'cod') {
     throw Object.assign(new Error('This order was not placed as cash on delivery.'), { status: 400 })
   }
+  if (order.inventoryReservedAt && !order.codConfirmedAt) {
+    throw Object.assign(new Error('The customer has not confirmed this order yet.'), { status: 409 })
+  }
 }
 
 function sortPartnerOrders(orders) {
@@ -114,6 +117,12 @@ export async function listPartnerOrders(partnerId) {
   const orders = await prisma.order.findMany({
     where: {
       deliveryPartnerId: partnerId,
+      OR: [
+        { inventoryReservedAt: null },
+        { status: 'cancelled' },
+        { paymentMode: 'cod', codConfirmedAt: { not: null } },
+        { paymentMode: 'online', paymentStatus: 'paid' },
+      ],
     },
     orderBy: { createdAt: 'desc' },
     take: 100,
@@ -193,16 +202,18 @@ export async function createOrderPaymentQr(orderId, { partnerId } = {}) {
   })
 }
 
-export async function markOrderPaidByQr({ orderNo, paymentId }) {
-  if (!orderNo) return null
-  const order = await prisma.order.findUnique({ where: { orderNo } })
-  if (!order) return null
+export async function markOrderPaidByQr({ paymentLink, paymentId }) {
+  if (!paymentLink?.id || paymentLink.status !== 'paid' || paymentLink.currency !== 'INR') return null
+  const order = await prisma.order.findFirst({ where: { razorpayPaymentLinkId: paymentLink.id, paymentMode: 'cod' } })
+  if (!order || Number(paymentLink.amount_paid) !== Math.round(Number(order.grandTotal) * 100)) return null
   if (order.paymentStatus === 'paid') return order
   if (order.status === 'cancelled') return order
 
   const result = await prisma.order.updateMany({
     where: {
       id: order.id,
+      razorpayPaymentLinkId: paymentLink.id,
+      paymentMode: 'cod',
       paymentStatus: { not: 'paid' },
       status: { not: 'cancelled' },
     },

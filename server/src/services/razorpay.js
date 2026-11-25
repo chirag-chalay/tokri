@@ -46,18 +46,15 @@ export async function getPublicPaymentConfig() {
 }
 
 export async function createRazorpayOrder({ amountInr, receipt, notes = {} }) {
-  const { client } = await getClient()
   const amountPaise = Math.round(Number(amountInr) * 100)
 
   if (amountPaise < 100) {
     throw Object.assign(new Error('Order total must be at least ₹1.'), { status: 400 })
   }
 
-  return paymentOperation('razorpay.order.create', { orderNo: receipt }, () => client.orders.create({
-    amount: amountPaise,
-    currency: 'INR',
-    receipt,
-    notes,
+  return paymentOperation('razorpay.order.create', { orderNo: receipt }, () => razorpayFetchRaw('/orders', {
+    method: 'POST',
+    body: { amount: amountPaise, currency: 'INR', receipt, notes },
   }))
 }
 
@@ -130,6 +127,7 @@ async function razorpayFetchRaw(path, { method = 'GET', body } = {}) {
   const { config } = await getClient()
   const response = await fetch(`https://api.razorpay.com/v1${path}`, {
     method,
+    signal: AbortSignal.timeout(9000),
     headers: {
       Authorization: `Basic ${Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64')}`,
       'Content-Type': 'application/json',

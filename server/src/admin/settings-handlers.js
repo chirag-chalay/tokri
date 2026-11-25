@@ -21,6 +21,12 @@ export const ALLOWED_SETTING_FIELDS = new Set([
   'expressShippingFee',
   'expressFreeAbove',
   'expressMinimumOrderValue',
+  'morningSmallCartEnabled',
+  'morningSmallCartBelow',
+  'morningSmallCartFee',
+  'expressSmallCartEnabled',
+  'expressSmallCartBelow',
+  'expressSmallCartFee',
   'firstThreeMorningEnabled',
   'shippingFee',
   'handlingFee',
@@ -50,6 +56,10 @@ export const ALLOWED_SETTING_FIELDS = new Set([
 ])
 
 const NUMBER_FIELDS = new Set([
+  'morningSmallCartBelow',
+  'morningSmallCartFee',
+  'expressSmallCartBelow',
+  'expressSmallCartFee',
   'shippingFee',
   'handlingFee',
   'morningShippingFee',
@@ -60,6 +70,8 @@ const NUMBER_FIELDS = new Set([
 ])
 
 const BOOLEAN_FIELDS = new Set([
+  'morningSmallCartEnabled',
+  'expressSmallCartEnabled',
   'firstThreeMorningEnabled',
   'razorpayEnabled',
   'codEnabled',
@@ -209,6 +221,26 @@ export async function settingsEditHandler(request, _response, context) {
     }
   }
   if (integratedNumber) payload.msg91WhatsappNumber = integratedNumber
+
+  for (const [option, label] of [['morning', 'Morning Delivery'], ['express', 'Express Delivery']]) {
+    const names = ['Below', 'Fee'].map((suffix) => option + 'SmallCart' + suffix)
+    const settings = { ...record.params, ...payload }
+    const enabled = toBoolean(settings[option + 'SmallCartEnabled'])
+    const invalid = names.some((name) => {
+      const value = String(settings[name] ?? '').trim()
+      return (enabled || value !== '') && !/^\d{1,8}(?:\.\d{1,2})?$/.test(value)
+    })
+    const [below, fee] = names.map((name) => Number(settings[name] || 0))
+    const minimum = option === 'express' ? Number(settings.expressMinimumOrderValue ?? 1251) : 0
+    if (invalid || (enabled && (fee <= 0 || below <= minimum))) {
+      const json = record.toJSON(currentAdmin)
+      json.params = cleanRecordParams(json.params)
+      return {
+        record: json,
+        notice: { type: 'error', message: `${label}: enter valid amounts. An enabled charge needs a positive fee and a threshold above the delivery minimum.` },
+      }
+    }
+  }
 
   const updated = await saveSettingsFromPayload(payload)
   const rebuilt = resource.build(settingToRecordParams(updated))

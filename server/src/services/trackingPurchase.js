@@ -33,7 +33,7 @@ export async function enqueuePurchase(orderId, { db = prisma, config = readMetaC
   if (!config) return
   const order = await db.order.findUnique({ where: { id: orderId }, include: { items: { include: { product: { select: { slug: true } } } }, customer: true } })
   const context = order?.trackingContext
-  if (!context?.marketing || context.source !== 'web' || context.pixelId !== config.pixelId || !(order.paymentStatus === 'paid' || (order.paymentMode === 'cod' && context.codConfirmed))) return
+  if (!context?.marketing || order.status === 'cancelled' || context.source !== 'web' || context.pixelId !== config.pixelId || !(order.paymentStatus === 'paid' || (order.paymentMode === 'cod' && context.codConfirmed))) return
   const summary = purchaseSummary(order)
   const userData = { ...context.match, ...metaCustomerData(order.customer, order.address) }
   if (!userData.ph && !userData.external_id) return

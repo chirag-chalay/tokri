@@ -4,7 +4,7 @@ import { recordWebsiteDebug } from '../lib/websiteMonitoring'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { useAddress } from './AddressContext'
-import { resolveAssetUrl, authDelete, authGet, authPost, authPut, fetchJson, postJson } from '../lib/api'
+import { resolveAssetUrl, authGet, authPost, authPut, fetchJson, postJson } from '../lib/api'
 import {
   DEFAULT_DELIVERY,
   defaultOptionForAddress,
@@ -104,6 +104,24 @@ function toServerCartItems(items) {
   return items.map((item) => ({ slug: item.id, quantity: item.quantity }))
 }
 
+function sameCart(left, right) {
+  const quantities = new Map(left.map(({ id, quantity }) => [id, quantity]))
+  return left.length === right.length && right.every(({ id, quantity }) => quantities.get(id) === quantity)
+}
+
+function rebaseCart(remote, before, after) {
+  const original = new Map(before.map((item) => [item.id, item]))
+  const edited = new Map(after.map((item) => [item.id, item]))
+  const result = new Map(remote.map((item) => [item.id, item]))
+  for (const id of original.keys()) {
+    if (!edited.has(id)) result.delete(id)
+  }
+  for (const [id, item] of edited) {
+    if (original.get(id)?.quantity !== item.quantity) result.set(id, item)
+  }
+  return [...result.values()]
+}
+
 export function CartProvider({ children }) {
   const { user, isLoggedIn, refreshUser } = useAuth()
   const { selectedAddress } = useAddress()
@@ -166,8 +184,15 @@ export function CartProvider({ children }) {
   }, [cartItems])
   cartItemsRef.current = cartItems
 
-  const skipServerPush = useRef(true)
+  const savedCart = useRef(null)
+  const cartSync = useRef(null)
   const wasGuest = useRef(!isLoggedIn)
+  const [syncVersion, setSyncVersion] = useState(0)
+  const [syncError, setSyncError] = useState(false)
+  const retryCartSync = useCallback(() => {
+    setSyncError(false)
+    setSyncVersion((current) => current + 1)
+  }, [])
 
   const refreshFreeDelivery = useCallback(async () => {
     if (isLoggedIn && user?.token) {
@@ -196,58 +221,99 @@ export function CartProvider({ children }) {
     }
   }, [cartItems])
 
+  const applySavedCart = useCallback((serverCart, token, before) => {
+    const items = (serverCart.items || []).map(mapServerCartItem).filter(Boolean)
+    savedCart.current = { token, items, revision: serverCart.revision }
+    const next = rebaseCart(items, before, cartItemsRef.current)
+    if (!sameCart(next, cartItemsRef.current)) logCartSnapshot.current = 'cart.restored'
+    cartItemsRef.current = next
+    setCartItems(next)
+    applyUnavailablePayload(serverCart)
+  }, [applyUnavailablePayload])
+
   useEffect(() => {
     if (!isLoggedIn || !user?.token) {
       wasGuest.current = true
-      skipServerPush.current = false
+      savedCart.current = null
+      setSyncError(false)
       return undefined
     }
+    if (savedCart.current?.token === user.token || syncError) return undefined
 
     let ignore = false
-    skipServerPush.current = true
-    authGet('/account/cart', user)
-      .then(async (data) => {
-        if (ignore) return
-        const serverItems = (data.cart?.items || []).map(mapServerCartItem).filter(Boolean)
-        const localItems = cartItemsRef.current
-        if (wasGuest.current && !serverItems.length && localItems.length) {
-          const put = await authPut('/account/cart', user, { items: toServerCartItems(localItems) }).catch(() => null)
-          if (put?.cart?.unavailableItems?.length) {
-            applyUnavailablePayload({ unavailableItems: put.cart.unavailableItems, suggestions: [] })
-          }
-        } else {
-          if (JSON.stringify(toServerCartItems(serverItems)) !== JSON.stringify(toServerCartItems(localItems))) {
-            logCartSnapshot.current = 'cart.restored'
-          }
-          setCartItems(serverItems)
-          if (data.cart?.unavailableItems?.length) {
-            applyUnavailablePayload({ unavailableItems: data.cart.unavailableItems, suggestions: [] })
-          }
+    const before = cartItemsRef.current
+    const request = wasGuest.current && before.length
+      ? authPut('/account/cart', user, { merge: true, items: toServerCartItems(before) })
+      : authGet('/account/cart', user)
+    request.then(({ cart }) => {
+      if (ignore) return
+      wasGuest.current = false
+      applySavedCart(cart, user.token, before)
+    }).catch(() => {
+      if (!ignore) setSyncError(true)
+    })
+
+    return () => { ignore = true }
+  }, [applySavedCart, isLoggedIn, user?.id, user?.token, syncError, syncVersion])
+
+  const saveCart = useCallback(async () => {
+    if (cartSync.current) await cartSync.current
+    const baseline = savedCart.current
+    const items = cartItemsRef.current
+    if (!user?.token || baseline?.token !== user.token || sameCart(baseline.items, items)) return
+
+    const request = (async () => {
+      try {
+        const { cart } = await authPut('/account/cart', user, { items: toServerCartItems(items), revision: baseline.revision })
+        if (savedCart.current === baseline) applySavedCart(cart, user.token, items)
+        setSyncError(false)
+      } catch (error) {
+        if (savedCart.current !== baseline) return
+        if (error.status === 409) {
+          const { cart } = await authGet('/account/cart', user)
+          if (savedCart.current === baseline) applySavedCart(cart, user.token, baseline.items)
+          return
         }
-        wasGuest.current = false
-      })
-      .catch(() => {
-        wasGuest.current = false
-      })
-      .finally(() => {
-        window.setTimeout(() => {
-          skipServerPush.current = false
-        }, 0)
-      })
-
-    return () => {
-      ignore = true
+        throw error
+      }
+    })()
+    cartSync.current = request
+    try {
+      await request
+    } catch (error) {
+      if (savedCart.current === baseline) setSyncError(true)
+      throw error
+    } finally {
+      if (cartSync.current === request) cartSync.current = null
     }
-  }, [applyUnavailablePayload, isLoggedIn, user?.id, user?.token])
+  }, [applySavedCart, user?.id, user?.token])
 
-  const serverCartPayload = JSON.stringify(toServerCartItems(cartItems))
   useEffect(() => {
-    if (!isLoggedIn || !user?.token || skipServerPush.current) return undefined
-    const timer = window.setTimeout(() => {
-      authPut('/account/cart', user, { items: JSON.parse(serverCartPayload) }).catch(() => {})
-    }, 400)
+    if (!isLoggedIn || syncError) return undefined
+    const timer = window.setTimeout(() => saveCart().catch(() => {}), 400)
     return () => window.clearTimeout(timer)
-  }, [serverCartPayload, isLoggedIn, user])
+  }, [cartItems, isLoggedIn, saveCart, syncError, syncVersion])
+
+  useEffect(() => {
+    if (!syncError) return undefined
+    window.addEventListener('online', retryCartSync)
+    return () => window.removeEventListener('online', retryCartSync)
+  }, [syncError, retryCartSync])
+
+  const refreshSavedCart = useCallback(async () => {
+    if (!user?.token) return
+    await cartSync.current?.catch(() => {})
+    const baseline = savedCart.current
+    const before = baseline?.token === user.token ? baseline.items : cartItemsRef.current
+    const { cart } = await authGet('/account/cart', user)
+    if (savedCart.current !== baseline) return
+    applySavedCart(cart, user.token, before)
+    setSyncError(false)
+    couponRequest.current += 1
+    setCoupon(null)
+    setCouponError('')
+    setCouponLoading(false)
+  }, [applySavedCart, user?.id, user?.token])
 
   // Hydrate tax data for cart items if missing (e.g. from older localStorage)
   useEffect(() => {
@@ -397,26 +463,6 @@ export function CartProvider({ children }) {
     }
     setCartItems((items) => items.filter((item) => item.id !== productId))
   }
-
-  const clearCart = useCallback(() => {
-    if (cartItemsRef.current.length) {
-      recordWebsiteDebug('cart.cleared', { count: cartItemsRef.current.length })
-      logCartSnapshot.current = 'cart.snapshot'
-    }
-    skipServerPush.current = true
-    couponRequest.current += 1
-    setCouponLoading(false)
-    setCartItems([])
-    setUnavailablePanel(null)
-    setCoupon(null)
-    setCouponError('')
-    if (isLoggedIn && user?.token) {
-      authDelete('/account/cart', user).catch(() => {})
-    }
-    window.setTimeout(() => {
-      skipServerPush.current = false
-    }, 500)
-  }, [isLoggedIn, user])
 
   const getItemQuantity = (productId) => {
     const found = cartItems.find((item) => item.id === productId)
@@ -644,7 +690,10 @@ export function CartProvider({ children }) {
         addItem,
         updateQuantity,
         removeItem,
-        clearCart,
+        refreshSavedCart,
+        saveCart,
+        syncError,
+        retryCartSync,
         getItemQuantity,
         totalCount,
         itemsTotal,

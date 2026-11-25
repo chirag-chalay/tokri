@@ -2,6 +2,7 @@ import { logError } from '../monitoring/database.js'
 import { prisma } from '../lib/prisma.js'
 import { canManage } from './permissions.js'
 import { notifyOrderStatus } from '../services/push.js'
+import { releaseCheckoutStock } from '../services/checkoutInventory.js'
 import { assertPincodeServiceable, normalizePincode } from '../services/delivery.js'
 import { readAdminSearch } from './list-search.js'
 import {
@@ -330,16 +331,27 @@ export const orderEditHandler = {
       }
     }
 
-    await prisma.order.update({
-      where: { id: request.params.recordId },
-      data: {
-        ...(status ? { status } : {}),
-        ...(paymentStatus ? { paymentStatus } : {}),
-        address: nextAddress,
-        deliveryPincode: pincode,
-        ...partnerPatch,
-      },
+    const saved = await prisma.$transaction(async (tx) => {
+      const id = request.params.recordId
+      await tx.$queryRaw`SELECT id FROM \`Order\` WHERE id = ${id} FOR UPDATE`
+      const current = await tx.order.findUniqueOrThrow({ where: { id } })
+      if (current.inventoryReleasedAt && status && status !== 'cancelled') return false
+      if (status === 'cancelled' && ['pending', 'paid', 'packed'].includes(current.status)) {
+        await releaseCheckoutStock(tx, current)
+      }
+      await tx.order.update({
+        where: { id },
+        data: {
+          ...(status ? { status } : {}),
+          ...(paymentStatus ? { paymentStatus } : {}),
+          address: nextAddress,
+          deliveryPincode: pincode,
+          ...partnerPatch,
+        },
+      })
+      return true
     })
+    if (!saved) return reject('Stock for this order was released. Create a new order to fulfill it.')
 
     const order = await loadOrder(request.params.recordId)
     if (status && previous?.status !== status) {

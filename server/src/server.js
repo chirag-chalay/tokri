@@ -23,6 +23,7 @@ import mediaRouter from './routes/media.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { prisma } from './lib/prisma.js'
 import { recoverPendingOnlinePayments } from './services/checkout.js'
+import { expireCheckoutReservations } from './services/checkoutInventory.js'
 import { createFrontendErrorsRouter } from './routes/frontendErrors.js'
 
 if (!process.env.DATABASE_URL) {
@@ -202,6 +203,9 @@ async function start() {
           .catch((error) => logError(error, 'payment-recovery'))
       setTimeout(recover, 8000)
       setInterval(recover, 5 * 60 * 1000)
+      const expireReservations = () => expireCheckoutReservations().catch((error) => logError(error, 'checkout-stock-expiry'))
+      setTimeout(expireReservations, 15000).unref()
+      setInterval(expireReservations, 5 * 60 * 1000).unref()
     })
     listener.on('error', (error) => {
       if (error?.code === 'EADDRINUSE') {

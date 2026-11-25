@@ -8,7 +8,7 @@ function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status })
 }
 
-function normalizeQuantity(value, { allowZero = false } = {}) {
+export function normalizeQuantity(value, { allowZero = false } = {}) {
   const quantity = Number(value)
   if (!Number.isInteger(quantity)) throw httpError('Quantity must be a whole number.')
   if (allowZero && quantity === 0) return 0
@@ -60,14 +60,15 @@ async function getOrCreateCartId(customerId) {
   }
 }
 
-async function loadCartItems(cartId, customerId) {
-  const itemRows = await prisma.$queryRaw`
+async function loadCartItems(cartId, customerId, db = prisma) {
+  const cart = await db.cart.findUnique({ where: { id: cartId }, select: { revision: true } })
+  const itemRows = await db.$queryRaw`
     SELECT id, productId, quantity FROM CartItem WHERE cartId = ${cartId} ORDER BY id ASC
   `
 
   const productIds = [...new Set(itemRows.map((row) => row.productId).filter(Boolean))]
   const products = productIds.length
-    ? await prisma.product.findMany({
+    ? await db.product.findMany({
         where: { id: { in: productIds } },
         include: PRODUCT_CATEGORY_INCLUDE,
       })
@@ -77,6 +78,7 @@ async function loadCartItems(cartId, customerId) {
   return {
     id: cartId,
     customerId,
+    revision: cart?.revision || 0,
     items: itemRows
       .map((row) => ({
         id: row.id,
@@ -85,11 +87,6 @@ async function loadCartItems(cartId, customerId) {
       }))
       .filter((item) => item.product),
   }
-}
-
-async function loadCartRecord(customerId) {
-  const cartId = await getOrCreateCartId(customerId)
-  return loadCartItems(cartId, customerId)
 }
 
 function formatCartItem(item) {
@@ -143,6 +140,7 @@ export async function formatCart(cart) {
       }
 
   return {
+    revision: cart?.revision || 0,
     items: items.map(({ id, slug, name, price, priceValue, oldPrice, oldPriceValue, image, weight, quantity, lineTotal, category, stock, isTaxable, gstRate, hsnCode }) => ({
       id,
       slug,
@@ -167,7 +165,8 @@ export async function formatCart(cart) {
 }
 
 export async function getCart(customerId) {
-  const cart = await loadCartRecord(customerId)
+  const cartId = await getOrCreateCartId(customerId)
+  const cart = await prisma.$transaction((tx) => loadCartItems(cartId, customerId, tx))
   return formatCart(cart)
 }
 
@@ -202,13 +201,67 @@ export async function getCartCheckoutItems(customerId) {
   return cart.items.map((item) => ({ id: item.slug, quantity: item.quantity }))
 }
 
-export async function replaceCart(customerId, rawItems) {
+async function lockCart(tx, customerId) {
+  const [cart] = await tx.$queryRaw`
+    SELECT id, revision FROM Cart WHERE customerId = ${customerId} FOR UPDATE
+  `
+  return cart
+}
+
+async function touchCart(tx, cartId) {
+  await tx.cart.update({ where: { id: cartId }, data: { revision: { increment: 1 } } })
+}
+
+async function writeCart(customerId, write) {
+  await getOrCreateCartId(customerId)
+  const record = await prisma.$transaction(async (tx) => {
+    const cart = await lockCart(tx, customerId)
+    await write(tx, cart)
+    await touchCart(tx, cart.id)
+    return loadCartItems(cart.id, customerId, tx)
+  })
+  return formatCart(record)
+}
+
+export async function checkoutCartLines(tx, customerId, items) {
+  const cart = await lockCart(tx, customerId)
+  if (!cart) return []
+  const quantities = new Map(items.map((item) => [item.productId, item.quantity]))
+  const rows = await tx.cartItem.findMany({
+    where: { cartId: cart.id, productId: { in: [...quantities.keys()] } },
+    select: { id: true, quantity: true, productId: true },
+  })
+  return rows.map(({ id, quantity, productId }) => ({ id, quantity, purchased: quantities.get(productId) }))
+}
+
+export async function consumeCheckoutCart(tx, order) {
+  if (!order.customerId || !order.checkoutSnapshot?.cartLines?.length) return
+  const cart = await lockCart(tx, order.customerId)
+  if (!cart) return
+  let changes = 0
+  for (const line of order.checkoutSnapshot.cartLines) {
+    const where = { id: line.id, cartId: cart.id, quantity: line.quantity }
+    const result = line.purchased >= line.quantity
+      ? await tx.cartItem.deleteMany({ where })
+      : await tx.cartItem.updateMany({ where, data: { quantity: { decrement: line.purchased } } })
+    changes += result.count
+  }
+  if (changes) await touchCart(tx, cart.id)
+}
+
+export async function replaceCart(customerId, rawItems, { revision, merge = false } = {}) {
   if (!Array.isArray(rawItems)) throw httpError('Cart items are required.')
 
   const normalized = rawItems.map((item) => ({
     slug: readSlug(item),
     quantity: normalizeQuantity(item.quantity),
   }))
+  if (new Set(normalized.map((item) => item.slug)).size !== normalized.length) {
+    throw httpError('Duplicate products in cart.')
+  }
+  if (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 0)) {
+    throw httpError('Invalid cart revision.')
+  }
 
   const products = await prisma.product.findMany({
     where: { slug: { in: normalized.map((item) => item.slug) } },
@@ -240,19 +293,24 @@ export async function replaceCart(customerId, rawItems) {
     }
   }
 
-  const cartId = await getOrCreateCartId(customerId)
-  await prisma.$executeRaw`DELETE FROM CartItem WHERE cartId = ${cartId}`
-
-  for (const { entry, product } of activeEntries) {
-    await prisma.$executeRaw`
-      INSERT INTO CartItem (id, cartId, productId, quantity)
-      VALUES (${newId()}, ${cartId}, ${product.id}, ${entry.quantity})
-    `
-  }
-
-  await prisma.$executeRaw`UPDATE Cart SET updatedAt = NOW() WHERE id = ${cartId}`
-
-  const cart = await getCart(customerId)
+  const cart = await writeCart(customerId, async (tx, { id: cartId, revision: currentRevision }) => {
+    if (revision !== undefined && revision !== currentRevision) {
+      throw Object.assign(httpError('Your cart changed on another device. Please refresh it.', 409), { code: 'CART_CHANGED' })
+    }
+    const rows = await tx.cartItem.findMany({ where: { cartId } })
+    const existing = new Map(rows.map((row) => [row.productId, row]))
+    const wanted = new Set(activeEntries.map(({ product }) => product.id))
+    const remove = merge ? [] : rows.filter((row) => !wanted.has(row.productId)).map((row) => row.id)
+    for (const { entry, product } of activeEntries) {
+      const row = existing.get(product.id)
+      // A repeated guest merge must not increase quantities after a lost response.
+      const quantity = merge ? Math.max(entry.quantity, row?.quantity || 0) : entry.quantity
+      if (row?.quantity === quantity) continue
+      if (row) await tx.cartItem.delete({ where: { id: row.id } })
+      await tx.cartItem.create({ data: { cartId, productId: product.id, quantity } })
+    }
+    if (remove.length) await tx.cartItem.deleteMany({ where: { id: { in: remove } } })
+  })
   if (!skippedUnavailable.length) return cart
   const seen = new Set((cart.unavailableItems || []).map((item) => item.slug))
   return {
@@ -265,32 +323,16 @@ export async function replaceCart(customerId, rawItems) {
 }
 
 export async function addCartItem(customerId, rawItem) {
-  const slug = readSlug(rawItem)
   const addBy = normalizeQuantity(rawItem.quantity ?? 1)
-  const product = await loadProduct(slug)
-  const cartId = await getOrCreateCartId(customerId)
-
-  const existing = await prisma.$queryRaw`
-    SELECT id, quantity FROM CartItem
-    WHERE cartId = ${cartId} AND productId = ${product.id}
-    LIMIT 1
-  `
-  const current = existing[0]
-  const nextQuantity = Math.min(99, (Number(current?.quantity) || 0) + addBy)
-
-  if (current) {
-    await prisma.$executeRaw`
-      UPDATE CartItem SET quantity = ${nextQuantity} WHERE id = ${current.id}
-    `
-  } else {
-    await prisma.$executeRaw`
-      INSERT INTO CartItem (id, cartId, productId, quantity)
-      VALUES (${newId()}, ${cartId}, ${product.id}, ${nextQuantity})
-    `
-  }
-
-  await prisma.$executeRaw`UPDATE Cart SET updatedAt = NOW() WHERE id = ${cartId}`
-  return getCart(customerId)
+  const product = await loadProduct(readSlug(rawItem))
+  return writeCart(customerId, async (tx, { id: cartId }) => {
+    const where = { cartId, productId: product.id }
+    const current = await tx.cartItem.findUnique({ where: { cartId_productId: where } })
+    const quantity = Math.min(99, (current?.quantity || 0) + addBy)
+    if (current?.quantity === quantity) return
+    if (current) await tx.cartItem.delete({ where: { id: current.id } })
+    await tx.cartItem.create({ data: { ...where, quantity } })
+  })
 }
 
 export async function updateCartItem(customerId, slug, quantity) {
@@ -298,50 +340,26 @@ export async function updateCartItem(customerId, slug, quantity) {
   if (nextQuantity === 0) return removeCartItem(customerId, slug)
 
   const product = await loadProduct(slug)
-  const cartId = await getOrCreateCartId(customerId)
-  const existing = await prisma.$queryRaw`
-    SELECT id FROM CartItem
-    WHERE cartId = ${cartId} AND productId = ${product.id}
-    LIMIT 1
-  `
-  if (!existing[0]) throw httpError('Item is not in your cart.', 404)
-
-  await prisma.$executeRaw`
-    UPDATE CartItem SET quantity = ${nextQuantity} WHERE id = ${existing[0].id}
-  `
-  await prisma.$executeRaw`UPDATE Cart SET updatedAt = NOW() WHERE id = ${cartId}`
-  return getCart(customerId)
+  return writeCart(customerId, async (tx, { id: cartId }) => {
+    const where = { cartId, productId: product.id }
+    const current = await tx.cartItem.findUnique({ where: { cartId_productId: where } })
+    if (!current) throw httpError('Item is not in your cart.', 404)
+    if (current.quantity === nextQuantity) return
+    await tx.cartItem.delete({ where: { id: current.id } })
+    await tx.cartItem.create({ data: { ...where, quantity: nextQuantity } })
+  })
 }
 
 export async function removeCartItem(customerId, slug) {
   const product = await prisma.product.findFirst({ where: { slug } })
   if (!product) throw httpError('Item is not in your cart.', 404)
 
-  const cartRows = await prisma.$queryRaw`
-    SELECT id FROM Cart WHERE customerId = ${customerId} LIMIT 1
-  `
-  const cartId = cartRows[0]?.id
-  if (!cartId) throw httpError('Item is not in your cart.', 404)
-
-  const deleted = Number(
-    await prisma.$executeRaw`
-      DELETE FROM CartItem WHERE cartId = ${cartId} AND productId = ${product.id}
-    `,
-  )
-  if (!deleted) throw httpError('Item is not in your cart.', 404)
-
-  await prisma.$executeRaw`UPDATE Cart SET updatedAt = NOW() WHERE id = ${cartId}`
-  return getCart(customerId)
+  return writeCart(customerId, async (tx, { id: cartId }) => {
+    const removed = await tx.cartItem.deleteMany({ where: { cartId, productId: product.id } })
+    if (!removed.count) throw httpError('Item is not in your cart.', 404)
+  })
 }
 
 export async function clearCart(customerId) {
-  const cartRows = await prisma.$queryRaw`
-    SELECT id FROM Cart WHERE customerId = ${customerId} LIMIT 1
-  `
-  const cartId = cartRows[0]?.id
-  if (cartId) {
-    await prisma.$executeRaw`DELETE FROM CartItem WHERE cartId = ${cartId}`
-    await prisma.$executeRaw`UPDATE Cart SET updatedAt = NOW() WHERE id = ${cartId}`
-  }
-  return getCart(customerId)
+  return writeCart(customerId, (tx, { id: cartId }) => tx.cartItem.deleteMany({ where: { cartId } }))
 }

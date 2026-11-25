@@ -20,7 +20,7 @@ export default function UpiPaymentScreen({ navigation, route }) {
   const styles = useThemedStyles(createStyles)
   const insets = useSafeAreaInsets()
   const { token, user } = useAuth()
-  const { clearCart, refreshCart } = useCart()
+  const { refreshCart } = useCart()
   const { appId, intentUrl, paymentId, orderNo, amount } = route.params || {}
   const app = upiAppById(appId)
 
@@ -96,7 +96,6 @@ export default function UpiPaymentScreen({ navigation, route }) {
       if (finished.current) return
       finished.current = true
       recoverPurchases(token, user?.id).catch(() => {})
-      await clearCart().catch(() => {})
       await refreshCart().catch(() => {})
       if (!stopped) setPhase('success')
     }
@@ -119,6 +118,10 @@ export default function UpiPaymentScreen({ navigation, route }) {
             }
             if (result.status === 'failed') {
               fail(result.message || 'Payment failed. Please try again.')
+              return
+            }
+            if (result.status === 'cancelled') {
+              fail('This order was cancelled. Contact support if you were charged.')
               return
             }
           } catch (error) {
@@ -161,7 +164,7 @@ export default function UpiPaymentScreen({ navigation, route }) {
       clearTimeout(kickoff)
       sub.remove()
     }
-  }, [clearCart, orderNo, paymentId, phase, refreshCart, token])
+  }, [orderNo, paymentId, phase, refreshCart, token])
 
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
   const waiting = phase === 'opening' || phase === 'waiting'

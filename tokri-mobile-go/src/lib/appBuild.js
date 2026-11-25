@@ -1,7 +1,8 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
 
-const APPLE_APP_ID = '6822043083'
+export const APPLE_APP_ID = '6822043083'
+export const STORE_PACKAGE = 'com.tokriii.app'
 
 export function appPlatform() {
   return Platform.OS === 'ios' ? 'ios' : 'android'
@@ -22,5 +23,5 @@ export function storeUrl() {
       ? `https://apps.apple.com/app/id${APPLE_APP_ID}`
       : 'https://apps.apple.com/search?term=Tokriii'
   }
-  return 'https://play.google.com/store/apps/details?id=com.tokriii.app'
+  return `https://play.google.com/store/apps/details?id=${STORE_PACKAGE}`
 }

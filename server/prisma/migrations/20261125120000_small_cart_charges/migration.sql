@@ -1,0 +1,7 @@
+ALTER TABLE `Setting`
+  ADD COLUMN `morningSmallCartEnabled` BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN `morningSmallCartBelow` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  ADD COLUMN `morningSmallCartFee` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  ADD COLUMN `expressSmallCartEnabled` BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN `expressSmallCartBelow` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  ADD COLUMN `expressSmallCartFee` DECIMAL(10, 2) NOT NULL DEFAULT 0;

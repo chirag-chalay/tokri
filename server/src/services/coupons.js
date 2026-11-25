@@ -223,6 +223,7 @@ export async function previewCoupon({
   customerId,
   deliveryOption = 'morning',
   taxOptions,
+  supportsSmallCartCharge,
 }) {
   const { getDeliveryDecision } = await import('./deliveryQuote.js')
   const { calculateCheckoutPricing } = await import('./pricing.js')
@@ -230,6 +231,7 @@ export async function previewCoupon({
     customerId,
     deliveryOption,
     subtotal(items),
+    supportsSmallCartCharge,
   )
   const result = await calculateCheckoutPricing(items, decision.rates, {
     customerId,

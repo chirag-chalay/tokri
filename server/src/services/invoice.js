@@ -514,7 +514,7 @@ export async function generateOrderInvoicePdf(orderIdOrNo) {
       }
 
       if (Number(order.smallCartCharge) > 0) {
-        renderTotalLine('Small Cart Fee:', formatMoney(order.smallCartCharge))
+        renderTotalLine('Small Cart Charge:', formatMoney(order.smallCartCharge))
       }
 
       y += 2

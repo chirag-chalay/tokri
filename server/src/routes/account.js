@@ -141,7 +141,10 @@ router.get('/cart', async (req, res, next) => {
 
 router.put('/cart', async (req, res, next) => {
   try {
-    const cart = await replaceCart(req.customer.id, req.body?.items || [])
+    const cart = await replaceCart(req.customer.id, req.body?.items || [], {
+      revision: req.body?.revision,
+      merge: req.body?.merge === true,
+    })
     res.json({ cart })
   } catch (error) {
     next(error)
@@ -150,7 +153,11 @@ router.put('/cart', async (req, res, next) => {
 
 router.delete('/cart', async (req, res, next) => {
   try {
-    const cart = await clearCart(req.customer.id)
+    const platform = req.get('X-App-Platform')
+    const build = Number(req.get('X-App-Build'))
+    // These app releases call DELETE after payment as part of checkout cleanup.
+    const legacyCheckoutCleanup = build > 0 && ((platform === 'android' && build <= 51) || (platform === 'ios' && build <= 16))
+    const cart = await (legacyCheckoutCleanup ? getCart(req.customer.id) : clearCart(req.customer.id))
     res.json({ cart })
   } catch (error) {
     next(error)

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
   AppState,
@@ -14,14 +14,15 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetchJson } from '../lib/api'
 import { appBuild, appPlatform, storeUrl } from '../lib/appBuild'
+import { getStoreUpdate } from '../lib/storeUpdate'
 import { useTheme } from '../context/ThemeContext'
 import { useAnalyticsSettings } from '../context/AnalyticsContext'
 
-const CACHE_KEY = 'tokri-app-release'
+const CACHE_KEY = `tokri-app-release-${appPlatform()}-${appBuild()}`
 const CACHE_MAX_AGE = 6 * 60 * 60 * 1000
 
-function snoozeKey(latestBuild) {
-  return `tokri-app-release-snooze-${latestBuild || 0}`
+function snoozeKey(decision) {
+  return `tokri-app-release-snooze-${decision?.storeRelease || decision?.latestBuild || 0}`
 }
 
 async function readCache() {
@@ -41,6 +42,7 @@ export default function AppUpdateGate({ children }) {
   const [decision, setDecision] = useState(null)
   const [open, setOpen] = useState(false)
   const [checked, setChecked] = useState(false)
+  const checking = useRef(false)
   const { setStartupBlocked } = useAnalyticsSettings()
   useEffect(() => { setStartupBlocked(!checked || open) }, [checked, open, setStartupBlocked])
 
@@ -51,7 +53,7 @@ export default function AppUpdateGate({ children }) {
       return
     }
     if (next.action === 'recommend') {
-      const until = Number(await AsyncStorage.getItem(snoozeKey(next.latestBuild)))
+      const until = Number(await AsyncStorage.getItem(snoozeKey(next)).catch(() => null))
       if (Number.isFinite(until) && Date.now() < until) {
         setDecision(next)
         setOpen(false)
@@ -63,18 +65,40 @@ export default function AppUpdateGate({ children }) {
   }, [])
 
   const check = useCallback(async () => {
+    if (checking.current) return
+    checking.current = true
     try {
-      const next = await fetchJson(`/app/release?platform=${appPlatform()}&build=${appBuild()}`, { timeoutMs: 5000 })
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), decision: next }))
-      await applyDecision(next)
-    } catch {
-      const cached = await readCache()
-      if (cached?.action === 'required' || cached?.action === 'maintenance') {
-        await applyDecision(cached)
+      const storeCheck = getStoreUpdate()
+      const policy = await fetchJson(`/app/release?platform=${appPlatform()}&build=${appBuild()}`, { timeoutMs: 5000 })
+        .then((next) => {
+          void AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), decision: next })).catch(() => {})
+          return next
+        })
+        .catch(readCache)
+      if (policy?.action === 'required' || policy?.action === 'maintenance') {
+        await applyDecision(policy)
         return
       }
-      setOpen(false)
-    } finally { setChecked(true) }
+      setChecked(true)
+      const release = await storeCheck
+      if (release === undefined) {
+        await applyDecision(policy)
+        return
+      }
+      await applyDecision(release && {
+        action: 'recommend',
+        title: policy?.action === 'recommend' ? policy.title : 'Update Tokriii',
+        message: release.version
+          ? `Tokriii ${release.version} is available in the App Store.`
+          : 'A new version of Tokriii is available on Google Play.',
+        latestBuild: release.build,
+        storeRelease: release.id,
+        remindAfterHours: policy?.remindAfterHours,
+      })
+    } finally {
+      checking.current = false
+      setChecked(true)
+    }
   }, [applyDecision])
 
   useEffect(() => {
@@ -87,7 +111,7 @@ export default function AppUpdateGate({ children }) {
 
   const later = async () => {
     const hours = Math.min(720, Math.max(1, Number(decision?.remindAfterHours) || 24))
-    await AsyncStorage.setItem(snoozeKey(decision?.latestBuild), String(Date.now() + hours * 60 * 60 * 1000))
+    await AsyncStorage.setItem(snoozeKey(decision), String(Date.now() + hours * 60 * 60 * 1000)).catch(() => {})
     setOpen(false)
   }
 

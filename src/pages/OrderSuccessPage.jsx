@@ -12,7 +12,7 @@ const SUCCESS_REDIRECT_MS = 3000
 const PENDING_REDIRECT_MS = 8000
 
 function isConfirmed(data) {
-  return data?.paymentMode === 'cod' || data?.paymentStatus === 'paid'
+  return data?.status !== 'cancelled' && (data?.confirmed ?? (data?.paymentMode === 'cod' || data?.paymentStatus === 'paid'))
 }
 
 function StatusMark({ variant }) {
@@ -50,7 +50,7 @@ export default function OrderSuccessPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, isLoggedIn } = useAuth()
-  const { clearCart, refreshFreeDelivery } = useCart()
+  const { refreshSavedCart, refreshFreeDelivery } = useCart()
   const navState = location.state || {}
   const knownConfirmed = navState.confirmed === true || navState.paymentMode === 'cod'
   const token = user?.token
@@ -69,12 +69,12 @@ export default function OrderSuccessPage() {
   const [phase, setPhase] = useState(knownConfirmed ? 'success' : 'waiting')
   const confirmedRef = useRef(knownConfirmed)
   const cleared = useRef(false)
-  const helpersRef = useRef({ clearCart, refreshFreeDelivery })
+  const helpersRef = useRef({ refreshSavedCart, refreshFreeDelivery })
 
   useEffect(() => {
     userRef.current = user
-    helpersRef.current = { clearCart, refreshFreeDelivery }
-  }, [user, clearCart, refreshFreeDelivery])
+    helpersRef.current = { refreshSavedCart, refreshFreeDelivery }
+  }, [user, refreshSavedCart, refreshFreeDelivery])
 
   useEffect(() => {
     if (phase !== 'success' || !token || !orderNo) return
@@ -91,7 +91,7 @@ export default function OrderSuccessPage() {
     setPhase('success')
     if (!cleared.current) {
       cleared.current = true
-      helpersRef.current.clearCart()
+      helpersRef.current.refreshSavedCart().catch(() => {})
       helpersRef.current.refreshFreeDelivery?.()
     }
   }
@@ -105,7 +105,7 @@ export default function OrderSuccessPage() {
   useEffect(() => {
     if (knownConfirmed && !cleared.current) {
       cleared.current = true
-      helpersRef.current.clearCart()
+      helpersRef.current.refreshSavedCart().catch(() => {})
       helpersRef.current.refreshFreeDelivery?.()
     }
   }, [knownConfirmed])
@@ -143,6 +143,10 @@ export default function OrderSuccessPage() {
         try {
           const data = await authGet(`/checkout/status/${encodeURIComponent(orderNo)}`, userRef.current)
           if (stopped) return
+          if (data?.status === 'cancelled') {
+            setPhase('cancelled')
+            return
+          }
           if (isConfirmed(data)) {
             markConfirmed(data)
             return
@@ -174,6 +178,10 @@ export default function OrderSuccessPage() {
         try {
           const data = await authGet(`/checkout/status/${encodeURIComponent(orderNo)}`, userRef.current)
           if (stopped) return
+          if (data?.status === 'cancelled') {
+            setPhase('cancelled')
+            return
+          }
           if (isConfirmed(data)) markConfirmed(data)
         } catch (error) {
           if (stopped || confirmedRef.current) return
@@ -257,6 +265,14 @@ export default function OrderSuccessPage() {
                 View My Orders
               </Link>
             </div>
+          </>
+        ) : null}
+        {phase === 'cancelled' ? (
+          <>
+            <StatusMark variant="pending" />
+            <h1 className="mt-6 text-2xl font-bold text-white">This order was cancelled</h1>
+            <p className="mt-3 text-muted">Contact support with order #{orderNo} if you were charged.</p>
+            <Link to="/account?section=orders" className={secondaryBtn}>View My Orders</Link>
           </>
         ) : null}
       </div>

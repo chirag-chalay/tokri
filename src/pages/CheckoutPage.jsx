@@ -41,6 +41,7 @@ export default function CheckoutPage() {
     quoteError,
     refreshDeliveryQuote,
     refreshFreeDelivery,
+    saveCart,
   } = useCart()
 
   const checkoutTracked = useRef(false)
@@ -58,6 +59,8 @@ export default function CheckoutPage() {
   const [paymentMode, setPaymentMode] = useState('online')
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
+  const checkoutInFlight = useRef(false)
+  const checkoutAttempt = useRef(null)
   const [formOpen, setFormOpen] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
 
@@ -145,7 +148,7 @@ export default function CheckoutPage() {
     const confirmFromRazorpay = async () => {
       const synced = await authPost('/checkout/sync-payment', user, { orderNo })
       if (synced?.status === 'paid') return orderNo
-      throw new Error('Payment is still pending.')
+      throw Object.assign(new Error('Payment is still pending.'), { code: 'PAYMENT_PENDING' })
     }
 
     return new Promise((resolve, reject) => {
@@ -169,6 +172,7 @@ export default function CheckoutPage() {
             })
             resolve(orderNo)
           } catch (error) {
+            if (error.code === 'PAYMENT_PENDING') return reject(error)
             try {
               resolve(await confirmFromRazorpay())
             } catch {
@@ -199,6 +203,7 @@ export default function CheckoutPage() {
   }
 
   const handleCheckout = async () => {
+    if (checkoutInFlight.current) return
     if (!isLoggedIn) {
       recordWebsiteDebug('checkout.guest.blocked')
       Swal.fire({
@@ -249,7 +254,9 @@ export default function CheckoutPage() {
       return
     }
 
+    checkoutInFlight.current = true
     setPaying(true)
+    let orderNo
     try {
       const currentQuote = await refreshDeliveryQuote()
       if (currentQuote?.totals?.grandTotal !== quote.totals.grandTotal) {
@@ -260,22 +267,30 @@ export default function CheckoutPage() {
         throw new Error(currentOption?.minimumMessage || 'This delivery option is not available for this order.')
       }
       trackCommerce('add_payment_info', { items: cartItems, paymentType: paymentMode, addressId: selectedAddressId })
-      const checkout = await authPost('/checkout/create-order', user, {
-        tracking: checkoutTrackingContext(),
+      const orderRequest = {
         items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
         addressId: selectedAddressId,
         paymentMode,
         expectedGrandTotal: currentQuote.totals.grandTotal,
         couponCode: coupon?.code || undefined,
         deliveryOption,
+      }
+      const signature = JSON.stringify([user.id, orderRequest])
+      if (checkoutAttempt.current?.signature !== signature) {
+        checkoutAttempt.current = { signature, id: window.crypto.randomUUID() }
+      }
+      await saveCart().catch(() => {})
+      const checkout = await authPost('/checkout/create-order', user, {
+        ...orderRequest,
+        checkoutAttemptId: checkoutAttempt.current.id,
+        tracking: checkoutTrackingContext(),
       })
 
-      let orderNo = checkout.order.orderNo
+      orderNo = checkout.order.orderNo
 
-      if (checkout.razorpay) {
-        orderNo = await startOnlinePayment(checkout)
-      } else {
-        await authPost('/checkout/confirm-cod', user, { orderNo })
+      if (!checkout.order.confirmed) {
+        if (checkout.razorpay) await startOnlinePayment(checkout)
+        else await authPost('/checkout/confirm-cod', user, { orderNo })
       }
 
       if (checkout.trackingPurchase) {
@@ -283,22 +298,30 @@ export default function CheckoutPage() {
         trackCommerce('purchase', checkout.trackingPurchase, checkout.trackingPurchase.eventId)
       }
       refreshFreeDelivery?.()
+      checkoutAttempt.current = null
       navigate(`/order/${orderNo}`, {
         replace: true,
         state: {
-          paymentMode: checkout.razorpay ? 'online' : 'cod',
+          paymentMode: checkout.order.paymentMode,
           confirmed: true,
           expectedDeliveryDate: checkout.order?.expectedDeliveryDate || null,
         },
       })
     } catch (error) {
-      setPaying(false)
+      if (error.code === 'CHECKOUT_EXPIRED' || error.code === 'CHECKOUT_ATTEMPT_CHANGED') checkoutAttempt.current = null
+      if (error.code === 'PAYMENT_PENDING' && orderNo) {
+        navigate(`/order/${orderNo}`, { replace: true })
+        return
+      }
       Swal.fire({
         icon: 'error',
         title: 'Checkout failed',
         text: error.message || 'Could not complete checkout.',
         confirmButtonColor: '#047857',
       })
+    } finally {
+      checkoutInFlight.current = false
+      setPaying(false)
     }
   }
 
@@ -541,6 +564,17 @@ export default function CheckoutPage() {
                   {selectedQuote.freeAboveMessage}
                 </p>
               ) : null}
+              {quote?.totals?.smallCartCharge > 0 && (
+                <>
+                  <div className="flex justify-between">
+                    <span>Small Cart Charge</span>
+                    <span>{formatPrice(quote.totals.smallCartCharge)}</span>
+                  </div>
+                  {selectedQuote?.smallCartRemaining > 0 && (
+                    <p className="text-xs">Add {formatPrice(selectedQuote.smallCartRemaining)} more to avoid this charge.</p>
+                  )}
+                </>
+              )}
               <DiscountDetails />
             </div>
 

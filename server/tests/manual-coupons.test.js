@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createRequire } from 'node:module'
 import { mkdir, writeFile } from 'node:fs/promises'
 const url = new URL(process.env.DATABASE_URL || 'mysql://invalid')
 assert.equal(url.hostname, '127.0.0.1')
@@ -22,14 +21,15 @@ const {
   resolveCartItems,
   markOnlineOrderPaidFromWebhook,
   syncIntentPayment,
+  confirmCodOrder,
 } = await import('../src/services/checkout.js')
-const { getCart, replaceCart } = await import('../src/services/cart.js')
+const { getCart, replaceCart, addCartItem } = await import('../src/services/cart.js')
 const { generateOrderInvoicePdf } = await import('../src/services/invoice.js')
 const { prepareCouponPayload } = await import('../src/admin/coupon-handlers.js')
 const { default: checkoutRouter } = await import('../src/routes/checkout.js')
 const { default: express } = await import('express')
-const axios = createRequire(import.meta.url)('axios').default
-const bcrypt = createRequire(import.meta.url)('bcryptjs')
+const { expireCheckoutReservations } = await import('../src/services/checkoutInventory.js')
+const { default: bcrypt } = await import('bcryptjs')
 const item = (priceValue, extra = {}) => ({
   slug: 'manual-fruit',
   quantity: 1,
@@ -40,16 +40,18 @@ const rates = defaultChargeRates()
 let server
 const nativeFetch = globalThis.fetch
 let mockedPayment = null
-// Fail closed: payment helpers use both Axios and fetch. Only local API traffic
-// may leave the harness; Razorpay fetch responses are supplied explicitly.
+let mockOrderCreation
+// All gateway calls in this suite use isolated provider responses.
 globalThis.fetch = async (input, options) => {
   const requestUrl = new URL(String(input))
   if (requestUrl.hostname === '127.0.0.1') return nativeFetch(input, options)
-  if (requestUrl.hostname === 'api.razorpay.com' && mockedPayment)
-    return new Response(JSON.stringify(mockedPayment), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  if (requestUrl.hostname === 'api.razorpay.com') {
+    if (requestUrl.pathname === '/v1/orders' && options?.method === 'GET') return Response.json({ items: [] })
+    if (requestUrl.pathname === '/v1/orders' && options?.method === 'POST' && mockOrderCreation) {
+      return Response.json(mockOrderCreation(JSON.parse(options.body)))
+    }
+    if (mockedPayment) return Response.json(mockedPayment)
+  }
   throw new Error(`Unexpected external request blocked: ${requestUrl.hostname}`)
 }
 await test('Customer-selected coupons: isolated MySQL + checkout API', async (t) => {
@@ -212,6 +214,65 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
       paymentMode: 'cod',
       deliveryOption: 'morning',
     }
+    await t.test('small cart charges preserve legacy checkout and match COD, coupon preview, Razorpay and invoice totals', async () => {
+      try {
+        await prisma.setting.update({
+          where: { id: 1 },
+          data: {
+            morningSmallCartEnabled: true,
+            morningSmallCartBelow: 1800,
+            morningSmallCartFee: 20,
+            expressSmallCartEnabled: true,
+            expressSmallCartBelow: 1600,
+            expressSmallCartFee: 30,
+          },
+        })
+        const legacy = await api('quote', input)
+        assert.equal(legacy.status, 200)
+        assert.equal(legacy.body.totals.smallCartCharge, 0)
+        const oldOrder = await api('create-order', { ...input, expectedGrandTotal: legacy.body.totals.grandTotal })
+        assert.equal(oldOrder.status, 201)
+        assert.equal(oldOrder.body.totals.smallCartCharge, 0)
+
+        const supported = { ...input, smallCartPricing: 1, couponCode: 'PRIVATE50' }
+        const current = await api('quote', supported)
+        assert.equal(current.status, 200)
+        assert.equal(current.body.totals.smallCartCharge, 20)
+        assert.equal(current.body.options.morning.smallCartRemaining, 300)
+        assert.equal(current.body.options.express.smallCartCharge, 30)
+        const preview = await api('preview-coupon', { ...supported, code: 'PRIVATE50' })
+        assert.equal(preview.status, 200)
+        assert.equal(preview.body.totals.grandTotal, current.body.totals.grandTotal)
+        const stale = await api('create-order', { ...supported, expectedGrandTotal: legacy.body.totals.grandTotal })
+        assert.equal(stale.status, 409)
+        const cod = await api('create-order', { ...supported, expectedGrandTotal: current.body.totals.grandTotal })
+        assert.equal(cod.status, 201)
+        assert.equal(cod.body.totals.grandTotal, current.body.totals.grandTotal)
+        const invoice = await generateOrderInvoicePdf(cod.body.order.id)
+        assert.equal(Number(invoice.order.smallCartCharge), 20)
+        assert.equal(Number(invoice.order.grandTotal), current.body.totals.grandTotal)
+
+        let requestedPaise
+        mockOrderCreation = ({ amount }) => {
+          requestedPaise = amount
+          return { id: 'order_small_cart_test', amount }
+        }
+        await prisma.setting.update({
+          where: { id: 1 },
+          data: { razorpayEnabled: true, razorpayKeyId: 'rzp_test_isolated', razorpayKeySecret: 'isolated' },
+        })
+        const paid = await api('create-order', { ...supported, paymentMode: 'online', expectedGrandTotal: current.body.totals.grandTotal })
+        assert.equal(paid.status, 201)
+        assert.equal(requestedPaise, Math.round(current.body.totals.grandTotal * 100))
+        assert.equal(paid.body.razorpay.amount, requestedPaise)
+      } finally {
+        mockOrderCreation = null
+        await prisma.setting.update({
+          where: { id: 1 },
+          data: { morningSmallCartEnabled: false, expressSmallCartEnabled: false, razorpayEnabled: false, razorpayKeyId: null, razorpayKeySecret: null },
+        })
+      }
+    })
     await t.test(
       'inclusive thresholds; all public offers visible; no automatic discounts even with retired config enabled',
       async () => {
@@ -294,7 +355,7 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
         assert.equal(q.body.couponStatus.status, 'removed')
         await assert.rejects(
           resolveCartItems([{ slug: 'manual-fruit', quantity: 1.5 }]),
-          /quantity/,
+          /quantity/i,
         )
         await replaceCart(customer.id, input.items)
         assert.equal((await getCart(customer.id)).discount, 0)
@@ -485,17 +546,10 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
           }),
           (e) => e.code === 'QUOTE_CHANGED',
         )
-        const adapter = axios.defaults.adapter
-        let amount
-        axios.defaults.adapter = async (request) => {
-          amount = JSON.parse(request.data).amount
-          return {
-            data: { id: 'order_manual_test', amount },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config: request,
-          }
+          let amount
+        mockOrderCreation = (request) => {
+          amount = request.amount
+          return { id: 'order_manual_test', amount }
         }
         try {
           await prisma.setting.update({
@@ -522,6 +576,7 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
             order_id: 'order_manual_test',
             amount,
             status: 'failed',
+            currency: 'INR',
           }
           const failed = await syncIntentPayment(customer, {
             orderNo: online.order.orderNo,
@@ -529,14 +584,16 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
             razorpayPaymentId: 'pay_failed_test',
           })
           assert.equal(failed.status, 'failed')
-          await markOnlineOrderPaidFromWebhook({
+          const proof = {
             orderNo: online.order.orderNo,
-            paymentId: 'pay_retry_success',
-          })
-          await markOnlineOrderPaidFromWebhook({
-            orderNo: online.order.orderNo,
-            paymentId: 'pay_retry_success',
-          })
+            razorpayOrderId: 'order_manual_test',
+            capturedPayment: { ...mockedPayment, id: 'pay_retry_success', status: 'captured' },
+          }
+          assert.equal(await markOnlineOrderPaidFromWebhook({ ...proof, capturedPayment: { ...proof.capturedPayment, status: 'authorized' } }), null)
+          assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: online.order.id } })).paymentStatus, 'pending')
+          await markOnlineOrderPaidFromWebhook(proof)
+          await markOnlineOrderPaidFromWebhook(proof)
+          assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: online.order.id } })).paymentStatus, 'paid')
           assert.equal(
             await prisma.couponRedemption.count({
               where: { orderId: online.order.id },
@@ -546,7 +603,7 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
 
           assert.equal(amount, Math.round(Number(saved.grandTotal) * 100))
         } finally {
-          axios.defaults.adapter = adapter
+          mockOrderCreation = null
           await prisma.setting.update({
             where: { id: 1 },
             data: {
@@ -608,8 +665,8 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
             },
           }),
           results = await Promise.allSettled([
-            create(customer, { ...input, couponCode: coupon.code }),
-            create(customer, { ...input, couponCode: coupon.code }),
+            create(customer, { ...input, couponCode: coupon.code, checkoutAttemptId: `coupon-first-${coupon.id}` }),
+            create(customer, { ...input, couponCode: coupon.code, checkoutAttemptId: `coupon-other-${coupon.id}` }),
           ])
         assert.equal(results.filter((x) => x.status === 'fulfilled').length, 1)
         const order = results.find((x) => x.status === 'fulfilled').value.order
@@ -690,6 +747,34 @@ await test('Customer-selected coupons: isolated MySQL + checkout API', async (t)
         assert.equal(await prisma.order.count(), count)
       },
     )
+    await t.test('stock reservation, checkout retries, and concurrent stock updates are atomic', async () => {
+      const sku = await prisma.product.create({ data: { slug: `checkout-stock-${Date.now()}`, name: 'Stock test', priceValue: 1500, stock: 1 } })
+      const request = { ...input, items: [{ slug: sku.slug, quantity: 1 }], checkoutAttemptId: `stock-checkout-${sku.id}` }
+      await assert.rejects(create(customer, { ...request, items: [{ slug: sku.slug, quantity: 2 }] }), (error) => error.reasonCode === 'OUT_OF_STOCK')
+      const [first, retry] = await Promise.all([create(customer, request), create(customer, request)])
+      assert.equal(first.order.id, retry.order.id)
+      assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: sku.id } })).stock, 0)
+      await assert.rejects(create(customer, { ...request, checkoutAttemptId: `other-checkout-${sku.id}` }), (error) => error.reasonCode === 'OUT_OF_STOCK')
+      await prisma.order.update({ where: { id: first.order.id }, data: { inventoryReservedAt: new Date(Date.now() - 3600000) } })
+      await expireCheckoutReservations()
+      await expireCheckoutReservations()
+      assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: sku.id } })).stock, 1)
+      assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: first.order.id } })).status, 'cancelled')
+    })
+
+    await t.test('cart revisions preserve concurrent edits and confirmation removes only purchased lines', async () => {
+      const lines = [{ slug: 'manual-fruit', quantity: 1 }]
+      const original = await replaceCart(customer.id, lines)
+      await assert.rejects(replaceCart(customer.id, [...lines, ...lines]), /Duplicate products/)
+      assert.deepEqual((await getCart(customer.id)).items.map(({ slug, quantity }) => ({ slug, quantity })), lines)
+      const order = await create(customer, { ...input, checkoutAttemptId: `cart-checkout-${Date.now()}` })
+      await addCartItem(customer.id, { slug: 'manual-dry', quantity: 1 })
+      await assert.rejects(replaceCart(customer.id, lines, { revision: original.revision }), (error) => error.code === 'CART_CHANGED')
+      await Promise.all([confirmCodOrder(customer, order.order), confirmCodOrder(customer, order.order)])
+      const after = await getCart(customer.id)
+      assert.deepEqual(after.items.map(({ slug }) => slug), ['manual-dry'])
+    })
+
     await t.test(
       'admin validation and private-by-default visibility',
       async () => {

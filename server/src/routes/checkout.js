@@ -27,6 +27,7 @@ import { quoteCheckoutDelivery } from '../services/deliveryQuote.js'
 import { metaAttribution, cookieValue } from '../utils/metaAttribution.js'
 
 const router = Router()
+const supportsSmallCartCharge = (req) => req.body?.smallCartPricing === 1
 router.use((req, res, next) => {
   if (req.method === 'POST' && !['/quote', '/preview-coupon'].includes(req.path)) {
     let outcome, orderNo
@@ -58,6 +59,7 @@ function emptyQuoteTotals() {
     taxTotal: 0,
     deliveryCharge: 0,
     handlingCharge: 0,
+    smallCartCharge: 0,
     discount: 0,
     grandTotal: 0,
   }
@@ -120,14 +122,20 @@ router.get('/config', optionalCustomer, async (req, res, next) => {
 
 router.post('/quote', optionalCustomer, async (req, res, next) => {
   try {
+    const option = req.body?.deliveryOption === 'express' ? 'express' : 'morning'
+    if (Array.isArray(req.body?.items) && req.body.items.length === 0) {
+      const quote = emptyQuoteShell(option)
+      if (req.body?.couponCode) quote.couponStatus = { status: 'removed', reason: 'EMPTY_CART' }
+      return res.json({ ...quote, unavailableItems: [], suggestions: [] })
+    }
     const { items, unavailableItems } = await resolvePreviewPartition(req.body?.items)
     if (!items.length && !unavailableItems.length) {
       throw Object.assign(new Error('Your cart is empty.'), { status: 400, reasonCode: 'VALIDATION_ERROR' })
     }
-    const option = req.body?.deliveryOption === 'express' ? 'express' : 'morning'
     const quote = items.length
       ? await quoteCheckoutDelivery(items, req.customer?.id || null, option, {
           couponCode: req.body?.couponCode, isInterState: await quoteIsInterState(req),
+          supportsSmallCartCharge: supportsSmallCartCharge(req),
         })
       : emptyQuoteShell(option)
     const excludeSlugs = [
@@ -156,6 +164,7 @@ router.post('/preview-coupon', optionalCustomer, async (req, res, next) => {
     }
     const result = await previewCoupon({
       code: req.body?.code,
+      supportsSmallCartCharge: supportsSmallCartCharge(req),
       taxOptions: { isInterState: await quoteIsInterState(req) },
       items,
       customerId: req.customer?.id || null,
@@ -187,6 +196,7 @@ router.post('/create-order', async (req, res, next) => {
   try {
     const result = await createCheckoutOrder(req.customer, { ...req.body, tracking: /^Bearer /i.test(req.headers.authorization || '') ? req.body?.tracking : undefined }, {
       ip: req.ip,
+      supportsSmallCartCharge: supportsSmallCartCharge(req),
       userAgent: req.get('user-agent'),
       attribution: metaAttribution(req),
       marketingConsent: cookieValue(req, 'tokriii_marketing_consent') === 'granted',
@@ -297,13 +307,13 @@ export async function handleRazorpayCheckoutCallback(req, res) {
   let outcome = 'skipped'
   try {
     if (razorpayOrderId && razorpayPaymentId && razorpaySignature) {
-      await completeRazorpayCallback({
+      const order = await completeRazorpayCallback({
         razorpayOrderId,
         razorpayPaymentId,
         razorpaySignature,
         orderNo: orderNo || null,
       })
-      outcome = 'success'
+      outcome = order?.paymentStatus === 'paid' && order.status !== 'cancelled' ? 'success' : 'pending'
     }
   } catch (error) {
     outcome = 'failure'

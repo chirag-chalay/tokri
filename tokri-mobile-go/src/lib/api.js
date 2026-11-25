@@ -29,7 +29,7 @@ async function parseResponse(response) {
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
     const detail = data.message || data.error?.description || data.error || ''
-    throw new Error(detail || `Request failed (${response.status})`)
+    throw Object.assign(new Error(detail || `Request failed (${response.status})`), { status: response.status, code: data.code })
   }
   return data
 }
@@ -89,11 +89,17 @@ export async function authGet(path, token) {
   return request(path, { headers: authHeaders(token) })
 }
 
+function checkoutPostBody(path, body) {
+  return JSON.stringify(['/checkout/quote', '/checkout/preview-coupon', '/checkout/create-order'].includes(path)
+    ? { ...body, smallCartPricing: 1 }
+    : body)
+}
+
 export async function authPost(path, token, body) {
   return request(path, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify(body),
+    body: checkoutPostBody(path, body),
   })
 }
 
@@ -124,7 +130,7 @@ export async function postJson(path, body) {
   return request(path, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify(body),
+    body: checkoutPostBody(path, body),
   })
 }
 

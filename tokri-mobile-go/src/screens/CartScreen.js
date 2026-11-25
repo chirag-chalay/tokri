@@ -53,12 +53,12 @@ export default function CartScreen({ navigation }) {
     itemsTotal,
     deliveryCharge,
     handlingCharge,
+    smallCartCharge,
     discount,
     coupon,
     couponLoading,
     hydrated,
     updateQuantity,
-    clearCart,
     refreshCart,
     deliveryOption,
     setDeliveryOption,
@@ -68,6 +68,8 @@ export default function CartScreen({ navigation }) {
     quote,
     quoteLoading,
     quoteError,
+    syncError,
+    retryCartSync,
     unavailablePanel,
     dismissUnavailable,
     refreshDeliveryQuote,
@@ -80,6 +82,8 @@ export default function CartScreen({ navigation }) {
   const [payChoice, setPayChoice] = useState(null)
   const [paySheet, setPaySheet] = useState(false)
   const [paying, setPaying] = useState(false)
+  const checkoutInFlight = useRef(false)
+  const checkoutAttempt = useRef(null)
   const [notice, setNotice] = useState('')
   const [razorpayConfig, setRazorpayConfig] = useState(null)
   const [installedUpiIds, setInstalledUpiIds] = useState([])
@@ -184,6 +188,7 @@ export default function CartScreen({ navigation }) {
   const deliverySaved = Number(selectedQuote?.deliverySavings || 0)
   const totalSavings = Math.round((itemSavings + couponSavings + deliverySaved) * 100) / 100
   const itemsOriginal = itemsTotal + itemSavings
+  const displayedTotal = quoteError ? 'Unavailable' : !quote && quoteLoading ? 'Calculating…' : formatPrice(grandTotal)
 
   const changeQty = async (slug, quantity) => {
     try {
@@ -194,8 +199,8 @@ export default function CartScreen({ navigation }) {
   }
 
   const placeOrder = async () => {
-    if (paying) return
-    if (couponLoading || quoteLoading || !quote) {
+    if (checkoutInFlight.current) return
+    if (couponLoading || quoteLoading || quoteError || !quote) {
       setNotice(quoteError || 'Calculating delivery charges. Please try again.')
       return
     }
@@ -222,6 +227,7 @@ export default function CartScreen({ navigation }) {
     }
 
     setNotice('')
+    checkoutInFlight.current = true
     setPaying(true)
     try {
       const currentQuote = await refreshDeliveryQuote()
@@ -234,8 +240,7 @@ export default function CartScreen({ navigation }) {
       trackCommerce('add_payment_info', items, isUpi ? 'upi' : payChoice)
       const analyticsConsentId = getAnalyticsConsentId()
       const marketingConsentId = getMetaConsentId()
-      const checkout = await authPost('/checkout/create-order', token, {
-        ...((analyticsConsentId || marketingConsentId) ? { tracking: { source: 'app', analytics: Boolean(analyticsConsentId), marketing: Boolean(marketingConsentId), platform: appPlatform(), ...(analyticsConsentId ? { consentId: analyticsConsentId } : {}), ...(marketingConsentId ? { marketingConsentId } : {}) } } : {}),
+      const orderRequest = {
         addressId: selectedId,
         expectedGrandTotal: currentQuote.totals.grandTotal,
         paymentMode: payChoice === 'cod' ? 'cod' : 'online',
@@ -243,8 +248,26 @@ export default function CartScreen({ navigation }) {
         items: items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
         couponCode: coupon?.code || undefined,
         deliveryOption,
+      }
+      const signature = JSON.stringify([user?.id, orderRequest])
+      if (checkoutAttempt.current?.signature !== signature) {
+        const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
+        checkoutAttempt.current = { signature, id }
+      }
+      const checkout = await authPost('/checkout/create-order', token, {
+        ...orderRequest,
+        checkoutAttemptId: checkoutAttempt.current.id,
+        ...((analyticsConsentId || marketingConsentId) ? { tracking: { source: 'app', analytics: Boolean(analyticsConsentId), marketing: Boolean(marketingConsentId), platform: appPlatform(), ...(analyticsConsentId ? { consentId: analyticsConsentId } : {}), ...(marketingConsentId ? { marketingConsentId } : {}) } } : {}),
       })
       const orderNo = checkout.order.orderNo
+
+      if (checkout.order.confirmed) {
+        checkoutAttempt.current = null
+        recoverPurchases(token, user?.id).catch(() => {})
+        await refreshCart()
+        navigation.navigate('Orders')
+        return
+      }
 
       if (payChoice === 'cod') {
         await authPost('/checkout/confirm-cod', token, { orderNo })
@@ -285,18 +308,24 @@ export default function CartScreen({ navigation }) {
           })
           await verifyPayment(orderNo, payment)
         } catch (error) {
+          if (error.code === 'PAYMENT_PENDING') {
+            navigation.navigate('Orders')
+            return
+          }
           const synced = await authPost('/checkout/sync-payment', token, { orderNo }).catch(() => null)
           if (synced?.status !== 'paid') throw error
         }
       }
 
       recoverPurchases(token, user?.id).catch(() => {})
-      await clearCart()
+      checkoutAttempt.current = null
       await refreshCart()
       navigation.navigate('Orders')
     } catch (error) {
+      if (error.code === 'CHECKOUT_EXPIRED' || error.code === 'CHECKOUT_ATTEMPT_CHANGED') checkoutAttempt.current = null
       setNotice(error.message || 'Could not complete checkout.')
     } finally {
+      checkoutInFlight.current = false
       setPaying(false)
     }
   }
@@ -504,6 +533,14 @@ export default function CartScreen({ navigation }) {
               ) : selectedQuote?.freeDeliveryApplied && selectedQuote.offerMessage ? (
                 <Text style={styles.freeNudge}>{selectedQuote.offerMessage}</Text>
               ) : null}
+              {smallCartCharge > 0 && (
+                <>
+                  <BillRow icon="receipt-outline" label="Small Cart Charge" value={formatPrice(smallCartCharge)} />
+                  {selectedQuote?.smallCartRemaining > 0 && (
+                    <Text style={styles.freeNudge}>Add {formatPrice(selectedQuote.smallCartRemaining)} more to avoid this charge.</Text>
+                  )}
+                </>
+              )}
               {quote?.totals?.couponDiscount > 0 ? (
                 <BillRow
                   icon="pricetag-outline"
@@ -522,7 +559,7 @@ export default function CartScreen({ navigation }) {
               <View style={styles.grandRow}>
                 <Text style={styles.grandLabel}>Grand total</Text>
                 <Text style={styles.grandValue}>
-                  {!quote && quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}
+                  {displayedTotal}
                 </Text>
               </View>
 
@@ -572,6 +609,19 @@ export default function CartScreen({ navigation }) {
             </View>
 
             {notice || quoteError ? <Text style={styles.notice}>{notice || quoteError}</Text> : null}
+            {quoteError ? (
+              <Pressable accessibilityRole="button" onPress={() => {
+                setNotice('')
+                refreshDeliveryQuote().catch(() => {})
+              }}>
+                <Text style={styles.notice}>Retry calculation</Text>
+              </Pressable>
+            ) : null}
+            {syncError ? (
+              <Pressable accessibilityRole="button" onPress={retryCartSync}>
+                <Text style={styles.notice}>We couldn’t sync your saved cart. Tap to retry.</Text>
+              </Pressable>
+            ) : null}
 
             <View style={[styles.payBar, { paddingBottom: bottomInset + 10 }]}>
               <Pressable style={styles.payUsing} onPress={() => setPaySheet(true)} disabled={paying}>
@@ -588,11 +638,11 @@ export default function CartScreen({ navigation }) {
               <Pressable
                 style={[styles.placeBtn, paying && styles.placeBtnBusy]}
                 onPress={placeOrder}
-                disabled={paying || couponLoading || quoteLoading || !quote || !selectedQuote?.minimumMet}
+                disabled={paying || couponLoading || quoteLoading || Boolean(quoteError) || !quote || !selectedQuote?.minimumMet}
               >
                 <View>
                   <Text style={styles.placeAmount}>
-                    {!quote && quoteLoading ? 'Calculating…' : formatPrice(grandTotal)}
+                    {displayedTotal}
                   </Text>
                   <Text style={styles.placeTotal}>TOTAL</Text>
                 </View>

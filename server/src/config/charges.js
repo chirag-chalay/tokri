@@ -75,7 +75,7 @@ export function defaultChargeRates(option = 'morning') {
   }
 }
 
-export function ratesFromSettings(settings, option = 'morning') {
+export function ratesFromSettings(settings, option = 'morning', supportsSmallCartCharge = false) {
   const delivery = publicDeliveryConfig(settings)
   const chosen = normalizeDeliveryOption(option)
   return {
@@ -83,6 +83,13 @@ export function ratesFromSettings(settings, option = 'morning') {
     deliveryCharge: delivery[chosen].fee,
     handlingCharge: toMoney(settings?.handlingFee, HANDLING_CHARGE),
     firstThreeMorningEnabled: settings?.firstThreeMorningEnabled !== false,
+    smallCartRule: supportsSmallCartCharge && settings?.[chosen + 'SmallCartEnabled'] === true
+      ? {
+          below: toMoney(settings[chosen + 'SmallCartBelow'], 0),
+          fee: toMoney(settings[chosen + 'SmallCartFee'], 0),
+          minimum: delivery[chosen].minimumOrderValue,
+        }
+      : null,
     smallCartCharge: SMALL_CART_CHARGE,
     ...delivery,
   }
@@ -140,6 +147,10 @@ export function calcCartTotals(items, rates = defaultChargeRates(), discount = 0
   const hasItems = items.length > 0
   const deliveryCharge = hasItems ? deliveryChargeFor(rates.option || 'morning', itemsTotal, rates) : 0
   const handlingCharge = hasItems ? toMoney(rates.handlingCharge, HANDLING_CHARGE) : 0
+  const rule = rates.smallCartRule
+  const smallCartCharge = hasItems && rule && itemsTotal >= rule.minimum && itemsTotal < rule.below
+    ? rule.fee
+    : 0
   const shippingDiscount = Math.min(deliveryCharge, money(taxOptions?.shippingDiscount || 0))
   const merchandiseDiscount = Math.min(itemsTotal, Math.max(0, money(discount)))
   const allocations = allocateDiscount(items, merchandiseDiscount, taxOptions?.eligibleIndexes)
@@ -148,11 +159,11 @@ export function calcCartTotals(items, rates = defaultChargeRates(), discount = 0
   const taxTotal = sum('taxAmount')
   const totalDiscount = money(decimal(merchandiseDiscount).plus(shippingDiscount))
   return {
-    itemsTotal, deliveryCharge, handlingCharge, smallCartCharge: 0,
+    itemsTotal, deliveryCharge, handlingCharge, smallCartCharge,
     discount: totalDiscount, merchandiseDiscount, shippingDiscount,
     taxTotal, cgstTotal: sum('cgstAmount'), sgstTotal: sum('sgstAmount'), igstTotal: sum('igstAmount'),
     isInterState, lineItems,
-    grandTotal: Math.max(0, money(decimal(itemsTotal).plus(deliveryCharge).plus(handlingCharge).minus(totalDiscount))),
+    grandTotal: Math.max(0, money(decimal(itemsTotal).plus(deliveryCharge).plus(handlingCharge).plus(smallCartCharge).minus(totalDiscount))),
     totalCount: items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
   }
 }
